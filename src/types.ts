@@ -76,6 +76,10 @@ export interface Order {
     price: number;
     type: Product['type'];
   }[];
+  subtotal?: number;
+  discountAmount?: number;
+  vatAmount?: number;
+  shippingFee?: number;
   totalAmount: number;
   shippingAddress?: {
     fullName: string;
@@ -86,7 +90,7 @@ export interface Order {
     address: string;
   };
   trackingCode?: string;
-  paymentGateway: 'zarinpal' | 'idpay';
+  paymentGateway: 'card-to-card' | 'zarinpal' | 'idpay';
   couponUsed?: string;
 }
 

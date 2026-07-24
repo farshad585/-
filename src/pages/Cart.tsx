@@ -33,8 +33,7 @@ export default function Cart() {
   } = useApp();
 
   const [couponInput, setCouponInput] = useState('');
-  const [couponError, setCouponError] = useState(false);
-  const [couponSuccess, setCouponSuccess] = useState(false);
+  const [couponMessage, setCouponMessage] = useState<{ isError: boolean; text: string } | null>(null);
 
   // Subtotal calculations
   const totalBeforeDiscount = cart.reduce((acc, item) => {
@@ -43,32 +42,35 @@ export default function Cart() {
   }, 0);
 
   const discountAmount = Math.round(totalBeforeDiscount * (discountPercentage / 100));
-  const finalAmount = totalBeforeDiscount - discountAmount;
+  const amountAfterDiscount = totalBeforeDiscount - discountAmount;
 
-  // Determine if shipping is free
+  // 10% VAT (مالیات بر ارزش افزوده)
+  const vatAmount = Math.round(amountAfterDiscount * 0.10);
+
+  // Determine if shipping is free (>= 2,000,000 Toman or digital-only)
   const isOnlyDigital = cart.every(
     item => item.product.type === 'pdf' || item.product.type === 'audio' || item.product.type === 'course'
   );
 
-  const shippingFee = (totalBeforeDiscount >= 500000 || isOnlyDigital || cart.length === 0) ? 0 : 30000;
+  const shippingFee = (totalBeforeDiscount >= 2000000 || isOnlyDigital || cart.length === 0) ? 0 : 290000;
 
-  const grandTotal = finalAmount + shippingFee;
+  const grandTotal = amountAfterDiscount + vatAmount + shippingFee;
 
   const formatPrice = (price: number) => {
+    if (price === 0) return 'رایگان';
     return price.toLocaleString('fa-IR') + ' تومان';
   };
 
   const handleCouponSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setCouponError(false);
-    setCouponSuccess(false);
+    setCouponMessage(null);
 
-    const success = applyCoupon(couponInput);
-    if (success) {
-      setCouponSuccess(true);
+    const res = applyCoupon(couponInput, totalBeforeDiscount);
+    if (res.success) {
+      setCouponMessage({ isError: false, text: res.message });
       setCouponInput('');
     } else {
-      setCouponError(true);
+      setCouponMessage({ isError: true, text: res.message });
     }
   };
 
@@ -210,6 +212,11 @@ export default function Cart() {
                 )}
 
                 <div className="flex justify-between text-slate-600">
+                  <span>مالیات بر ارزش افزوده (۱۰٪):</span>
+                  <span className="font-mono text-slate-900 font-bold">{formatPrice(vatAmount)}</span>
+                </div>
+
+                <div className="flex justify-between text-slate-600">
                   <span>هزینه بسته‌بندی و ارسال پست:</span>
                   <span className="font-mono text-slate-900 font-bold">
                     {shippingFee === 0 ? 'رایگان' : formatPrice(shippingFee)}
@@ -217,8 +224,8 @@ export default function Cart() {
                 </div>
 
                 {shippingFee > 0 && (
-                  <p className="text-[10px] text-slate-500 leading-relaxed text-right bg-indigo-50/50 border border-indigo-100 p-2.5 rounded-xl">
-                    💡 با افزودن مابه‌التفاوت خرید به سقف ۵۰۰,۰۰۰ تومان، هزینه پستی را کاملاً رایگان کنید.
+                  <p className="text-[10px] text-slate-600 leading-relaxed text-right bg-indigo-50/70 border border-indigo-100 p-2.5 rounded-xl font-medium">
+                    💡 با افزودن مابه‌التفاوت خرید به سقف ۲ میلیون تومان، هزینه ارسال را کاملاً رایگان کنید.
                   </p>
                 )}
 
@@ -250,11 +257,10 @@ export default function Cart() {
                   </button>
                 </div>
                 
-                {couponError && (
-                  <span className="text-[10px] text-rose-600 block mt-1">❌ کد تخفیف وارد شده معتبر نمی‌باشد.</span>
-                )}
-                {couponSuccess && (
-                  <span className="text-[10px] text-emerald-600 block mt-1">✅ تخفیف ویژه به سبد خرید اعمال شد!</span>
+                {couponMessage && (
+                  <span className={`text-[10px] block mt-1 font-medium ${couponMessage.isError ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {couponMessage.isError ? `❌ ${couponMessage.text}` : `✅ ${couponMessage.text}`}
+                  </span>
                 )}
                 {couponCode && (
                   <div className="flex justify-between items-center bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl text-[10px] text-indigo-900 mt-2 font-medium">

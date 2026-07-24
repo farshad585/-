@@ -31,7 +31,7 @@ interface AppContextType {
   updateUserProfile: (profile: Partial<UserProfile>) => void;
   
   orders: Order[];
-  placeOrder: (gateway: 'zarinpal' | 'idpay', shippingAddress: Order['shippingAddress']) => Order;
+  placeOrder: (gateway: 'card-to-card' | 'zarinpal' | 'idpay', shippingAddress: Order['shippingAddress']) => Order;
   trackOrderId: string | null;
   setTrackOrderId: (id: string | null) => void;
   
@@ -40,7 +40,7 @@ interface AppContextType {
   
   couponCode: string | null;
   discountPercentage: number;
-  applyCoupon: (code: string) => boolean;
+  applyCoupon: (code: string, currentSubtotal?: number) => { success: boolean; message: string };
   removeCoupon: () => void;
 }
 
@@ -230,14 +230,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Place Order Simulation
-  const placeOrder = (gateway: 'zarinpal' | 'idpay', shippingAddress: Order['shippingAddress']): Order => {
-    const totalBeforeDiscount = cart.reduce((acc, item) => {
+  const placeOrder = (gateway: 'card-to-card' | 'zarinpal' | 'idpay', shippingAddress: Order['shippingAddress']): Order => {
+    const subtotal = cart.reduce((acc, item) => {
       const price = item.product.salePrice || item.product.price;
       return acc + price * item.quantity;
     }, 0);
-    const finalAmount = Math.round(totalBeforeDiscount * (1 - discountPercentage / 100));
 
-    // Generate simulated order
+    const discountAmount = Math.round(subtotal * (discountPercentage / 100));
+    const amountAfterDiscount = subtotal - discountAmount;
+    
+    // 10% VAT on item total after discount
+    const vatAmount = Math.round(amountAfterDiscount * 0.10);
+
+    const isOnlyDigital = cart.every(
+      item => item.product.type === 'pdf' || item.product.type === 'audio' || item.product.type === 'course'
+    );
+    
+    // Shipping fee is 290,000 Toman, or FREE (0) if subtotal >= 2,000,000 Toman or digital-only
+    const shippingFee = (subtotal >= 2000000 || isOnlyDigital || cart.length === 0) ? 0 : 290000;
+    
+    const grandTotal = amountAfterDiscount + vatAmount + shippingFee;
+
+    // Generate order ID & Tracking code
     const randomId = 'IRN-' + Math.floor(100000 + Math.random() * 900000);
     const trackingCode = 'PST-' + Math.floor(10000000 + Math.random() * 90000000);
 
@@ -252,31 +266,73 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         price: item.product.salePrice || item.product.price,
         type: item.product.type
       })),
-      totalAmount: finalAmount,
+      subtotal,
+      discountAmount,
+      vatAmount,
+      shippingFee,
+      totalAmount: grandTotal,
       shippingAddress,
       trackingCode: cart.some(i => i.type === 'printed') ? trackingCode : undefined,
       paymentGateway: gateway,
       couponUsed: couponCode || undefined
     };
 
+    // If first purchase discount was used, save flag to prevent second usage
+    if (couponCode && ['DREAM20', 'FIRST20', 'WELCOME20'].includes(couponCode.toUpperCase())) {
+      try {
+        localStorage.setItem('40gates_first_purchase_used', 'true');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     setOrders((prev) => [newOrder, ...prev]);
     return newOrder;
   };
 
-  // Coupon handling
-  const applyCoupon = (code: string): boolean => {
+  // Coupon handling with 1-time check and 1,000,000 Toman minimum threshold
+  const applyCoupon = (code: string, currentSubtotal: number = 0): { success: boolean; message: string } => {
     const formatted = code.toUpperCase().trim();
-    if (formatted === 'DREAM20') {
-      setCouponCode('DREAM20');
+
+    if (['DREAM20', 'FIRST20', 'WELCOME20'].includes(formatted)) {
+      // Check 1-time usage restriction
+      const isUsed = localStorage.getItem('40gates_first_purchase_used') === 'true';
+      if (isUsed) {
+        return {
+          success: false,
+          message: 'این کد تخفیف مخصوص اولین خرید بوده و قبلاً توسط شما استفاده شده است.'
+        };
+      }
+
+      // Check minimum subtotal threshold of 1,000,000 Toman
+      if (currentSubtotal < 1000000) {
+        return {
+          success: false,
+          message: 'کد تخفیف ۲۰٪ اولین خرید فقط برای خریدهای بالای ۱,۰۰۰,۰۰۰ تومان قابل استفاده است.'
+        };
+      }
+
+      setCouponCode(formatted);
       setDiscountPercentage(20);
-      return true;
+      return {
+        success: true,
+        message: 'کد تخفیف ۲۰٪ اولین خرید با موفقیت اعمال شد!'
+      };
     }
+
     if (formatted === 'BEDAR40') {
       setCouponCode('BEDAR40');
       setDiscountPercentage(40);
-      return true;
+      return {
+        success: true,
+        message: 'کد تخفیف ۴۰٪ با موفقیت اعمال گردید!'
+      };
     }
-    return false;
+
+    return {
+      success: false,
+      message: 'کد تخفیف وارد شده معتبر نمی‌باشد.'
+    };
   };
 
   const removeCoupon = () => {

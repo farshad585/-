@@ -11,140 +11,205 @@ import {
   Award, 
   BookOpen, 
   Compass, 
-  Users, 
+  User, 
   History,
   ArrowLeft,
   Eye, 
   ShieldCheck, 
-  Heart 
+  Heart,
+  Feather,
+  Lightbulb,
+  Star,
+  Zap,
+  Activity,
+  Smile
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function About() {
   const { setCurrentPage } = useApp();
 
-  const timeline = [
-    { year: '۱۳۹۷', title: 'آغاز راه و ترجمه مقالات', desc: 'تأسیس گروه مطالعاتی ۴۰ دروازه و ترجمه آزمایشگاهی مقالات استفان لابرگ و یوگای رویای تبتی برای اولین بار در ایران.' },
-    { year: '۱۳۹۹', title: 'انتشار کتاب مرجع آگاهی', desc: 'چاپ فیزیکی کتابچه پایه رویابینی شفاف و توزیع آن در بستر وبلاگ که مورد استقبال هزاران علاقه‌مند قرار گرفت.' },
-    { year: '۱۴۰۱', title: 'برگزاری اولین دوره جامع ویدیویی', desc: 'تولید و انتشار دوره جامع ویدیویی با مربیگری مستقیم اساتید و شکل‌گیری جامعه کاربری بزرگ هنرجویان فعال.' },
-    { year: '۱۴۰۳', title: 'دپارتمان تحقیقات سخت‌افزار', desc: 'راه‌اندازی واحد فنی عینک هوشمند نوری (REM Mask) با شبیه‌سازهای آزمایشگاهی برای تحریک و بیداری آگاهی در خواب.' },
-    { year: '۱۴۰۵', title: 'آکادمی نوین ۴۰ دروازه', desc: 'راه‌اندازی پرتال پیشرفته آموزش تعاملی، پادکست‌های فرکانسی جدید و بسته‌بندی نفیس کارت‌های تست واقعیت.' }
+  const journeyMilestones = [
+    { year: 'تولد تا ۴ سالگی', title: 'معجزه اولین رویای شفاف و شفای دست راست', desc: 'ابتلا به فلج دست راست از بدو تولد، تجربه اولین رویای شفاف ۵ دقیقه‌ای، پرواز معلق و بازگشت شگفت‌انگیز پالس‌های حرکتی به دست راست در روز بعد!' },
+    { year: 'کودکی', title: 'شوق اختراع و طراحی اولین ربات‌ها', desc: 'ساخت نخستین وسیله حرکتی با نی و چوب بستنی، و سپس جرقه‌زدن ایده اختراعات پیشرفته‌تر مانند ربات کروی دوزیست.' },
+    { year: 'نوجوانی و جوانی', title: 'سفر در هویت‌ها تا تبدیل شدن به فرشاد', desc: 'تجربه لقب‌های پیکاسو (نقاشی)، انیشتین (الکترونیک)، کاسپارف (شطرنج) و استرلینگ (موتور خورشیدی) و در نهایت کشف هویت اصیل و حقیقی «فرشاد».' },
+    { year: 'پژوهش حرفه‌ای', title: 'بیست سال پژوهش و ۲۰,۰۰۰ سال زیست در درون', desc: 'مطالعات عمیق بر روان‌شناسی تحلیلی، آزمایش‌های خواب و بسط زمان در ناخودآگاه که معادل ۲۰,۰۰0 سال تجربه زیسته در رویاها بود.' },
+    { year: 'امروز', title: 'تأسیس ۴۰ دروازه و خلق کتاب‌های مرجع', desc: 'تالیف کتاب‌های چهل دروازه، رمان‌های مفهومی (بوسه خداوند، شب‌شکن، شکارچی کابوس‌ها) و آموزش مهارتهای بیداری ذهن.' }
   ];
 
   return (
     <>
       <SEO 
-        title="درباره ما | داستان ۴۰ دروازه آگاهی" 
-        description="داستان شکل‌گیری آکادمی ۴۰ دروازه، فلسفه نام‌گذاری، اهداف خودشناسی ما و معرفی مربیان و مروجان آموزش علمی رویابینی شفاف در ایران."
+        title="درباره من | فرشاد میرشکاری - مخترع، نویسنده و مدرس رویابینی آگاهانه" 
+        description="زندگینامه، دوران کودکی، معجزه شفای دست راست با اولین رویای شفاف، اختراعات و مسیر ۲۰ ساله پژوهش فرشاد میرشکاری در مجموعه ۴۰ دروازه."
       />
 
       {/* Hero Header */}
       <section className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-indigo-100 py-16 text-center max-w-7xl mx-auto rounded-b-3xl mb-12 shadow-xs">
-        <div className="max-w-xl mx-auto px-4 space-y-3">
+        <div className="max-w-2xl mx-auto px-4 space-y-4">
           <div className="flex justify-center items-center gap-2 text-[10px] text-slate-500 font-mono">
             <span>صفحه اصلی</span>
             <span>/</span>
-            <span className="text-indigo-600 font-bold">درباره ما</span>
+            <span className="text-indigo-600 font-bold">درباره من</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">داستان آکادمی ۴۰ دروازه</h1>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            تلاش برای پیوند زدن یافته‌های نوین علم اعصاب خواب با آموزه‌های کهن خودشناسی باطنی شرق و غرب.
+          <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">من فرشاد میرشکاری هستم</h1>
+          <p className="text-xs md:text-sm text-indigo-900 font-bold leading-relaxed">
+            مخترع، شاعر، نویسنده، پژوهشگر و مدرس دانش رویابینی آگاهانه
           </p>
-        </div>
-      </section>
-
-      {/* Core brand philosophy block */}
-      <section className="max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-20">
-        <div className="space-y-6">
-          <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-1 text-indigo-900 text-xs font-semibold rounded-full">
-            <Eye size={12} className="text-indigo-600" />
-            <span>چرا «دروازه چهلم»؟</span>
-          </div>
-          <h2 className="text-xl md:text-2xl font-black text-slate-900 leading-normal">
-            فلسفه نام‌گذاری و رسالت بیداری ذهن
-          </h2>
-          <p className="text-xs text-slate-600 leading-relaxed text-justify">
-            در مکاتب عرفانی باستانی و معابد خودشناسی مشرق‌زمین، روان انسان برای رسیدن به بیداری مطلق، از دروازه‌ها و مراحل متعددی عبور می‌کند. دروازه چهلم یا همان «۴۰ دروازه» نمادی است از رسیدن به مرکزیت حقیقت ذهن و ضمیر ناخودآگاه؛ جایی که بیداری فیزیکی و رویای شبانه به یک پایداری و یکپارچگی دست پیدا می‌کنند.
-          </p>
-          <p className="text-xs text-slate-600 leading-relaxed text-justify">
-            ما بر این باوریم که خواب‌ها بی‌معنی و عبث نیستند. خواب یک‌سوم کل زندگی ما را تشکیل می‌دهد و بستر بی‌نظیری برای برطرف کردن ترس‌ها، افزایش خلاقیت هنری، خودشناسی عمیق و تمرین پروازهای متافیزیکی روح است. رسالت ما در ۴۰ دروازه، ارائه آموزش‌های علمی، عملی و عاری از هرگونه خرافات به زبان ساده برای فارسی‌زبانان سراسر جهان است.
-          </p>
-        </div>
-
-        <div className="relative aspect-square rounded-3xl overflow-hidden border border-indigo-100 p-1 bg-white shadow-md">
-          {/* Inner Image simulating deep cosmic dream state */}
-          <img 
-            src="https://images.unsplash.com/photo-1518331647614-7a1f04db3437?auto=format&fit=crop&q=80&w=600" 
-            alt="عرفان رویابینی" 
-            className="w-full h-full object-cover rounded-2xl"
-            referrerPolicy="no-referrer"
-          />
-          {/* subtle indigo card overlay */}
-          <div className="absolute inset-x-6 bottom-6 p-5 bg-white/95 backdrop-blur-md border border-indigo-100 rounded-2xl text-right shadow-lg">
-            <span className="block text-xs font-bold text-slate-900 mb-1">«رویای تو، حقیقت توست»</span>
-            <span className="block text-[10px] text-indigo-600 font-bold">آموزشگاه علمی رویابینی شفّاف</span>
+          <div className="pt-2">
+            <blockquote className="inline-block bg-white/80 backdrop-blur-xs border border-indigo-200 px-5 py-2.5 rounded-2xl text-xs text-slate-700 italic font-medium shadow-xs">
+              «به خودتان ایمان داشته باشید. چون تنها کسی که در دنیای بی‌انتهای رویا همیشه کنار شماست، فقط خودتان هستید.»
+            </blockquote>
           </div>
         </div>
       </section>
 
-      {/* Pillars Grid */}
-      <section className="max-w-7xl mx-auto px-4 py-16 bg-slate-50/50 border-y border-slate-100 mb-20">
-        <div className="text-center space-y-2 mb-12">
-          <h2 className="text-xl md:text-2xl font-bold text-slate-900">سه رکن اساسی فعالیت‌های آکادمی</h2>
-          <p className="text-xs text-slate-500">پایبندی به موازین اخلاقی، علمی و تجربی</p>
+      {/* Main Intro & Welcome */}
+      <section className="max-w-5xl mx-auto px-4 mb-16">
+        <div className="p-8 rounded-3xl bg-white border border-indigo-100 shadow-sm space-y-4 text-justify">
+          <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3.5 py-1 text-indigo-900 text-xs font-semibold rounded-full">
+            <Sparkles size={14} className="text-indigo-600" />
+            <span>خوش آمدید به پایگاه ۴۰ دروازه</span>
+          </div>
+          <h2 className="text-lg md:text-xl font-bold text-slate-900">سلام به شما عزیزان</h2>
+          <p className="text-xs md:text-sm text-slate-600 leading-relaxed">
+            در وبسایت چهل دروازه به آموزش مهارت‌های کنترل ذهن، دوستی با خویشتن، رویابینی شفاف و هر آن چیزی می‌پردازیم که برای یک زندگی سالم و آگاهانه نیاز است. با این آموزش‌ها، هر کسی می‌تواند صاحب بهترین‌ها باشد: بهترین زندگی، بهترین شغل، بهترین تفریحات و سالم‌ترین بدن.
+          </p>
+        </div>
+      </section>
+
+      {/* Author Biography Grid: Miracle of Childhood */}
+      <section className="max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-12 gap-12 items-start mb-20">
+        
+        {/* Author Image / Portrait */}
+        <div className="md:col-span-5 relative sticky top-24">
+          <div className="aspect-[4/5] rounded-3xl overflow-hidden border-2 border-indigo-200 bg-white shadow-xl p-1.5 relative">
+            <img 
+              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800" 
+              alt="فرشاد میرشکاری - نویسنده ۴۰ دروازه" 
+              className="w-full h-full object-cover rounded-2xl"
+            />
+            <div className="absolute inset-x-6 bottom-6 p-4 bg-white/95 backdrop-blur-md border border-indigo-100 rounded-2xl text-right shadow-lg">
+              <span className="block text-xs font-bold text-slate-900 mb-0.5">فرشاد میرشکاری</span>
+              <span className="block text-[10px] text-indigo-600 font-bold">بنیان‌گذار چهل دروازه و نویسنده کتب رویابینی</span>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Story Part 1: Birth & The Miracle Dream */}
+        <div className="md:col-span-7 space-y-8">
           
-          <div className="p-6 bg-white border border-indigo-100 rounded-3xl text-center space-y-4 shadow-xs">
-            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto border border-indigo-100">
-              <Compass size={20} />
+          <div className="p-6 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 border border-indigo-100 rounded-3xl space-y-4">
+            <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm border-b border-indigo-100 pb-3">
+              <Zap size={18} className="text-amber-500" />
+              <h3>تولد و معجزه اولین رویای شفاف</h3>
             </div>
-            <h3 className="text-sm font-bold text-slate-900">رویکرد علمی و آزمایشگاهی</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              تمامی ترفندها، متدها و تمرینات ارائه شده در کتاب‌ها و دوره‌ها، بر پایه‌یافته‌های مستند دانشگاهی و آزمایشگاه‌های خواب در سراسر جهان تدوین شده‌اند.
-            </p>
+            
+            <div className="space-y-3 text-xs text-slate-600 leading-relaxed text-justify">
+              <p>
+                من با <strong>دست راست فلج</strong> متولد شدم! و تا چهارسالگی با این مشکل کلنجار می‌رفتم. ظاهراً به دلایلی نامعلوم که پزشکان آن دوره از تشخیصش عاجز بودند، مغزم دوست نداشت پالس‌های حرکتی را به عضلات دست راست بفرستد و سیگنال‌های حسی را دریافت کند. گویا دستم به خوابی عمیق فرو رفته بود.
+              </p>
+              <p>
+                تا اینکه اولین رویای شفافم اتفاق افتاد. رویایی که تنها حدود پنج دقیقه طول کشید. در آن رویای شفاف می‌توانستم برای اولین بار، هر دو دستم را حرکت دهم. نکته‌ی جالب این بود که هر دو دستم عیناً شبیه هم حرکت می‌کردند؛ انگار داشتم به تصویر دست چپم درون آینه نگاه می‌کردم. بااین‌حال، حس‌وحال فوق‌العاده‌ای داشت.
+              </p>
+              <p>
+                من در آن رویای خاص همچنین پرواز را تجربه کردم. وقتی به پایین نگاه کردم، دیدم پاهایم روی سطح زمین قرار ندارند. در فاصله‌ی نزدیک به زمین، به حالت معلق در هوا ایستاده بودم. جالب‌تر اینکه کمترین مشکلی برای حفظ تعادل خود نداشتم و شبیه فردی که روی طناب راه می‌رود، ناخواسته به چپ و راست و عقب و جلو متمایل نمی‌شدم. انگار توسط نیرویی نامرئی در هوا نگهداشته شده بودم.
+              </p>
+              <div className="p-3 bg-white border border-indigo-200 rounded-xl font-medium text-slate-800 text-xs">
+                ✨ <strong>فردای آن روز:</strong> دستم خودبه‌خود روشن شد و حرکت کرد! در آن زمان، نه از ساختار و عملکرد پیچیده‌ی ذهن چیزی می‌دانستم و نه حتی اسم معجزه را شنیده بودم. بااین‌حال، حسی فوق‌العاده نسبت به خودم داشتم. در حال حاضر، من راست‌دست هستم.
+              </div>
+            </div>
           </div>
 
-          <div className="p-6 bg-white border border-indigo-100 rounded-3xl text-center space-y-4 shadow-xs">
-            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto border border-indigo-100">
-              <ShieldCheck size={20} />
+          {/* Story Part 2: Childhood to Youth & Finding Self */}
+          <div className="p-6 bg-white border border-indigo-100 rounded-3xl space-y-4 shadow-xs">
+            <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm border-b border-indigo-100 pb-3">
+              <Compass size={18} className="text-indigo-600" />
+              <h3>کودکی تا نوجوانی: سفر در میان هویت‌ها</h3>
             </div>
-            <h3 className="text-sm font-bold text-slate-900">حمایت و پشتیبانی سالک</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              خواب بیدار نیاز به تمرین و تحلیل روزانه دارد. به همین دلیل ما هنرجویانمان را رها نکرده و با پشتیبانی اختصاصی در کنارتان هستیم تا موانع ذهنی برطرف شوند.
-            </p>
-          </div>
 
-          <div className="p-6 bg-white border border-indigo-100 rounded-3xl text-center space-y-4 shadow-xs">
-            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto border border-indigo-100">
-              <Heart size={20} />
+            <div className="space-y-3 text-xs text-slate-600 leading-relaxed text-justify">
+              <p className="font-semibold text-indigo-900">
+                «آگاه شدن و آگاه ماندن در زندگی، یک انتخاب است، نه شانس!»
+              </p>
+              <p>
+                نخستین اختراعم تنها از قطعه‌ای نِی، یک چوب بستنی و تکه‌ای کِش ساخته شده بود. بااین‌حال، می‌توانست به‌راحتی و با سرعتی معقول در مسیرهای ناهموار حرکت کند. همین اختراع ساده بود که جرقه اختراعات بعدی ازجمله <strong>ربات کروی دوزیست</strong> را در ذهن من روشن کرد.
+              </p>
+              
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 text-[11px]">
+                <li className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  🎨 <strong>در نه سالگی:</strong> شیفته نقاشی شدم و دوستانم مرا <span className="text-indigo-600 font-bold">پیکاسو</span> صدا می‌زدند.
+                </li>
+                <li className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  ⚡ <strong>در ده سالگی:</strong> سراغ مدارات الکترونیک رفتم و اسمم شد <span className="text-indigo-600 font-bold">انیشتین</span>.
+                </li>
+                <li className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  ♟️ <strong>ابتدای دانشگاه:</strong> عضو تیم شطرنج بودم و <span className="text-indigo-600 font-bold">کاسپارف</span> نامیده می‌شدم.
+                </li>
+                <li className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  ☀️ <strong>سال آخر دانشگاه:</strong> موتور خورشیدی ساختم و نامم <span className="text-indigo-600 font-bold">استرلینگ</span> شد.
+                </li>
+              </ul>
+
+              <p className="pt-2">
+                من با نام‌های بسیاری زندگی کرده‌ام و هر بار تصورم این بود که این همان نهایت است، ولی نبود! تلاش برای تصاحب اسم و شهرت دیگران، کاری پوچ و کودکانه است؛ نتیجه سردرگمی در میان هویت‌های بی‌شمار انسان. و البته که با این رفتار به هویت حقیقی خودتان توهین می‌کنید.
+              </p>
+              <p className="font-bold text-slate-900 bg-amber-50 border border-amber-200 p-3 rounded-xl text-center">
+                پس از سال‌ها، بالاخره توانستم خودم را پیدا کنم و تبدیل به «فرشاد» شوم.
+              </p>
             </div>
-            <h3 className="text-sm font-bold text-slate-900">بزرگ‌ترین جامعه کاربری</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              با افتخار توانسته‌ایم فضایی صمیمی و امن ایجاد کنیم تا بیش از ۵۰ هزار رویابین فعال بتوانند تجارب پرواز و تحلیل نمادهای خود را به راحتی به اشتراک بگذارند.
-            </p>
           </div>
 
         </div>
+
       </section>
 
-      {/* Timeline Section */}
+      {/* 20 Years & 20,000 Subjective Years */}
+      <section className="max-w-7xl mx-auto px-4 py-16 bg-slate-900 text-white rounded-3xl mb-20 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:24px_24px] opacity-20" />
+        
+        <div className="relative z-10 max-w-4xl mx-auto text-center space-y-6">
+          <span className="text-xs text-indigo-400 font-mono tracking-widest uppercase font-bold">20,000 SUBJECTIVE YEARS IN DREAMS</span>
+          <h2 className="text-2xl md:text-3xl font-black">بیست سال پژوهش و زیست در دنیای درون</h2>
+          <p className="text-xs md:text-sm text-slate-300 leading-relaxed text-justify max-w-3xl mx-auto">
+            سرعت انتقال پالس‌های الکتریکی درون مغز هزاران مرتبه بیشتر از اندام فیزیکی است. در طول دو دهه رویابینی حرفه‌ای، اگرچه در دنیای فیزیکی ۲۰ سال گذشته است، اما به لطف بسط زمان در لایه‌های عمیق ناخودآگاه، معادل با <strong>بیست هزار سال زمان احساس‌شده</strong> را در دنیای رویاها تجربه کرده‌ام. تمام کتب چهل دروازه حاصل همین تجربیات واقعی و عمیق است.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 text-right">
+            <div className="p-5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-2">
+              <BookOpen size={24} className="text-indigo-400" />
+              <h4 className="text-sm font-bold text-white">کتاب‌های مرجع چهل دروازه</h4>
+              <p className="text-[11px] text-slate-400 leading-relaxed">تالیف دوره چهارجلدی کتب آموزشی کنترل خواب و بیداری ذهن.</p>
+            </div>
+            <div className="p-5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-2">
+              <Lightbulb size={24} className="text-indigo-400" />
+              <h4 className="text-sm font-bold text-white">رمان‌های مفهومی</h4>
+              <p className="text-[11px] text-slate-400 leading-relaxed">سه گانه «بوسه خداوند»، «شب‌شکن» و «شکارچی کابوس‌ها».</p>
+            </div>
+            <div className="p-5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-2">
+              <Heart size={24} className="text-indigo-400" />
+              <h4 className="text-sm font-bold text-white">همراهی مستقیم هنرجویان</h4>
+              <p className="text-[11px] text-slate-400 leading-relaxed">ارائه خدمات مشاوره VIP و تحلیل روزانه رویاهای سالکان.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Timeline of Farshad's Journey */}
       <section className="max-w-3xl mx-auto px-4 mb-20">
         <div className="text-center space-y-2 mb-12">
-          <h2 className="text-xl md:text-2xl font-bold text-slate-900">مسیر تاریخچه و توسعه آکادمی</h2>
-          <p className="text-xs text-slate-500">برگی از تقویم پیشرفت و ارتقای متدها</p>
+          <h2 className="text-xl md:text-2xl font-bold text-slate-900">مراحل سیر و سلوک شخصی من</h2>
+          <p className="text-xs text-slate-500">مسیر رشد، تجربه‌اندوزی و خلق آثار چهل دروازه</p>
         </div>
 
         <div className="border-r-2 border-indigo-200 pr-6 mr-4 space-y-10 relative">
-          {timeline.map((item, index) => (
+          {journeyMilestones.map((item, index) => (
             <div key={index} className="relative space-y-1.5">
-              {/* Point indicator on the right vertical bar */}
               <div className="absolute top-1 -right-[31px] w-4.5 h-4.5 rounded-full bg-white border-2 border-indigo-600 flex items-center justify-center shadow-xs">
                 <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full" />
               </div>
               <span className="inline-block text-xs font-bold text-indigo-700 font-mono bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
-                سال {item.year}
+                {item.year}
               </span>
               <h3 className="text-sm font-bold text-slate-900">{item.title}</h3>
               <p className="text-xs text-slate-600 leading-relaxed">{item.desc}</p>
@@ -153,21 +218,30 @@ export default function About() {
         </div>
       </section>
 
-      {/* Call to action */}
+      {/* Direct CTA */}
       <section className="max-w-4xl mx-auto px-4 text-center pb-12">
         <div className="p-8 rounded-3xl bg-white border border-indigo-100 space-y-6 shadow-sm">
-          <h3 className="text-base font-extrabold text-slate-900">آیا آماده ورود به اولین دروازه آگاهی هستید؟</h3>
+          <h3 className="text-base font-extrabold text-slate-900">آیا آماده‌اید با من سفر به دنیای درون را آغاز کنید؟</h3>
           <p className="text-xs text-slate-600 max-w-xl mx-auto leading-relaxed">
-            از کتب مرجع چاپی و پکیج‌های الکترونیکی شروع کنید، خواب‌هایتان را ثبت کنید و به جمع سالکان خواب بیدار بپیوندید.
+            می‌توانید مطالعه کتاب‌های مرا با نسخه PDF یا کتاب‌های چاپی نفیس همراه با پشتیبانی مستقیم آغاز کنید.
           </p>
-          <button
-            onClick={() => setCurrentPage('shop')}
-            className="geom-button-primary text-white font-bold text-xs px-8 py-3.5 rounded-xl transition-all shadow-md"
-          >
-            مشاهده کتابخانه تخصصی ۴۰ دروازه
-          </button>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <button
+              onClick={() => setCurrentPage('shop')}
+              className="geom-button-primary text-white font-bold text-xs px-8 py-3.5 rounded-xl transition-all shadow-md"
+            >
+              مشاهده فروشگاه کتاب‌های من
+            </button>
+            <button
+              onClick={() => setCurrentPage('contact')}
+              className="border border-indigo-200 hover:border-indigo-400 text-slate-700 font-bold text-xs px-6 py-3.5 rounded-xl transition-all bg-slate-50"
+            >
+              تماس و ارتباط مستقیم با من
+            </button>
+          </div>
         </div>
       </section>
     </>
   );
 }
+

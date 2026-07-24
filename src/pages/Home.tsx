@@ -18,7 +18,8 @@ import {
   Quote,
   ShieldCheck,
   Zap,
-  RotateCcw
+  RotateCcw,
+  Heart
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -32,26 +33,26 @@ export default function Home() {
   const categories = [
     {
       id: 'books',
-      title: 'کتاب‌های چاپی و نفیس',
-      description: 'کتب مرجع و چاپی گالینگور بر روی کاغذ سبک سوئدی.',
+      title: 'کتاب‌های چاپی و PDF',
+      description: 'کتب مرجع و چاپی بر روی کاغذ سبک سوئدی.',
       icon: BookOpen,
-      count: '۱۲ محصول',
+      count: '۱۳ محصول',
       color: 'from-amber-600/20 to-amber-900/40 border-amber-500/20'
     },
     {
       id: 'audiobooks',
       title: 'کتاب‌های صوتی استودیویی',
-      description: 'فایل‌های صوتی عمیق با گویندگی حرفه‌ای و امواج آلفا.',
+      description: 'فایل‌های صوتی عمیق با صدای استاد و امواج آلفا.',
       icon: Headphones,
       count: '۵ محصول',
       color: 'from-purple-600/20 to-purple-900/40 border-purple-500/20'
     },
     {
       id: 'courses',
-      title: 'دوره‌های ویدیویی تخصصی',
-      description: 'برنامه‌های آموزشی جامع با پشتیبانی اختصاصی اساتید.',
+      title: 'دوره‌های صوتی و پکیج‌های VIP',
+      description: 'برنامه‌های آموزشی جامع با پشتیبانی اختصاصی استاد.',
       icon: Tv,
-      count: '۳ محصول',
+      count: '۵ محصول',
       color: 'from-emerald-600/20 to-emerald-900/40 border-emerald-500/20'
     },
   ];
@@ -116,9 +117,10 @@ export default function Home() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="text-sm md:text-base text-slate-200 leading-relaxed max-w-2xl mx-auto"
+            className="text-xs md:text-sm text-indigo-100 leading-relaxed max-w-2xl mx-auto bg-slate-900/70 backdrop-blur-md p-4 rounded-2xl border border-indigo-400/30 shadow-inner"
           >
-            آیا می‌دانستید یک‌سوم عمر خود را در خواب سپری می‌کنید؟ با یادگیری تکنیک‌های علمی رویابینی شفاف (خواب روشن)، شب‌ها را به بستری برای خلق آزادانه جهان خود، درمان ترس‌ها و ارتقای روحی بدل کنید.
+            <span className="font-bold text-amber-300 block mb-1">💬 گپ دوستانه با شما:</span>
+            ما هرشب رویا می‌بینیم؛ چه دلمون بخواد، چه نخواد... پس چه بهتر که به جای سرگردان بودن در خواب‌های خسته کننده، آستین همت رو بالا بزنیم و از دنیای رویاهامون یه بهشت شخصی بسازیم! 💖
           </motion.p>
 
           <motion.div
@@ -198,6 +200,33 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Love Key Philosophy Message Section */}
+      <section className="max-w-7xl mx-auto px-4 py-4">
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 text-white border border-indigo-500/30 rounded-3xl p-6 md:p-10 relative overflow-hidden shadow-xl space-y-5">
+          <div className="flex items-center gap-3 border-b border-white/10 pb-3">
+            <Heart className="text-rose-400 fill-rose-400 animate-pulse shrink-0" size={22} />
+            <div>
+              <h3 className="text-base md:text-lg font-extrabold text-amber-300 font-display">
+                وبسایت چهل دروازه: آموزش + کتاب + مشاوره + عشق
+              </h3>
+              <span className="text-[11px] text-indigo-200">راز شاه‌کلید یادگیری عمیق در قلمرو رویاها</span>
+            </div>
+          </div>
+
+          <div className="space-y-3 text-xs md:text-sm text-slate-200 leading-relaxed font-light text-justify">
+            <p>
+              پس از هزاران سال مکاشفه در رویاهای شفاف، دانستم که شاه‌کلید یادگیری فقط یک چیز است: <strong className="text-amber-300 font-bold">«عشق»</strong>. زمانی که با معشوقی صمیمی دیدار می‌کنیم؛ بلااستثنا می‌کوشیم تا از تک‌تک لحظات، نهایت لذت را ببریم و تا آنجا که می‌توانیم، این لحظات عاشقانه را بهتر و طولانی‌تر کنیم.
+            </p>
+            <p>
+              پس وقتی در کنار او می‌نشینیم، با نهایت احساس به طنین خوش‌آهنگ فرازونشیب نفس‌هایش گوش فرا می‌دهیم؛ با نهایت تمرکز به زیبایی‌های بی‌مثال او خیره می‌شویم؛ با نهایت احساس، او را می‌بوییم؛ با نهایت لطافت، پوست ظریفش را لمس می‌کنیم؛ و برای چیدن بوسه از لب‌هایش، چشم‌ها را می‌بندیم تا نهایت شیرینیِ وجود او را بچشیم.
+            </p>
+            <p className="text-amber-200 font-medium pt-2 border-t border-white/10">
+              این‌چنین است که عشق میان ما و معشوق، محکم‌تر و عمیق‌تر می‌گردد؛ و خاطرات این لحظات، شفاف و رنگی، به صورت معجونی از هر پنج حس در حافظه به یادگار می‌ماند.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Category Grid Section */}
       <section className="max-w-7xl mx-auto px-4 py-16 space-y-10">
         <div className="text-center space-y-2">
@@ -272,25 +301,25 @@ export default function Home() {
           <div className="space-y-5 text-right max-w-xl relative z-10">
             <span className="text-[10px] text-indigo-700 border border-indigo-300 rounded-full px-3 py-1 font-mono font-bold uppercase bg-white w-fit block shadow-xs">LIMITED PACKAGE</span>
             <h3 className="text-xl md:text-2xl font-extrabold text-slate-900 leading-normal">
-              پکیج طلایی سالک رویا: <br />
-              <span className="text-gold-gradient font-display italic">دوره ویدیویی + تمام محصولات فیزیکی</span>
+              مجموعه چهارجلدی چهل دروازه به ماورا: <br />
+              <span className="text-gold-gradient font-display italic">به همراه مشاوره تخصصی VIP تلگرام</span>
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              اگر مصمم هستید تا این مهارت را به صورت ریشه‌ای یاد بگیرید، پیشنهاد می‌کنیم از باندل کامل سالک استفاده کنید. این باندل شامل دوره ۱۸ ساعته ویدیویی، کتاب نفیس چاپی ۴۰ دروازه، کتاب برون‌فکنی کالبد اثیری، دفترچه چرمی ثبت رویا و کارت‌های تست واقعیت فیزیکی است که با هزینه ارسال رایگان به سراسر کشور ارسال می‌شود.
+              اگر مصمم هستید تا مهارت رویابینی آگاهانه را زیر نظر مستقیم استاد فرا بگیرید، مجموعه کامل چهارجلدی چهل دروازه به ماورا همراه با مشاوره اختصاصی تلگرام بهترین گزینه است. رویاها و تمرینات روزانه شما تحلیل شده و نکات کلیدی به شما آموزش داده می‌شود.
             </p>
             <div className="flex gap-4 items-center pt-2">
-              <span className="text-sm text-slate-400 line-through">۲,۱۵۰,۰۰۰ تومان</span>
-              <span className="text-lg font-bold text-indigo-700">۱,۶۹۰,۰۰۰ تومان</span>
+              <span className="text-sm text-slate-400 line-through">۱,۹۹۹,۰۰۰ تومان</span>
+              <span className="text-lg font-bold text-indigo-700">۱,۶۹۹,۰۰۰ تومان</span>
             </div>
           </div>
 
           <div className="flex-shrink-0 relative z-10 w-full md:w-auto">
             <button
               id="promo-pack-cta"
-              onClick={() => setSelectedProductId('lucid-dream-seeker-pack')}
+              onClick={() => setSelectedProductId('45363')}
               className="w-full md:w-auto bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-extrabold text-xs px-8 py-4 rounded-xl transition-all shadow-md shadow-indigo-500/20"
             >
-              مشاهده و خرید پکیج طلایی
+              مشاهده پکیج چهارجلدی + مشاوره VIP
             </button>
           </div>
         </div>

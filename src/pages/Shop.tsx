@@ -31,7 +31,7 @@ export default function Shop() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<string>('featured');
-  const [priceRange, setPriceRange] = useState<number>(2000000); // Max Toman
+  const [priceRange, setPriceRange] = useState<number>(10000000); // Max Toman
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState<boolean>(false);
 
   const categories = [
@@ -54,7 +54,7 @@ export default function Shop() {
     setSelectedCategory('all');
     setSelectedType('all');
     setOnlyInStock(false);
-    setPriceRange(2000000);
+    setPriceRange(10000000);
     setSearchQuery('');
     setSortBy('featured');
   };
@@ -231,16 +231,16 @@ export default function Shop() {
               <input
                 id="desktop-price-slider"
                 type="range"
-                min={30000}
-                max={2000000}
-                step={20000}
+                min={0}
+                max={10000000}
+                step={50000}
                 value={priceRange}
                 onChange={(e) => setPriceRange(Number(e.target.value))}
                 className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
               />
               <div className="flex justify-between text-[11px] text-slate-500 font-mono">
-                <span>۳۰,۰۰۰ تومان</span>
-                <span className="text-indigo-700 font-bold">{priceRange.toLocaleString('fa-IR')} تومان</span>
+                <span>رایگان</span>
+                <span className="text-indigo-700 font-bold">{priceRange === 0 ? 'رایگان' : priceRange.toLocaleString('fa-IR') + ' تومان'}</span>
               </div>
             </div>
 
@@ -377,16 +377,16 @@ export default function Shop() {
                 <input
                   id="mobile-price-slider"
                   type="range"
-                  min={30000}
-                  max={2000000}
-                  step={20000}
+                  min={0}
+                  max={10000000}
+                  step={50000}
                   value={priceRange}
                   onChange={(e) => setPriceRange(Number(e.target.value))}
                   className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                 />
                 <div className="flex justify-between text-[11px] text-slate-500 font-mono">
-                  <span>۳۰,۰۰۰ تومان</span>
-                  <span className="text-indigo-700 font-bold">{priceRange.toLocaleString('fa-IR')} تومان</span>
+                  <span>رایگان</span>
+                  <span className="text-indigo-700 font-bold">{priceRange === 0 ? 'رایگان' : priceRange.toLocaleString('fa-IR') + ' تومان'}</span>
                 </div>
               </div>
 

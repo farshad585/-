@@ -70,45 +70,31 @@ export default function Checkout() {
   }, 0);
 
   const discountAmount = Math.round(totalBeforeDiscount * (discountPercentage / 100));
-  const finalAmount = totalBeforeDiscount - discountAmount;
+  const amountAfterDiscount = totalBeforeDiscount - discountAmount;
 
-  // Determine if shipping is free
+  // 10% VAT (مالیات بر ارزش افزوده)
+  const vatAmount = Math.round(amountAfterDiscount * 0.10);
+
+  // Determine if shipping is free (>= 2,000,000 Toman or digital-only)
   const isOnlyDigital = cart.every(
     item => item.product.type === 'pdf' || item.product.type === 'audio' || item.product.type === 'course'
   );
 
-  const shippingFee = (totalBeforeDiscount >= 500000 || isOnlyDigital || cart.length === 0) ? 0 : 30000;
-  const grandTotal = finalAmount + shippingFee;
+  const shippingFee = (totalBeforeDiscount >= 2000000 || isOnlyDigital || cart.length === 0) ? 0 : 290000;
+  const grandTotal = amountAfterDiscount + vatAmount + shippingFee;
 
   const formatPrice = (price: number) => {
+    if (price === 0) return 'رایگان';
     return price.toLocaleString('fa-IR') + ' تومان';
   };
 
-  const handleStartPayment = (e: React.FormEvent) => {
+  const handleCreateCardOrder = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isOnlyDigital && (!fullName || !phone || !address || !postalCode)) {
       showNotification('لطفاً اطلاعات ارسال و تحویل پستی را به طور کامل پر کنید.');
       return;
     }
-    // Open Shape-rak Gateway
-    setIsSimulatingPayment(true);
-  };
 
-  // Simulates OTP Request
-  const handleRequestOtp = () => {
-    setIsOtpSent(true);
-    showNotification('رمز دوم یکبار مصرف (OTP) به شماره همراه شما شبیه‌سازی و ارسال شد. رمز نمونه: ۱۲۳۴۵');
-  };
-
-  // Simulates Complete Payment transaction
-  const handleCompleteTransaction = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cardNumber || !cvv2 || !pin2) {
-      showNotification('لطفاً اطلاعات کارت شتاب خود را پر کنید.');
-      return;
-    }
-
-    // Process Order
     const shippingAddress = isOnlyDigital ? undefined : {
       fullName,
       phone,
@@ -128,10 +114,18 @@ export default function Checkout() {
       address
     });
 
-    const newOrder = placeOrder(paymentGateway, shippingAddress);
+    const newOrder = placeOrder('card-to-card', shippingAddress);
     setGeneratedOrder(newOrder);
     setPaymentSuccess(true);
     clearCart();
+  };
+
+  const [copiedCard, setCopiedCard] = useState(false);
+  const handleCopyCard = () => {
+    navigator.clipboard.writeText('6362141809746812');
+    setCopiedCard(true);
+    showNotification('شماره کارت بانک ملی با موفقیت کپی شد.');
+    setTimeout(() => setCopiedCard(false), 3000);
   };
 
   // Return to client dashboard
@@ -142,191 +136,101 @@ export default function Checkout() {
     }
   };
 
-  // IF USER IS IN THE BANK SIMULATOR (Shaparak Simulation)
-  if (isSimulatingPayment) {
-    if (paymentSuccess) {
-      return (
-        <div className="max-w-xl mx-auto px-4 py-20 text-center space-y-6">
-          <div className="w-16 h-16 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full flex items-center justify-center mx-auto shadow-sm animate-bounce">
-            <CheckCircle2 size={32} />
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-xl md:text-2xl font-extrabold text-slate-900">تراکنش بانکی با موفقیت تایید شد</h1>
-            <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-              سپاسگزاریم! سفارش شما ثبت گردید. شماره سفارش: <strong className="text-indigo-900 font-mono">{generatedOrder?.id}</strong>
-            </p>
+  // ORDER CONFIRMATION / CARD TO CARD PAYMENT INSTRUCTIONS SCREEN
+  if (paymentSuccess || generatedOrder) {
+    const orderTotal = generatedOrder?.totalAmount || grandTotal;
+    const orderSubtotal = generatedOrder?.subtotal || totalBeforeDiscount;
+    const orderVat = generatedOrder?.vatAmount || vatAmount;
+    const orderShipping = generatedOrder?.shippingFee !== undefined ? generatedOrder.shippingFee : shippingFee;
+    const orderDiscount = generatedOrder?.discountAmount || discountAmount;
+
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center space-y-6">
+        <div className="w-16 h-16 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full flex items-center justify-center mx-auto shadow-sm animate-bounce">
+          <CheckCircle2 size={32} />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-xl md:text-2xl font-extrabold text-slate-900">سفارش شما با موفقیت ثبت گردید</h1>
+          <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+            شماره پیگیری سفارش شما: <strong className="text-indigo-900 font-mono text-sm">{generatedOrder?.id}</strong>
+          </p>
+        </div>
+
+        {/* Card to card required notice box */}
+        <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-50 border-2 border-indigo-200 rounded-3xl p-6 text-right space-y-4 shadow-sm relative overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-indigo-100 pb-3">
+            <CreditCard size={20} className="text-indigo-600" />
+            <h3 className="text-sm font-bold text-slate-900">روش پرداخت: کارت به کارت</h3>
           </div>
 
-          <div className="bg-white border border-indigo-100 rounded-3xl p-6 text-right text-xs space-y-4 shadow-xs">
-            <div className="flex justify-between border-b border-slate-100 pb-3">
-              <span className="text-slate-500">مجموع تراکنش:</span>
-              <strong className="text-indigo-700 font-bold">{formatPrice(grandTotal)}</strong>
+          <p className="text-xs text-slate-800 font-semibold leading-relaxed">
+            شما می‌توانید مبلغ سفارش را از طریق کارت‌به‌کارت به حساب چهل دروازه منتقل نمایید.
+          </p>
+
+          <div className="bg-white/90 backdrop-blur-sm border border-indigo-200 rounded-2xl p-4 space-y-2 text-xs">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500">شماره کارت بانک ملی:</span>
+              <strong className="text-indigo-950 font-mono text-sm sm:text-base tracking-widest dir-ltr">6362141809746812</strong>
             </div>
-            <div className="flex justify-between border-b border-slate-100 pb-3">
-              <span className="text-slate-500">درگاه پرداخت:</span>
-              <strong className="text-slate-900">{paymentGateway === 'zarinpal' ? 'زرین‌پال' : 'آی‌دی‌پای'}</strong>
+            <div className="flex justify-between items-center border-t border-slate-100 pt-2">
+              <span className="text-slate-500">به نام:</span>
+              <strong className="text-slate-900 font-bold">فرشاد میرشکاری سرکره</strong>
             </div>
-            {isOnlyDigital ? (
-              <p className="text-emerald-700 bg-emerald-50 border border-emerald-200 p-3 rounded-2xl leading-relaxed font-bold">
-                🎉 محصولات دیجیتالی بلافاصله فعال شدند! همین حالا می‌توانید جزوه‌های PDF و پادکست‌های صوتی خود را از داشبورد دریافت و گوش کنید.
-              </p>
-            ) : (
-              <div className="space-y-1.5 text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                <p>📦 فرآیند بسته‌بندی اقلام فیزیکی شروع شد.</p>
-                <p>کد پیگیری پست شما: <strong className="text-slate-900 font-mono">{generatedOrder?.trackingCode}</strong></p>
-              </div>
-            )}
+            <div className="flex justify-between items-center border-t border-slate-100 pt-2">
+              <span className="text-slate-500">مبلغ واریزی:</span>
+              <strong className="text-indigo-700 font-sans font-bold text-sm">{formatPrice(orderTotal)}</strong>
+            </div>
           </div>
 
           <button
-            id="checkout-success-dashboard-cta"
-            onClick={handleGoToDashboard}
-            className="geom-button-primary text-white font-bold text-xs px-8 py-3.5 rounded-xl transition-all w-full shadow-md"
+            onClick={handleCopyCard}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2"
           >
-            ورود به پنل کاربری و دریافت فایل‌ها
+            <CreditCard size={14} />
+            <span>{copiedCard ? '✓ شماره کارت کپی شد' : 'کپی شماره کارت (۶۳۶۲۱۴۱۸۰۹۷۴۶۸۱۲)'}</span>
           </button>
-        </div>
-      );
-    }
 
-    return (
-      <div className="max-w-xl mx-auto px-4 py-12">
-        {/* Floating notification for simulator */}
-        <AnimatePresence>
-          {notification && (
-            <motion.div
-              initial={{ opacity: 0, y: -20, x: '-50%' }}
-              animate={{ opacity: 1, y: 0, x: '-50%' }}
-              exit={{ opacity: 0, y: -20, x: '-50%' }}
-              className="fixed top-12 left-1/2 -translate-x-1/2 z-50 bg-white border-2 border-indigo-500 p-4 rounded-2xl shadow-xl text-xs text-indigo-950 flex items-center gap-3 max-w-md w-11/12 justify-center font-bold text-center"
-            >
-              <Sparkles size={16} className="text-indigo-600 shrink-0 animate-spin" />
-              <span>{notification}</span>
-            </motion.div>
+          <p className="text-[11px] text-slate-600 bg-white/60 p-3 rounded-xl border border-indigo-100 leading-relaxed text-center">
+            💡 لطفاً پس از واریز، تصویر فیش واریزی یا ۴ رقم آخر کارت را به همراه شماره سفارش برای پشتیبانی ارسال فرمایید.
+          </p>
+        </div>
+
+        {/* Breakdown invoice summary */}
+        <div className="bg-white border border-indigo-100 rounded-3xl p-6 text-right text-xs space-y-3 shadow-xs">
+          <h4 className="font-bold text-slate-900 border-b border-slate-100 pb-2">خلاصه حساب فاکتور:</h4>
+          <div className="flex justify-between text-slate-600">
+            <span>جمع اقلام:</span>
+            <span className="font-mono text-slate-900 font-bold">{formatPrice(orderSubtotal)}</span>
+          </div>
+          {orderDiscount > 0 && (
+            <div className="flex justify-between text-indigo-700 font-bold">
+              <span>تخفیف:</span>
+              <span className="font-mono">-{formatPrice(orderDiscount)}</span>
+            </div>
           )}
-        </AnimatePresence>
-
-        <div className="bg-white rounded-3xl border border-rose-200 shadow-md p-6 md:p-8 space-y-6 text-right">
-          
-          {/* Shaparak branding */}
-          <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-2">
-              <Lock size={16} className="text-emerald-600" />
-              <span className="text-xs font-bold text-slate-900">درگاه شبکه شاپرک (شبیه‌ساز زرین‌پال)</span>
-            </div>
-            <span className="text-[10px] bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5 rounded-full font-mono font-bold">تست تراکنش</span>
+          <div className="flex justify-between text-slate-600">
+            <span>مالیات بر ارزش افزوده (۱۰٪):</span>
+            <span className="font-mono text-slate-900 font-bold">{formatPrice(orderVat)}</span>
           </div>
-
-          <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center text-xs">
-            <span className="text-slate-500">مبلغ تراکنش:</span>
-            <strong className="text-indigo-900 font-bold font-sans text-sm">{formatPrice(grandTotal)}</strong>
+          <div className="flex justify-between text-slate-600">
+            <span>هزینه بسته‌بندی و ارسال پست:</span>
+            <span className="font-mono text-slate-900 font-bold">
+              {orderShipping === 0 ? 'رایگان' : formatPrice(orderShipping)}
+            </span>
           </div>
-
-          <form onSubmit={handleCompleteTransaction} className="space-y-4 text-xs">
-            {/* Card number */}
-            <div className="space-y-1.5">
-              <label className="text-slate-600 block font-semibold">شماره کارت ۱۶ رقمی شتاب:</label>
-              <input
-                id="bank-card-number"
-                type="text"
-                required
-                maxLength={19}
-                placeholder="6037-9911-2233-4455"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(e.target.value.replace(/[^0-9-]/g, ''))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 font-mono text-center text-sm tracking-widest focus:outline-none focus:border-indigo-500 shadow-xs"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* CVV2 */}
-              <div className="space-y-1.5">
-                <label className="text-slate-600 block font-semibold">کد امنیتی CVV2:</label>
-                <input
-                  id="bank-cvv2"
-                  type="password"
-                  required
-                  maxLength={4}
-                  placeholder="•••"
-                  value={cvv2}
-                  onChange={(e) => setCvv2(e.target.value.replace(/[^0-9]/g, ''))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 font-mono text-center text-sm focus:outline-none focus:border-indigo-500 shadow-xs"
-                />
-              </div>
-
-              {/* Exp date */}
-              <div className="space-y-1.5">
-                <label className="text-slate-600 block font-semibold">تاریخ انقضا (ماه / سال):</label>
-                <div className="flex gap-2">
-                  <select 
-                    id="bank-exp-month"
-                    value={expMonth} 
-                    onChange={(e) => setExpMonth(e.target.value)} 
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl py-2.5 text-slate-900 focus:outline-none font-mono text-center text-xs shadow-xs"
-                  >
-                    {['01','02','03','04','05','06','07','08','09','10','11','12'].map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                  <select 
-                    id="bank-exp-year"
-                    value={expYear} 
-                    onChange={(e) => setExpYear(e.target.value)} 
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl py-2.5 text-slate-900 focus:outline-none font-mono text-center text-xs shadow-xs"
-                  >
-                    {['05','06','07','08','09','10','11','12','13'].map(y => (
-                      <option key={y} value={y}>۱۴{y}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* OTP Second pin */}
-            <div className="space-y-1.5">
-              <label className="text-slate-600 block font-semibold">رمز دوم پویا یا ثابت:</label>
-              <div className="flex gap-2">
-                <input
-                  id="bank-pin2"
-                  type="password"
-                  required
-                  maxLength={8}
-                  placeholder="••••"
-                  value={pin2}
-                  onChange={(e) => setPin2(e.target.value.replace(/[^0-9]/g, ''))}
-                  className="flex-grow bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 font-mono text-center text-sm focus:outline-none focus:border-indigo-500 shadow-xs"
-                />
-                <button
-                  id="request-otp-btn"
-                  type="button"
-                  onClick={handleRequestOtp}
-                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-[11px] font-bold px-3 rounded-xl border border-indigo-200 transition-colors shadow-xs"
-                >
-                  درخواست رمز پویا
-                </button>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t border-slate-100">
-              <button
-                id="bank-cancel-btn"
-                type="button"
-                onClick={() => setIsSimulatingPayment(false)}
-                className="flex-1 border border-slate-200 text-slate-700 font-semibold rounded-xl py-3.5 text-center hover:bg-slate-50 transition-colors bg-white shadow-xs"
-              >
-                انصراف و بازگشت
-              </button>
-              <button
-                id="bank-submit-btn"
-                type="submit"
-                className="flex-1 bg-emerald-600 text-white font-bold rounded-xl py-3.5 text-center hover:bg-emerald-700 transition-colors shadow-md"
-              >
-                پرداخت نهایی فاکتور
-              </button>
-            </div>
-
-          </form>
+          <div className="flex justify-between border-t border-slate-100 pt-3 text-sm font-bold text-slate-900">
+            <span>مبلغ نهایی قابل واریز:</span>
+            <span className="text-indigo-700">{formatPrice(orderTotal)}</span>
+          </div>
         </div>
+
+        <button
+          id="checkout-success-dashboard-cta"
+          onClick={handleGoToDashboard}
+          className="geom-button-primary text-white font-bold text-xs px-8 py-3.5 rounded-xl transition-all w-full shadow-md"
+        >
+          ورود به پنل کاربری و مشاهده وضعیت سفارش
+        </button>
       </div>
     );
   }
@@ -399,7 +303,7 @@ export default function Checkout() {
                 </p>
               </div>
             ) : (
-              <form onSubmit={handleStartPayment} className="space-y-4 text-xs">
+              <form onSubmit={handleCreateCardOrder} className="space-y-4 text-xs">
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -490,50 +394,20 @@ export default function Checkout() {
               </form>
             )}
 
-            {/* Gateway Selection */}
+            {/* Payment Method Section */}
             <div className="pt-6 border-t border-slate-100 space-y-3 text-right">
               <span className="block text-xs font-bold text-slate-900 flex items-center gap-2">
                 <CreditCard size={16} className="text-indigo-600" />
-                <span>درگاه پرداخت الکترونیکی شتاب</span>
+                <span>روش پرداخت سفارش</span>
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
-                {/* ZarinPal Option */}
-                <div 
-                  onClick={() => setPaymentGateway('zarinpal')}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
-                    paymentGateway === 'zarinpal'
-                      ? 'border-indigo-600 bg-indigo-50/60 font-bold shadow-xs'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200'
-                  }`}
-                >
-                  <div className="space-y-1 text-right">
-                    <span className="block text-xs font-bold text-slate-900">درگاه زرین‌پال (ZarinPal)</span>
-                    <span className="block text-[10px] text-slate-500">پرداخت آسان با رمز دوم پویا</span>
-                  </div>
-                  <div className="w-5 h-5 rounded-full border border-indigo-600 flex items-center justify-center">
-                    {paymentGateway === 'zarinpal' && <div className="w-2.5 h-2.5 bg-indigo-600 rounded-full" />}
-                  </div>
+              <div className="p-4 rounded-2xl border border-indigo-600 bg-indigo-50/60 flex items-center justify-between shadow-xs">
+                <div className="space-y-1 text-right">
+                  <span className="block text-xs font-bold text-slate-900">کارت به کارت (بانک ملی)</span>
+                  <span className="block text-[10px] text-slate-600">انتقال مستقیم به حساب چهل دروازه (فرشاد میرشکاری سرکره)</span>
                 </div>
-
-                {/* IDPay Option */}
-                <div 
-                  onClick={() => setPaymentGateway('idpay')}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
-                    paymentGateway === 'idpay'
-                      ? 'border-indigo-600 bg-indigo-50/60 font-bold shadow-xs'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200'
-                  }`}
-                >
-                  <div className="space-y-1 text-right">
-                    <span className="block text-xs font-bold text-slate-900">درگاه آی‌دی‌پای (IDPay)</span>
-                    <span className="block text-[10px] text-slate-500">کیف پول شتاب و تسهیل پرداخت</span>
-                  </div>
-                  <div className="w-5 h-5 rounded-full border border-indigo-600 flex items-center justify-center">
-                    {paymentGateway === 'idpay' && <div className="w-2.5 h-2.5 bg-indigo-600 rounded-full" />}
-                  </div>
+                <div className="w-5 h-5 rounded-full border border-indigo-600 flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 bg-indigo-600 rounded-full" />
                 </div>
-
               </div>
             </div>
 
@@ -569,9 +443,18 @@ export default function Checkout() {
                 </div>
               )}
               <div className="flex justify-between text-slate-600">
-                <span>هزینه بسته‌بندی و پست:</span>
+                <span>مالیات بر ارزش افزوده (۱۰٪):</span>
+                <span className="font-mono text-slate-900 font-bold">{formatPrice(vatAmount)}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>هزینه بسته‌بندی و ارسال پست:</span>
                 <span className="font-mono text-slate-900 font-bold">{shippingFee === 0 ? 'رایگان' : formatPrice(shippingFee)}</span>
               </div>
+              {shippingFee > 0 && (
+                <p className="text-[10px] text-slate-600 leading-relaxed text-right bg-indigo-50/70 border border-indigo-100 p-2.5 rounded-xl font-medium">
+                  💡 با افزودن مابه‌التفاوت خرید به سقف ۲ میلیون تومان، هزینه ارسال را کاملاً رایگان کنید.
+                </p>
+              )}
             </div>
 
             <div className="flex justify-between items-center text-sm font-bold text-slate-900">
@@ -582,16 +465,16 @@ export default function Checkout() {
             {/* Action Payment Trigger */}
             <button
               id="checkout-payment-btn"
-              onClick={handleStartPayment}
+              onClick={handleCreateCardOrder}
               className="w-full geom-button-primary text-white font-bold text-xs py-4 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-98 transition-all shadow-md"
             >
-              <ShieldCheck size={16} />
-              <span>پرداخت نهایی و انتقال به بانک</span>
+              <CreditCard size={16} />
+              <span>ثبت سفارش و دریافت شماره کارت</span>
             </button>
 
             <div className="flex gap-2 justify-center pt-2 text-[10px] text-slate-500">
               <ShieldCheck size={14} className="text-indigo-600" />
-              <span>پرداخت‌ها تحت نظارت شاپرک مرکزی</span>
+              <span>پرداخت مستقیم کارت به کارت به حساب بانک ملی</span>
             </div>
           </div>
         </div>

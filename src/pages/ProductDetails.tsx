@@ -118,7 +118,7 @@ export default function ProductDetails() {
     return (
       <div className="h-96 max-w-7xl mx-auto flex flex-col items-center justify-center gap-4 text-center">
         <p className="text-gray-400">در حال بارگذاری اطلاعات محصول...</p>
-        <button onClick={() => setSelectedProductId('40-gates-book')} className="text-gold-400 font-bold underline">
+        <button onClick={() => setSelectedProductId('45322')} className="text-gold-400 font-bold underline">
           مشاهده محصول نمونه
         </button>
       </div>
@@ -253,15 +253,15 @@ export default function ProductDetails() {
               {product.salePrice ? (
                 <>
                   <span className="text-xs text-slate-400 line-through font-mono">
-                    {product.price.toLocaleString('fa-IR')} تومان
+                    {product.price === 0 ? 'رایگان' : product.price.toLocaleString('fa-IR') + ' تومان'}
                   </span>
                   <span className="text-lg font-black text-indigo-900 font-sans">
-                    {finalTomanPrice.toLocaleString('fa-IR')} تومان
+                    {finalTomanPrice === 0 ? 'رایگان' : finalTomanPrice.toLocaleString('fa-IR') + ' تومان'}
                   </span>
                 </>
               ) : (
                 <span className="text-lg font-black text-slate-900 font-sans">
-                  {finalTomanPrice.toLocaleString('fa-IR')} تومان
+                  {finalTomanPrice === 0 ? 'رایگان' : finalTomanPrice.toLocaleString('fa-IR') + ' تومان'}
                 </span>
               )}
             </div>

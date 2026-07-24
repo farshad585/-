@@ -44,8 +44,8 @@ export default function Contact() {
   return (
     <>
       <SEO 
-        title="تماس با ما | پشتیبانی آکادمی" 
-        description="پل‌های ارتباطی، شماره تماس، آدرس دفتر مرکزی تهران و فرم ارسال پیام مستقیم به مربیان و مدیران آکادمی ۴۰ دروازه."
+        title="تماس با من | فرشاد میرشکاری" 
+        description="پل‌های ارتباط مستقیم، ایمیل و پشتیبانی تلگرام فرشاد میرشکاری، نویسنده کتاب‌های رویابینی آگاهانه و استاد ۴۰ دروازه."
       />
 
       {/* Floating notification */}
@@ -69,11 +69,11 @@ export default function Contact() {
           <div className="flex justify-center items-center gap-2 text-[10px] text-slate-500 font-mono">
             <span>صفحه اصلی</span>
             <span>/</span>
-            <span className="text-indigo-600 font-bold">تماس با ما</span>
+            <span className="text-indigo-600 font-bold">تماس با من</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">درگاه ارتباط و پشتیبانی</h1>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">ارتباط مستقیم با فرشاد میرشکاری</h1>
           <p className="text-xs text-slate-600 leading-relaxed">
-            در کنار شما هستیم تا هیچ سوال یا ابهامی در روند سفارشات و تمرین‌های بیداری رویا باقی نماند.
+            در کنار شما هستم تا پاسخگوی سوالات شما درباره کتاب‌ها، دوره‌ها و تمرین‌های رویابینی شفاف باشم.
           </p>
         </div>
       </section>
@@ -81,78 +81,83 @@ export default function Contact() {
       {/* Main Grid: Details vs Contact Form */}
       <section className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-12 gap-12 mb-20">
         
-        {/* Left Column: Coordinates & Map (Span 5) */}
+        {/* Left Column: Direct channels (Span 5) */}
         <div className="lg:col-span-5 space-y-6">
           <div className="p-6 rounded-3xl bg-white border border-indigo-100 shadow-xs space-y-6">
-            <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3">اطلاعات تماس</h3>
+            <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3">درگاه‌های ارتباط مستقیم</h3>
             
-            <ul className="space-y-4 text-xs">
-              <li className="flex gap-3">
-                <MapPin size={18} className="text-indigo-600 flex-shrink-0 mt-0.5" />
+            <ul className="space-y-5 text-xs">
+              <li className="flex gap-3 items-start">
+                <Instagram size={20} className="text-pink-600 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <span className="block text-slate-900 font-bold">آدرس دفتر مرکزی:</span>
-                  <span className="text-slate-600 leading-relaxed">ایران، تهران، خیابان ولیعصر، نرسیده به میدان ونک، برج نگار، طبقه ۱۵، واحد ۴۰</span>
+                  <span className="block text-slate-900 font-bold">صفحه رسمی اینستاگرام:</span>
+                  <a 
+                    href="https://www.instagram.com/farshad_g.o.d" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-indigo-600 hover:underline font-mono font-bold block dir-ltr text-right"
+                  >
+                    instagram.com/farshad_g.o.d (@farshad_g.o.d)
+                  </a>
                 </div>
               </li>
 
-              <li className="flex gap-3">
-                <Phone size={18} className="text-indigo-600 flex-shrink-0 mt-0.5" />
+              <li className="flex gap-3 items-start">
+                <Send size={20} className="text-sky-500 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <span className="block text-slate-900 font-bold">تلفن پشتیبانی:</span>
-                  <span className="text-slate-600 font-mono tracking-wider font-bold">۰۲۱-۸۸۸۸۴۰۴۰ (شنبه تا چهارشنبه ۹ الی ۱۷)</span>
+                  <span className="block text-slate-900 font-bold">پشتیبانی و تلگرام:</span>
+                  <a 
+                    href="https://t.me/Farshad_God" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-indigo-600 hover:underline font-mono font-bold block dir-ltr text-right"
+                  >
+                    t.me/Farshad_God
+                  </a>
                 </div>
               </li>
 
-              <li className="flex gap-3">
-                <Mail size={18} className="text-indigo-600 flex-shrink-0 mt-0.5" />
+              <li className="flex gap-3 items-start">
+                <Mail size={20} className="text-purple-600 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <span className="block text-slate-900 font-bold">ایمیل رسمی:</span>
-                  <span className="text-indigo-600 font-mono font-bold">info@40gates.ir</span>
+                  <span className="block text-slate-900 font-bold">ایمیل مستقیم فرشاد میرشکاری:</span>
+                  <a 
+                    href="mailto:40gates.main@gmail.com"
+                    className="text-indigo-600 hover:underline font-mono font-bold block dir-ltr text-right"
+                  >
+                    40gates.main@gmail.com
+                  </a>
                 </div>
               </li>
 
-              <li className="flex gap-3">
-                <Clock size={18} className="text-indigo-600 flex-shrink-0 mt-0.5" />
+              <li className="flex gap-3 items-start">
+                <Clock size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <span className="block text-slate-900 font-bold">ساعات کار اداری:</span>
-                  <span className="text-slate-600">همه روزه به غیر از ایام تعطیل از ۹:۰۰ صبح الی ۱۷:۰۰ عصر</span>
+                  <span className="block text-slate-900 font-bold">زمان پاسخگویی به پیام‌ها:</span>
+                  <span className="text-slate-600 leading-relaxed">تیکت‌ها و پیام‌های شما در کمتر از ۲۴ ساعت توسط فرشاد میرشکاری یا تیم پشتیبانی بررسی و پاسخ داده می‌شود.</span>
                 </div>
               </li>
             </ul>
-
-            {/* Social icons */}
-            <div className="pt-4 border-t border-slate-100 flex gap-4 items-center">
-              <span className="text-[10px] text-slate-500">پشتیبانی تلگرام و اینستاگرام:</span>
-              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="text-slate-500 hover:text-indigo-600">
-                <Instagram size={16} />
-              </a>
-              <a href="https://t.me" target="_blank" rel="noreferrer" className="text-slate-500 hover:text-indigo-600">
-                <Send size={16} className="-translate-x-0.5" />
-              </a>
-            </div>
           </div>
 
-          {/* Artistic Custom Map representation */}
-          <div className="aspect-video rounded-3xl overflow-hidden border border-indigo-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-1 relative flex items-center justify-center shadow-xs">
-            {/* Subtle graphic layout resembling a circuit or grid */}
-            <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:16px_16px] opacity-40" />
-            
-            {/* Elegant visual badge showing location pin */}
-            <div className="relative text-center p-6 space-y-3 z-10">
-              <MapPin size={32} className="text-indigo-600 mx-auto animate-bounce" />
-              <div>
-                <span className="block text-xs font-bold text-slate-900">مکان‌نمای آکادمی (ونک - برج نگار)</span>
-                <span className="block text-[10px] text-slate-500 mt-1 font-mono">35.7584° N, 51.4099° E</span>
+          {/* Author Badge Card */}
+          <div className="rounded-3xl border border-indigo-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-6 space-y-4 shadow-xs">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl border-2 border-indigo-300 overflow-hidden shadow-xs shrink-0">
+                <img 
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300" 
+                  alt="فرشاد میرشکاری" 
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <a 
-                href="https://neshan.org" 
-                target="_blank" 
-                rel="noreferrer"
-                className="inline-block text-[10px] text-indigo-700 font-bold border border-indigo-200 rounded-full bg-white px-3.5 py-1 hover:bg-indigo-600 hover:text-white transition-colors shadow-xs"
-              >
-                مسیریابی در نقشه نشان / بلد
-              </a>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">فرشاد میرشکاری</h4>
+                <p className="text-[11px] text-indigo-700 font-semibold">نویسنده و مدرس رویابینی آگاهانه</p>
+              </div>
             </div>
+            <p className="text-xs text-slate-600 leading-relaxed text-justify">
+              «همواره پیام‌ها و سوالات هنرجویان عزیزم را با اشتیاق مطالعه می‌کنم. اگر در مسیر رویابینی آگاهانه دچار ابهام شده‌اید، حتماً سوال خود را با من در میان بگذارید.»
+            </p>
           </div>
         </div>
 
@@ -162,9 +167,9 @@ export default function Contact() {
             <div className="space-y-1.5 border-b border-slate-100 pb-4">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <MessageSquare size={16} className="text-indigo-600" />
-                <span>ارسال پیام مستقیم به مربیان آکادمی</span>
+                <span>ارسال پیام مستقیم به فرشاد میرشکاری</span>
               </h3>
-              <p className="text-[11px] text-slate-500">تمامی تیکت‌ها با دقت بررسی شده و پاسخ آن به ایمیل شما ارسال می‌شود.</p>
+              <p className="text-[11px] text-slate-500">فرم زیر را تکمیل کنید؛ پیام شما مستقیماً به ایمیل من ارسال خواهد شد.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">

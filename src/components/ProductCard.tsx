@@ -23,6 +23,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     : 0;
 
   const formatPrice = (price: number) => {
+    if (price === 0) return 'رایگان';
     return price.toLocaleString('fa-IR') + ' تومان';
   };
 

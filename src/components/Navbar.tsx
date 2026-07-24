@@ -68,8 +68,8 @@ export default function Navbar() {
     { id: 'shop', label: 'فروشگاه کتاب', icon: ShopIcon },
     { id: 'blog', label: 'مجله آگاهی', icon: BookOpen },
     { id: 'faq', label: 'سوالات متداول', icon: HelpCircle },
-    { id: 'about', label: 'درباره ما', icon: Info },
-    { id: 'contact', label: 'تماس با ما', icon: PhoneCall },
+    { id: 'about', label: 'درباره من', icon: Info },
+    { id: 'contact', label: 'تماس با من', icon: PhoneCall },
   ];
 
   return (

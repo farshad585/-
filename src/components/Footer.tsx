@@ -53,31 +53,29 @@ export default function Footer() {
           </p>
           <div className="flex items-center gap-3">
             <a 
-              href="https://instagram.com" 
+              href="https://www.instagram.com/farshad_g.o.d" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="p-2 bg-indigo-50 hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600 hover:text-white rounded-full transition-all text-indigo-600 shadow-xs"
-              title="اینستاگرام"
+              className="p-2.5 bg-indigo-50 hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600 hover:text-white rounded-xl transition-all text-indigo-600 shadow-xs flex items-center gap-1.5"
+              title="اینستاگرام فرشاد میرشکاری"
             >
-              <Instagram size={16} />
+              <Instagram size={18} />
             </a>
             <a 
-              href="https://t.me" 
+              href="https://t.me/Farshad_God" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="p-2 bg-indigo-50 hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600 hover:text-white rounded-full transition-all text-indigo-600 shadow-xs"
-              title="تلگرام"
+              className="p-2.5 bg-indigo-50 hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600 hover:text-white rounded-xl transition-all text-indigo-600 shadow-xs flex items-center gap-1.5"
+              title="کانال و پشتیبانی تلگرام"
             >
-              <Send size={16} className="-translate-x-0.5" />
+              <Send size={18} className="-translate-x-0.5" />
             </a>
             <a 
-              href="https://youtube.com" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="p-2 bg-indigo-50 hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600 hover:text-white rounded-full transition-all text-indigo-600 shadow-xs"
-              title="یوتیوب"
+              href="mailto:40gates.main@gmail.com" 
+              className="p-2.5 bg-indigo-50 hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600 hover:text-white rounded-xl transition-all text-indigo-600 shadow-xs flex items-center gap-1.5"
+              title="ارسال ایمیل مستقیم"
             >
-              <Youtube size={16} />
+              <Mail size={18} />
             </a>
           </div>
         </div>
@@ -109,19 +107,38 @@ export default function Footer() {
 
         {/* Column 3: Contact Details */}
         <div className="space-y-4">
-          <h4 className="text-sm font-bold text-slate-900 border-r-4 border-indigo-600 pr-2">دفتر مرکزی و پشتیبانی</h4>
+          <h4 className="text-sm font-bold text-slate-900 border-r-4 border-indigo-600 pr-2">ارتباط مستقیم با فرشاد میرشکاری</h4>
           <ul className="space-y-3.5 text-xs text-slate-600">
-            <li className="flex items-start gap-2.5">
-              <MapPin size={16} className="text-purple-600 flex-shrink-0 mt-0.5" />
-              <span>ایران، تهران، خیابان ولیعصر، نرسیده به میدان ونک، برج نگار، واحد ۴۰</span>
+            <li className="flex items-center gap-2.5">
+              <Instagram size={18} className="text-pink-600 shrink-0" />
+              <a 
+                href="https://www.instagram.com/farshad_g.o.d" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="hover:text-indigo-600 dir-ltr font-mono font-semibold transition-colors"
+              >
+                @farshad_g.o.d
+              </a>
             </li>
             <li className="flex items-center gap-2.5">
-              <Phone size={16} className="text-purple-600" />
-              <span className="font-mono font-medium">۰۲۱-۸۸۸۸۴۰۴۰</span>
+              <Send size={18} className="text-sky-500 shrink-0" />
+              <a 
+                href="https://t.me/Farshad_God" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="hover:text-indigo-600 dir-ltr font-mono font-semibold transition-colors"
+              >
+                t.me/Farshad_God
+              </a>
             </li>
             <li className="flex items-center gap-2.5">
-              <Mail size={16} className="text-purple-600" />
-              <span className="font-mono font-medium">info@40gates.ir</span>
+              <Mail size={18} className="text-purple-600 shrink-0" />
+              <a 
+                href="mailto:40gates.main@gmail.com"
+                className="hover:text-indigo-600 dir-ltr font-mono font-medium transition-colors"
+              >
+                40gates.main@gmail.com
+              </a>
             </li>
           </ul>
         </div>
@@ -170,9 +187,9 @@ export default function Footer() {
 
       {/* Bottom Bar */}
       <div className="border-t border-purple-200/80 py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 text-white text-[10px] font-bold uppercase tracking-widest relative z-10">
-        <div className="max-w-7xl mx-auto px-12 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p>© ۲۰۲۶ آکادمی ۴۰ دروازه (۴۰gates.ir) - تمامی حقوق این وب‌سایت محفوظ است.</p>
-          <div className="flex gap-8">
+        <div className="max-w-7xl mx-auto px-6 sm:px-12 flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-right">
+          <p>© ۲۰۲۶ آکادمی ۴۰ دروازه (۴۰gates.ir) - استفاده و به اشتراک گذاری مطالب آموزشی رایگان این سایت برای مقاصد غیرتجاری با ذکر منبع باعث افتخار و خوشحالی است.</p>
+          <div className="flex gap-8 shrink-0">
             <button onClick={() => setCurrentPage('terms')} className="hover:underline text-white">شرایط خدمات</button>
             <button onClick={() => setCurrentPage('privacy')} className="hover:underline text-white">حریم خصوصی</button>
           </div>
