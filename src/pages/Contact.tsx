@@ -138,6 +138,17 @@ export default function Contact() {
                 </div>
               </li>
             </ul>
+
+            {/* Goftino Live Chat Callout */}
+            <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-white p-4 rounded-2xl shadow-sm space-y-2 text-xs">
+              <div className="flex items-center gap-2 font-bold text-amber-100">
+                <MessageSquare size={16} />
+                <span>چت زنده گفتینو (Goftino)</span>
+              </div>
+              <p className="text-[11px] text-amber-50 leading-relaxed">
+                می‌توانید برای گفتگو آنلاین و لحظه‌ای با پشتیبان، روی دکمه شناور گفتینو در گوشه پایین سمت چپ کلیک کنید.
+              </p>
+            </div>
           </div>
 
           {/* Author Badge Card */}

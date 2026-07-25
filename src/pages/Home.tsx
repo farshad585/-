@@ -209,7 +209,7 @@ export default function Home() {
               <h3 className="text-base md:text-lg font-extrabold text-amber-300 font-display">
                 وبسایت چهل دروازه: آموزش + کتاب + مشاوره + عشق
               </h3>
-              <span className="text-[11px] text-indigo-200">راز شاه‌کلید یادگیری عمیق در قلمرو رویاها</span>
+              <span className="text-[11px] text-indigo-200">شاهکلید یادگیری عمیق در قلمرو رویاها</span>
             </div>
           </div>
 

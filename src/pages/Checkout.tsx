@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import SEO from '../components/SEO';
+import { sendOrderCreatedEmail } from '../utils/emailApi';
 import { 
   CreditCard, 
   MapPin, 
@@ -16,7 +17,8 @@ import {
   Download,
   CheckCircle2,
   Lock,
-  Sparkles
+  Sparkles,
+  Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -41,12 +43,14 @@ export default function Checkout() {
   };
 
   // Shipping Form States
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [province, setProvince] = useState('تهران');
-  const [city, setCity] = useState('تهران');
-  const [postalCode, setPostalCode] = useState('');
-  const [address, setAddress] = useState('');
+  const { userProfile } = useApp();
+  const [fullName, setFullName] = useState(userProfile.fullName || '');
+  const [email, setEmail] = useState(userProfile.email || '');
+  const [phone, setPhone] = useState(userProfile.phone || '');
+  const [province, setProvince] = useState(userProfile.province || 'تهران');
+  const [city, setCity] = useState(userProfile.city || 'تهران');
+  const [postalCode, setPostalCode] = useState(userProfile.postalCode || '');
+  const [address, setAddress] = useState(userProfile.address || '');
   const [paymentGateway, setPaymentGateway] = useState<'zarinpal' | 'idpay'>('zarinpal');
 
   // Gateway screen simulation
@@ -104,9 +108,12 @@ export default function Checkout() {
       address
     };
 
+    const targetEmail = email.trim() || userProfile.email || 'customer@40gates.ir';
+
     // Save profile
     updateUserProfile({
       fullName,
+      email: targetEmail,
       phone,
       province,
       city,
@@ -118,6 +125,17 @@ export default function Checkout() {
     setGeneratedOrder(newOrder);
     setPaymentSuccess(true);
     clearCart();
+
+    // Dispatch Order Emails to Customer and Admin
+    sendOrderCreatedEmail({
+      order: newOrder,
+      customerEmail: targetEmail,
+      customerName: fullName || userProfile.fullName
+    }).then(res => {
+      if (res.success) {
+        showNotification('📧 ایمیل تایید سفارش برای شما و مدیریت سایت (fmfarshad585@gmail.com) ارسال شد.');
+      }
+    });
   };
 
   const [copiedCard, setCopiedCard] = useState(false);
@@ -297,15 +315,30 @@ export default function Checkout() {
                 <div className="w-10 h-10 bg-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center">
                   <Download size={18} />
                 </div>
-                <h4 className="text-xs font-bold text-slate-900">نیازی به آدرس پستی نیست!</h4>
+                <h4 className="text-xs font-bold text-slate-900">نیازی به آدرس پستی نیست! (ارسال دیجیتال و آنلاین)</h4>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  سبد خرید شما فاقد کالاهای فیزیکی است. پس از کلیک بر روی اقدام به پرداخت، کتب صوتی و نسخه‌های PDF مستقیماً در پنل کاربری شما برای دانلود نامحدود فعال خواهند شد.
+                  سبد خرید شما فاقد کالاهای فیزیکی است. پس از کلیک بر روی ثبت سفارش، فایل‌ها مستقیماً در پنل کاربری شما برای دانلود فعال و فاکتور به ایمیل شما ارسال خواهد شد.
                 </p>
+                <div className="space-y-1.5 pt-2">
+                  <label className="text-slate-700 block font-semibold text-xs flex items-center gap-1.5">
+                    <Mail size={14} className="text-indigo-600" />
+                    <span>آدرس ایمیل جهت دریافت فاکتور و اطلاع‌رسانی:</span>
+                  </label>
+                  <input
+                    id="checkout-digital-email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="example@gmail.com"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-mono text-left focus:outline-none focus:border-indigo-500 shadow-xs"
+                  />
+                </div>
               </div>
             ) : (
               <form onSubmit={handleCreateCardOrder} className="space-y-4 text-xs">
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-slate-600 block font-semibold">نام و نام خانوادگی گیرنده:</label>
                     <input
@@ -320,7 +353,23 @@ export default function Checkout() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-slate-600 block font-semibold">تلفن همراه فعال (برای پیامک پست):</label>
+                    <label className="text-slate-600 block font-semibold flex items-center gap-1">
+                      <Mail size={13} className="text-indigo-600" />
+                      <span>ایمیل جهت دریافت فاکتور:</span>
+                    </label>
+                    <input
+                      id="checkout-email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="example@gmail.com"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 font-mono text-left focus:outline-none focus:border-indigo-500 shadow-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-slate-600 block font-semibold">تلفن همراه (پیامک پست):</label>
                     <input
                       id="checkout-phone"
                       type="tel"

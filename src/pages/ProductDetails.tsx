@@ -39,6 +39,7 @@ export default function ProductDetails() {
   const [product, setProduct] = useState<Product | null>(null);
   const [activeTab, setActiveTab] = useState<'desc' | 'specs' | 'reviews'>('desc');
   const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [notification, setNotification] = useState<string | null>(null);
   
   // Variations Selector State
@@ -60,12 +61,13 @@ export default function ProductDetails() {
       const found = PRODUCTS.find((p) => p.id === selectedProductId);
       if (found) {
         setProduct(found);
+        setSelectedImageIndex(0);
         addToRecentlyViewed(found.id);
         // Default format based on type
         const defaultFormatLabel = 
           found.type === 'pdf' ? 'کتاب الکترونیکی PDF' : 
           found.type === 'audio' ? 'کتاب صوتی MP3' : 
-          found.type === 'course' ? 'دوره ویدیویی دانلودی' : 'چاپ فیزیکی گالینگور';
+          found.type === 'course' ? 'دوره ویدیویی آنلاین' : 'کیفیت معمولی';
         setSelectedFormat(defaultFormatLabel);
       }
     }
@@ -126,21 +128,41 @@ export default function ProductDetails() {
   }
 
   const isWishlisted = wishlist.includes(product.id);
-  const currentPrice = product.salePrice || product.price;
 
-  // Calculate dynamic modified price based on format selection
-  const getModifiedPrice = () => {
-    // If user changes format, we can adjust pricing slightly for variation simulation
-    if (selectedFormat.includes('PDF')) {
-      return 75000;
+  // Calculate dynamic price based on print quality or format selection
+  const getQualityPricing = () => {
+    if (product.id === '45363') { // 4-volume set
+      if (selectedFormat.includes('تمام رنگی')) {
+        return { originalPrice: 2999000, finalPrice: 2549150, discountPercent: 15 };
+      }
+      return { originalPrice: 1999000, finalPrice: 1699150, discountPercent: 15 };
     }
-    if (selectedFormat.includes('صوتی')) {
-      return 139000;
+
+    if (product.id === '45322') { // Farasouy Reality
+      if (selectedFormat.includes('بالک سبک')) {
+        return { originalPrice: 439000, finalPrice: 395100, discountPercent: 10 };
+      }
+      if (selectedFormat.includes('تمام رنگی')) {
+        return { originalPrice: 499000, finalPrice: 449100, discountPercent: 10 };
+      }
+      return { originalPrice: 399000, finalPrice: 359100, discountPercent: 10 };
     }
-    return currentPrice;
+
+    if (product.id === '45329') { // Creator of Dreams
+      if (selectedFormat.includes('تمام رنگی')) {
+        return { originalPrice: 499000, finalPrice: 449100, discountPercent: 10 };
+      }
+      return { originalPrice: 399000, finalPrice: 359100, discountPercent: 10 };
+    }
+
+    const orig = product.price;
+    const finalP = product.salePrice || product.price;
+    const disc = orig > finalP ? Math.round(((orig - finalP) / orig) * 100) : 0;
+    return { originalPrice: orig, finalPrice: finalP, discountPercent: disc };
   };
 
-  const finalTomanPrice = getModifiedPrice();
+  const { originalPrice, finalPrice, discountPercent } = getQualityPricing();
+  const finalTomanPrice = finalPrice;
 
   // Related products
   const relatedProducts = PRODUCTS.filter(
@@ -205,7 +227,7 @@ export default function ProductDetails() {
             className="aspect-3/4 rounded-3xl overflow-hidden bg-slate-100 border border-indigo-100 shadow-sm relative group cursor-zoom-in"
           >
             <img 
-              src={product.images[0]} 
+              src={product.images[selectedImageIndex] || product.images[0]} 
               alt={product.title} 
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102"
               referrerPolicy="no-referrer"
@@ -214,6 +236,37 @@ export default function ProductDetails() {
               <ZoomIn size={16} />
             </div>
           </div>
+
+          {/* Thumbnail Gallery for Multiple Images */}
+          {product.images && product.images.length > 1 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                {product.images.map((imgUrl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedImageIndex(idx)}
+                    className={`shrink-0 w-16 h-20 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                      selectedImageIndex === idx
+                        ? 'border-indigo-600 scale-105 shadow-md'
+                        : 'border-slate-200 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`${product.title} - تصویر ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-center text-slate-400">
+                گالری {product.images.length} تصویر واقعی محصول (کلیک جهت مشاهده)
+              </p>
+            </div>
+          )}
+
           <p className="text-[10px] text-center text-slate-400">برای بزرگنمایی تصویر روی آن کلیک کنید</p>
         </div>
 
@@ -250,61 +303,84 @@ export default function ProductDetails() {
           {/* Pricing Box */}
           <div className="flex items-center gap-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-indigo-100 rounded-2xl p-4 w-fit shadow-xs">
             <div className="flex flex-col">
-              {product.salePrice ? (
+              {originalPrice > finalPrice ? (
                 <>
                   <span className="text-xs text-slate-400 line-through font-mono">
-                    {product.price === 0 ? 'رایگان' : product.price.toLocaleString('fa-IR') + ' تومان'}
+                    {originalPrice === 0 ? 'رایگان' : originalPrice.toLocaleString('fa-IR') + ' تومان'}
                   </span>
                   <span className="text-lg font-black text-indigo-900 font-sans">
-                    {finalTomanPrice === 0 ? 'رایگان' : finalTomanPrice.toLocaleString('fa-IR') + ' تومان'}
+                    {finalPrice === 0 ? 'رایگان' : finalPrice.toLocaleString('fa-IR') + ' تومان'}
                   </span>
                 </>
               ) : (
                 <span className="text-lg font-black text-slate-900 font-sans">
-                  {finalTomanPrice === 0 ? 'رایگان' : finalTomanPrice.toLocaleString('fa-IR') + ' تومان'}
+                  {finalPrice === 0 ? 'رایگان' : finalPrice.toLocaleString('fa-IR') + ' تومان'}
                 </span>
               )}
             </div>
-            {product.salePrice && (
+            {discountPercent > 0 && (
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-xs">
-                تخفیف ویژه
+                {discountPercent.toLocaleString('fa-IR')}٪ تخفیف
               </span>
             )}
           </div>
 
-          {/* Product variations selector */}
+          {/* Product variations / Print Quality selector */}
           <div className="space-y-3">
-            <span className="block text-xs font-bold text-slate-900">انتخاب نوع و فرمت فایل:</span>
+            <span className="block text-xs font-bold text-slate-900">
+              {product.type === 'printed' ? '«انتخاب کیفیت چاپ:»' : 'فرمت و نوع محصول:'}
+            </span>
             <div className="flex flex-wrap gap-3">
               {product.type === 'printed' ? (
                 <>
+                  {/* Quality 1: معمولی */}
                   <button 
-                    onClick={() => setSelectedFormat('چاپ فیزیکی گالینگور')}
-                    className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[150px] ${
-                      selectedFormat === 'چاپ فیزیکی گالینگور'
-                        ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs'
+                    type="button"
+                    onClick={() => setSelectedFormat('کیفیت معمولی')}
+                    className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                      selectedFormat.includes('معمولی')
+                        ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
                     }`}
                   >
-                    <span className="block font-bold">چاپ فیزیکی لوکس</span>
-                    <span className="text-[10px] text-slate-500 mt-1 font-mono">ارسال با پست پیشتاز</span>
+                    <span className="block font-bold">کیفیت معمولی</span>
+                    <span className="text-[10px] text-slate-500 mt-1 block">چاپ استاندارد کاغذ سوئدی</span>
                   </button>
+
+                  {/* Quality Bulk for 45322 */}
+                  {product.id === '45322' && (
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedFormat('کیفیت بالک سبک')}
+                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                        selectedFormat.includes('بالک سبک')
+                          ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                      }`}
+                    >
+                      <span className="block font-bold">کیفیت بالک سبک</span>
+                      <span className="text-[10px] text-slate-500 mt-1 block">کاغذ بالک سبک درجه یک</span>
+                    </button>
+                  )}
+
+                  {/* Quality 2: تمام رنگی */}
                   <button 
-                    onClick={() => setSelectedFormat('نسخه الکترونیکی PDF')}
-                    className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[150px] ${
-                      selectedFormat === 'نسخه الکترونیکی PDF'
-                        ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs'
+                    type="button"
+                    onClick={() => setSelectedFormat('کیفیت تمام رنگی')}
+                    className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                      selectedFormat.includes('تمام رنگی')
+                        ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
                     }`}
                   >
-                    <span className="block font-bold">نسخه دیجیتال PDF (-۷۰٪)</span>
-                    <span className="text-[10px] text-slate-500 mt-1 font-mono">دانلود آنی ۷۵,۰۰۰ تومان</span>
+                    <span className="block font-bold">کیفیت تمام رنگی</span>
+                    <span className="text-[10px] text-slate-500 mt-1 block">چاپ گلاسه/رنگی ویژه</span>
                   </button>
                 </>
               ) : (
                 <button className="px-4 py-3 rounded-2xl border border-indigo-200 bg-indigo-50/50 text-indigo-950 text-xs font-semibold w-full text-right cursor-default">
                   <span className="block font-bold">{selectedFormat}</span>
-                  <span className="text-[10px] text-slate-500 mt-1 font-mono">غیرقابل تغییر (دسترسی دیجیتال آنی پس از پرداخت)</span>
+                  <span className="text-[10px] text-slate-500 mt-1 font-mono">غیرقابل تغییر (دسترسی دیجیتال آنی پس از ثبت)</span>
                 </button>
               )}
             </div>
@@ -316,14 +392,19 @@ export default function ProductDetails() {
               <button
                 id="details-add-to-cart-btn"
                 onClick={() => {
-                  addToCart(product, 1, selectedFormat);
+                  const customProduct: typeof product = {
+                    ...product,
+                    price: originalPrice,
+                    salePrice: finalPrice
+                  };
+                  addToCart(customProduct, 1, selectedFormat);
                   setNotification(`«${product.title} (${selectedFormat})» با موفقیت به سبد خرید شما اضافه شد.`);
                   setTimeout(() => setNotification(null), 4000);
                 }}
                 className="flex-1 geom-button-primary hover:opacity-90 active:scale-98 transition-all text-white font-bold text-xs py-4 rounded-xl flex items-center justify-center gap-2 shadow-md"
               >
                 <ShoppingCart size={16} />
-                <span>افزودن این فرمت به سبد خرید</span>
+                <span>افزودن این محصول به سبد خرید</span>
               </button>
             ) : (
               <button className="flex-1 bg-slate-100 text-slate-400 font-bold text-xs py-4 rounded-xl cursor-not-allowed">
@@ -344,37 +425,6 @@ export default function ProductDetails() {
               <span>{isWishlisted ? 'در لیست علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}</span>
             </button>
           </div>
-
-          {/* Interactive Shipping Calculator */}
-          {product.type === 'printed' && (
-            <div className="p-4 bg-white border border-indigo-100 rounded-2xl shadow-xs space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
-                <Truck size={14} className="text-indigo-600" />
-                <span>محاسبه‌گر حمل و نقل کشوری</span>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <select
-                  id="shipping-province-calc"
-                  value={selectedProvince}
-                  onChange={handleProvinceChange}
-                  className="bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 px-3 py-2 focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="tehran">تهران (تحویل ۱ الی ۳ روز)</option>
-                  <option value="isfahan">اصفهان (تحویل ۳ الی ۴ روز)</option>
-                  <option value="shiraz">شیراز (تحویل ۳ الی ۴ روز)</option>
-                  <option value="mashhad">مشهد (تحویل ۳ الی ۵ روز)</option>
-                  <option value="tabriz">تبریز (تحویل ۳ الی ۵ روز)</option>
-                  <option value="other">سایر شهرهای ایران (تحویل ۴ روز)</option>
-                </select>
-                <div className="flex items-center justify-between sm:justify-end gap-3 flex-grow text-xs">
-                  <span className="text-slate-500">هزینه ارسال پستی:</span>
-                  <strong className="text-indigo-700 font-bold font-sans">
-                    {shippingCost === 0 ? 'رایگان (خرید بالا)' : `${shippingCost.toLocaleString('fa-IR')} تومان`}
-                  </strong>
-                </div>
-              </div>
-            </div>
-          )}
 
         </div>
 
@@ -601,7 +651,7 @@ export default function ProductDetails() {
               className="max-w-xl max-h-[90vh] rounded-3xl overflow-hidden border border-indigo-200 bg-white relative z-10 p-2 shadow-2xl"
             >
               <img 
-                src={product.images[0]} 
+                src={product.images[selectedImageIndex] || product.images[0]} 
                 alt={product.title} 
                 className="w-full h-full object-contain rounded-2xl"
                 referrerPolicy="no-referrer"

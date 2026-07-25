@@ -6,6 +6,7 @@
 import { AppProvider, useApp } from './context/AppContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import GoftinoWidget from './components/GoftinoWidget';
 
 // Pages
 import Home from './pages/Home';
@@ -75,6 +76,9 @@ function MainAppContent() {
 
       {/* Bottom Footer */}
       <Footer />
+
+      {/* Goftino Live Chat Widget */}
+      <GoftinoWidget />
     </div>
   );
 }

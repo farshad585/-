@@ -32,6 +32,7 @@ interface AppContextType {
   
   orders: Order[];
   placeOrder: (gateway: 'card-to-card' | 'zarinpal' | 'idpay', shippingAddress: Order['shippingAddress']) => Order;
+  updateOrderStatus: (orderId: string, status: Order['status'], trackingCode?: string) => void;
   trackOrderId: string | null;
   setTrackOrderId: (id: string | null) => void;
   
@@ -290,6 +291,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return newOrder;
   };
 
+  // Update existing order status
+  const updateOrderStatus = (orderId: string, status: Order['status'], trackingCode?: string) => {
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (o.id === orderId) {
+          return {
+            ...o,
+            status,
+            trackingCode: trackingCode || o.trackingCode
+          };
+        }
+        return o;
+      })
+    );
+  };
+
   // Coupon handling with 1-time check and 1,000,000 Toman minimum threshold
   const applyCoupon = (code: string, currentSubtotal: number = 0): { success: boolean; message: string } => {
     const formatted = code.toUpperCase().trim();
@@ -374,6 +391,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateUserProfile,
         orders,
         placeOrder,
+        updateOrderStatus,
         trackOrderId,
         setTrackOrderId: (id) => {
           setTrackOrderId(id);

@@ -7,6 +7,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { PRODUCTS } from '../data/products';
 import SEO from '../components/SEO';
+import { sendWelcomeEmail, sendOrderStatusEmail } from '../utils/emailApi';
 import { 
   User, 
   ShoppingBag, 
@@ -24,7 +25,10 @@ import {
   VolumeX,
   FastForward,
   Rewind,
-  Sparkles
+  Sparkles,
+  Mail,
+  CheckCircle,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -35,18 +39,70 @@ export default function Dashboard() {
     recentlyViewed, 
     userProfile, 
     updateUserProfile, 
+    updateOrderStatus,
     setSelectedProductId,
     trackOrderId,
     setTrackOrderId,
     setCurrentPage
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'orders' | 'downloads' | 'wishlist' | 'profile'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'downloads' | 'wishlist' | 'profile' | 'emails'>('orders');
   const [notification, setNotification] = useState<string | null>(null);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 4000);
+  };
+  
+  // Email logs state
+  const [emailLogs, setEmailLogs] = useState<any[]>([]);
+
+  const fetchEmailLogs = () => {
+    fetch('/api/email/logs')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setEmailLogs(data.logs || []);
+        }
+      })
+      .catch(err => console.warn('Email logs error:', err));
+  };
+
+  useEffect(() => {
+    fetchEmailLogs();
+  }, [activeTab]);
+
+  // Status update handler with email trigger
+  const handleTriggerStatusChange = (order: any, newStatus: string) => {
+    const trackingCode = order.trackingCode || ('PST-' + Math.floor(10000000 + Math.random() * 90000000));
+    updateOrderStatus(order.id, newStatus as any, trackingCode);
+
+    const updatedOrder = { ...order, status: newStatus, trackingCode };
+    if (activeTrackOrder && activeTrackOrder.id === order.id) {
+      setActiveTrackOrder(updatedOrder);
+    }
+
+    const statusMap: Record<string, string> = {
+      pending: 'در انتظار پرداخت و تایید اولیه',
+      processing: 'تایید سفارش و در حال آماده‌سازی',
+      shipped: 'ارسال شده با کد پستی پیشتاز',
+      completed: 'تحویل داده شده'
+    };
+
+    const targetEmail = userProfile.email || 'customer@40gates.ir';
+
+    sendOrderStatusEmail({
+      orderId: order.id,
+      newStatus,
+      trackingCode,
+      customerEmail: targetEmail,
+      customerName: userProfile.fullName
+    }).then(res => {
+      if (res.success) {
+        showNotification(`📧 ایمیل «${statusMap[newStatus] || newStatus}» برای خریدار ارسال گردید.`);
+        fetchEmailLogs();
+      }
+    });
   };
   
   // Profile Form States
@@ -112,17 +168,30 @@ export default function Dashboard() {
     return PRODUCTS.filter(p => wishlist.includes(p.id));
   }, [wishlist]);
 
-  // Handle profile update
+  // Handle profile update & trigger welcome email
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const updatedEmail = email.trim() || 'user@40gates.ir';
+
     updateUserProfile({
       fullName,
-      email,
+      email: updatedEmail,
       phone,
       address,
       postalCode
     });
+
     showNotification('اطلاعات کاربری با موفقیت ویرایش و در سیستم ذخیره گردید.');
+
+    // Dispatch Welcome Email from 40gates.main@gmail.com
+    sendWelcomeEmail({
+      email: updatedEmail,
+      fullName
+    }).then((res) => {
+      if (res.success) {
+        showNotification('📧 ایمیل خوش‌آمدگویی و عضویت از آدرس 40gates.main@gmail.com برای شما ارسال گردید.');
+      }
+    });
   };
 
   // Find order for manual tracking search
@@ -269,6 +338,18 @@ export default function Dashboard() {
             >
               <Edit3 size={14} />
               <span>ویرایش مشخصات پستی</span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('emails'); fetchEmailLogs(); }}
+              className={`text-right py-3 px-4 rounded-2xl flex items-center gap-3 transition-colors ${
+                activeTab === 'emails'
+                  ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <Mail size={14} />
+              <span>تاریخچه ایمیل‌ها و اطلاع‌رسانی</span>
             </button>
           </div>
 
@@ -510,6 +591,46 @@ export default function Dashboard() {
                         ))}
                       </div>
 
+                      {/* Quick Status Email Trigger Actions */}
+                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 space-y-2 text-xs">
+                        <div className="flex justify-between items-center text-[10px] text-slate-600">
+                          <span className="font-bold text-slate-800 flex items-center gap-1">
+                            <Mail size={12} className="text-indigo-600" />
+                            <span>تغییر وضعیت سفارش و ارسال ایمیل به خریدار:</span>
+                          </span>
+                          {order.trackingCode && (
+                            <span className="font-mono text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                              کد پست: {order.trackingCode}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleTriggerStatusChange(order, 'processing')}
+                            className="text-[10px] bg-white border border-slate-200 hover:border-indigo-400 text-slate-800 hover:text-indigo-700 font-bold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                          >
+                            ✓ تایید سفارش و آماده‌سازی
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleTriggerStatusChange(order, 'shipped')}
+                            className="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                          >
+                            <Truck size={10} />
+                            <span>ارسال پست + ارسال کد رهگیری</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleTriggerStatusChange(order, 'completed')}
+                            className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                          >
+                            <CheckCircle size={10} />
+                            <span>تحویل شد</span>
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="flex justify-between items-center border-t border-slate-100 pt-3.5 mt-2">
                         <div className="text-right">
                           <span className="text-[10px] text-slate-500 block">جمع پرداختی فاکتور:</span>
@@ -691,9 +812,89 @@ export default function Dashboard() {
                   type="submit"
                   className="geom-button-primary text-white font-bold text-xs px-8 py-3 rounded-xl transition-all cursor-pointer shadow-sm"
                 >
-                  ذخیره ویرایش‌ها
+                  ذخیره ویرایش‌ها و ارسال ایمیل خوش‌آمدگویی
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* TAB 5: Email Notification Center & Logs */}
+          {activeTab === 'emails' && (
+            <div className="p-6 rounded-3xl bg-white border border-indigo-100 space-y-6 text-right shadow-xs">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                <div className="space-y-1">
+                  <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                    <Mail className="text-indigo-600" size={18} />
+                    <span>مرکز اطلاع‌رسانی و ایمیل‌های ارسال شده</span>
+                  </h2>
+                  <p className="text-[11px] text-slate-500">
+                    فرستنده اصلی تمامی ایمیل‌های سیستم: <strong className="text-indigo-900 font-mono">40gates.main@gmail.com</strong> | دریافت‌کننده مدیریت: <strong className="text-indigo-900 font-mono">fmfarshad585@gmail.com</strong>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchEmailLogs}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl cursor-pointer"
+                >
+                  <RefreshCw size={12} />
+                  <span>بروزرسانی لیست</span>
+                </button>
+              </div>
+
+              {/* Status info box */}
+              <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-4 text-xs space-y-2">
+                <div className="flex items-center gap-2 text-amber-400 font-bold">
+                  <Sparkles size={16} />
+                  <span>تنظیمات سرور ارسال ایمیل (SMTP / Gmail Transporter)</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  سیستم ارسال ایمیل به صورت خودکار بر روی پورت اختصاصی سرور فعال است. ایمیل‌های ثبت‌نام، تایید سفارش، تغییر وضعیت به «در حال آماده‌سازی» و ارسال «کد رهگیری پستی» همزمان به ایمیل مشتری و مدیر سایت (fmfarshad585@gmail.com) صادر می‌گردد.
+                </p>
+              </div>
+
+              {/* Email Logs Table */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-900">آخرین ایمیل‌های صادر شده از سیستم:</h3>
+
+                {emailLogs.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-2xl space-y-2">
+                    <p>هنوز ایمیلی ثبت نشده است. می‌توانید با ویرایش مشخصات یا ثبت سفارش جدید، ارسال ایمیل را تست کنید.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {emailLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              log.type === 'welcome' ? 'bg-purple-100 text-purple-700' :
+                              log.type === 'order-admin' ? 'bg-amber-100 text-amber-800' :
+                              'bg-indigo-100 text-indigo-700'
+                            }`}>
+                              {log.type === 'welcome' ? 'خوش‌آمدگویی' : log.type === 'order-admin' ? 'اعلام به مدیریت' : 'اطلاع‌رسانی خریدار'}
+                            </span>
+                            <span className="font-bold text-slate-900">{log.subject}</span>
+                          </div>
+                          <span className="block text-[10px] text-slate-500 font-mono">گیرنده: {log.to}</span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[10px]">
+                          <span className="text-slate-400 font-mono">{log.timestamp}</span>
+                          <span className={`px-2 py-0.5 rounded font-bold ${
+                            log.status === 'sent' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {log.status === 'sent' ? 'ارسال شده (SMTP)' : 'ثبت شده در سرور'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
 

@@ -245,7 +245,7 @@ export const ALL_REVIEWS: Review[] = [
     authorName: 'احسان محمدی',
     rating: 5,
     date: '۱۴۰۵/۰۴/۱۸',
-    comment: 'تمرین آزمون واقعیت فصل ۳ فوق العاده کارساز بود.',
+    comment: 'تمرین آگاهی عمیق و بیداری در رویا فصل ۳ فوق العاده کارساز بود.',
     verifiedPurchase: true
   },
   {
