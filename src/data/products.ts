@@ -1,7 +1,7 @@
 import { Product, Review } from '../types';
 import { ALL_REVIEWS } from './reviewsData';
 
-// Real Images for printed book "چهل دروازه به ماورا"
+// Printed 40 Gates 1..10
 import book40GatesImg1 from '../assets/images/کتاب چاپی چهل دروازه به ماورا1.jpg';
 import book40GatesImg2 from '../assets/images/کتاب چاپی چهل دروازه به ماورا2.jpg';
 import book40GatesImg3 from '../assets/images/کتاب چاپی چهل دروازه به ماورا3.jpg';
@@ -12,6 +12,50 @@ import book40GatesImg7 from '../assets/images/کتاب چاپی چهل دروا�
 import book40GatesImg8 from '../assets/images/کتاب چاپی چهل دروازه به ماورا8.jpg';
 import book40GatesImg9 from '../assets/images/کتاب چاپی چهل دروازه به ماورا9.jpg';
 import book40GatesImg10 from '../assets/images/کتاب چاپی چهل دروازه به ماورا10.jpg';
+
+// PDF 01..04
+import pdf01 from '../assets/images/01.jpg';
+import pdf02 from '../assets/images/02.jpg';
+import pdf03 from '../assets/images/03.jpg';
+import pdf04 from '../assets/images/04.jpg';
+
+// Daneshkhand
+import daneshkhand1 from '../assets/images/دانشخند1.jpg';
+import daneshkhand2 from '../assets/images/دانشخند2.jpg';
+
+// Farasou
+import farasou1 from '../assets/images/فراسو1.jpg';
+import farasou2 from '../assets/images/فراسو2.jpeg';
+import farasou3 from '../assets/images/فراسو3.jpg';
+import farasou4 from '../assets/images/فراسو4.jpg';
+
+// Aferidegar
+import aferidegar1 from '../assets/images/آفریدگار1.jpg';
+import aferidegar2 from '../assets/images/آفریدگار2.jpg';
+
+// Asrar
+import asrar1 from '../assets/images/اسرار1.jpg';
+import asrar2 from '../assets/images/اسرار2.jpg';
+
+// Roman
+import roman1 from '../assets/images/رمان1.jpg';
+import roman2 from '../assets/images/رمان2.jpg';
+import roman3 from '../assets/images/رمان3.png';
+import roman4 from '../assets/images/رمان4.jpg';
+import roman5 from '../assets/images/رمان5.png';
+
+// Behesht
+import behesht1 from '../assets/images/بهشت1.jpg';
+import behesht2 from '../assets/images/بهشت2.jpg';
+
+// Generated Mystical Images
+import audioCourse3Img from '../assets/images/audio_forty_gates_3_1785042999228.jpg';
+import audioCourse2Img from '../assets/images/audio_forty_gates_2_1785043012034.jpg';
+import audioCourse1Img from '../assets/images/audio_forty_gates_1_1785043024507.jpg';
+import audioBeyondRealityImg from '../assets/images/audio_beyond_reality_1785043034665.jpg';
+import astral8MinCourseImg from '../assets/images/astral_8min_course_1785043045652.jpg';
+import audioPersonalParadiseImg from '../assets/images/audio_personal_paradise_1785043058019.jpg';
+import masterGoldenCourseImg from '../assets/images/master_golden_course_1785043068498.jpg';
 
 export const book40GatesRealImages = [
   book40GatesImg1,
@@ -38,9 +82,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 4851000,
     type: 'course',
     category: 'courses',
-    images: [
-      'https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [audioCourse3Img],
     stock: 999,
     rating: 5.0,
     reviewsCount: 29,
@@ -62,9 +104,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 4500000,
     type: 'course',
     category: 'courses',
-    images: [
-      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [audioCourse2Img],
     stock: 999,
     rating: 4.9,
     reviewsCount: 41,
@@ -86,10 +126,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 2880000,
     type: 'course',
     category: 'courses',
-    images: [
-      '/src/assets/images/forty_gates_course_1784794047202.jpg',
-      'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [audioCourse1Img],
     stock: 999,
     rating: 5.0,
     reviewsCount: 62,
@@ -135,9 +172,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 319200,
     type: 'printed',
     category: 'books',
-    images: [
-      'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [daneshkhand1, daneshkhand2],
     stock: 998,
     rating: 4.8,
     reviewsCount: 36,
@@ -159,7 +194,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 449000,
     type: 'printed',
     category: 'books',
-    images: book40GatesRealImages,
+    images: [book40GatesImg6, book40GatesImg5],
     stock: 69,
     rating: 4.9,
     reviewsCount: 88,
@@ -181,9 +216,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 1570000,
     type: 'audio',
     category: 'audiobooks',
-    images: [
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [audioBeyondRealityImg],
     stock: 9999,
     rating: 4.8,
     reviewsCount: 73,
@@ -205,9 +238,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 559200,
     type: 'audio',
     category: 'audiobooks',
-    images: [
-      'https://images.unsplash.com/photo-1518331647614-7a1f04db3437?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [astral8MinCourseImg],
     stock: 9999,
     rating: 4.8,
     reviewsCount: 51,
@@ -228,10 +259,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 359100,
     type: 'printed',
     category: 'books',
-    images: [
-      '/src/assets/images/farasou_reality_book_1784794013117.jpg',
-      'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [farasou1, farasou2, farasou3, farasou4],
     stock: 34,
     rating: 4.9,
     reviewsCount: 42,
@@ -254,9 +282,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 241200,
     type: 'audio',
     category: 'audiobooks',
-    images: [
-      'https://images.unsplash.com/photo-1484755560693-a4074577af3a?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [audioPersonalParadiseImg],
     stock: 9999,
     rating: 4.9,
     reviewsCount: 45,
@@ -278,9 +304,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 359100,
     type: 'printed',
     category: 'books',
-    images: [
-      'https://images.unsplash.com/photo-1470813740244-df37b8c1edcb?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [aferidegar1, aferidegar2],
     stock: 95,
     rating: 4.9,
     reviewsCount: 56,
@@ -303,9 +327,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 89100,
     type: 'printed',
     category: 'books',
-    images: [
-      'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [asrar1, asrar2],
     stock: 87,
     rating: 4.9,
     reviewsCount: 31,
@@ -327,10 +349,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 990000,
     type: 'printed',
     category: 'books',
-    images: [
-      '/src/assets/images/kiss_god_trilogy_1784794031312.jpg',
-      'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [roman1, roman2, roman3, roman4, roman5],
     stock: 93,
     rating: 5.0,
     reviewsCount: 38,
@@ -353,9 +372,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 109800,
     type: 'printed',
     category: 'books',
-    images: [
-      'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [behesht1, behesht2],
     stock: 94,
     rating: 4.8,
     reviewsCount: 27,
@@ -377,10 +394,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 38000000,
     type: 'course',
     category: 'courses',
-    images: [
-      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80&w=800',
-      'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=800'
-    ],
+    images: [masterGoldenCourseImg, book40GatesImg1, book40GatesImg6],
     stock: 25,
     rating: 5.0,
     reviewsCount: 112,
@@ -403,9 +417,7 @@ export const PRODUCTS: Product[] = [
     price: 0,
     type: 'pdf',
     category: 'books',
-    images: [
-      'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [pdf01, book40GatesImg7],
     stock: 9999,
     rating: 4.9,
     reviewsCount: 189,
@@ -426,9 +438,7 @@ export const PRODUCTS: Product[] = [
     price: 0,
     type: 'pdf',
     category: 'books',
-    images: [
-      'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [pdf02, book40GatesImg8],
     stock: 9999,
     rating: 4.9,
     reviewsCount: 142,
@@ -448,9 +458,7 @@ export const PRODUCTS: Product[] = [
     price: 0,
     type: 'pdf',
     category: 'books',
-    images: [
-      'https://images.unsplash.com/photo-1513829096960-ef229e5230ab?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [pdf03, book40GatesImg9],
     stock: 9999,
     rating: 4.9,
     reviewsCount: 118,
@@ -470,9 +478,7 @@ export const PRODUCTS: Product[] = [
     price: 0,
     type: 'pdf',
     category: 'books',
-    images: [
-      'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&q=80&w=600'
-    ],
+    images: [pdf04, book40GatesImg10],
     stock: 9999,
     rating: 5.0,
     reviewsCount: 135,

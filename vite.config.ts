@@ -6,6 +6,11 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    define: {
+      'process.env.GOFTINO_WIDGET_ID': JSON.stringify(
+        process.env.GOFTINO_WIDGET_ID || process.env.VITE_GOFTINO_WIDGET_ID || ''
+      ),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

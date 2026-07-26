@@ -70,7 +70,7 @@ function MainAppContent() {
       <Navbar />
 
       {/* Main Container */}
-      <main className="flex-grow pt-24 pb-12 relative z-10">
+      <main className="flex-grow pt-3 pb-12 relative z-10">
         {renderActivePage()}
       </main>
 

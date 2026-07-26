@@ -65,7 +65,7 @@ export default function Home() {
       />
 
       {/* Hero Section */}
-      <section className="relative min-h-[80vh] flex items-center justify-center py-20 px-4 overflow-hidden max-w-7xl mx-auto rounded-3xl border border-indigo-200/80 mt-6 bg-slate-900 shadow-xl text-white">
+      <section className="relative min-h-[80vh] flex items-center justify-center py-20 px-4 overflow-hidden max-w-7xl mx-auto rounded-3xl border border-indigo-200/80 mt-2 bg-slate-900 shadow-xl text-white">
         {/* Geometric Corner Lines inside Hero */}
         <div className="absolute inset-0 opacity-30 pointer-events-none z-10">
           <div className="absolute top-0 right-0 w-48 h-48 border-r-2 border-t-2 border-indigo-400"></div>

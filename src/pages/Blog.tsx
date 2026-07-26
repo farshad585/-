@@ -22,6 +22,69 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
+const renderBoldText = (str: string, keyPrefix: string) => {
+  const boldRegex = /\*\*([^*]+)\*\*/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = boldRegex.exec(str)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(str.substring(lastIndex, match.index));
+    }
+    parts.push(
+      <strong key={`${keyPrefix}-bold-${match.index}`} className="font-extrabold text-slate-900">
+        {match[1]}
+      </strong>
+    );
+    lastIndex = boldRegex.lastIndex;
+  }
+
+  if (lastIndex < str.length) {
+    parts.push(str.substring(lastIndex));
+  }
+
+  return parts;
+};
+
+const renderFormattedText = (text: string, onSelectArticle: (id: string) => void) => {
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(renderBoldText(text.substring(lastIndex, match.index), `text-${lastIndex}`));
+    }
+    const label = match[1];
+    const target = match[2];
+
+    parts.push(
+      <button
+        key={`link-${match.index}`}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onSelectArticle(target);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:text-purple-700 underline underline-offset-4 cursor-pointer transition-colors px-1 py-0.5 rounded bg-indigo-50/80 hover:bg-indigo-100/80 border border-indigo-200/50 my-0.5 text-right"
+      >
+        <span>{label}</span>
+      </button>
+    );
+
+    lastIndex = linkRegex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(renderBoldText(text.substring(lastIndex), `text-${lastIndex}`));
+  }
+
+  return parts;
+};
+
 export default function Blog() {
   const { selectedArticleId, setSelectedArticleId } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
@@ -168,11 +231,17 @@ export default function Blog() {
               if (paragraph.startsWith('1.') || paragraph.startsWith('**')) {
                 return (
                   <div key={index} className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 my-4">
-                    <p className="text-xs leading-normal text-indigo-950 font-medium">{paragraph}</p>
+                    <p className="text-xs leading-normal text-indigo-950 font-medium">
+                      {renderFormattedText(paragraph, setSelectedArticleId)}
+                    </p>
                   </div>
                 );
               }
-              return <p key={index} className="leading-relaxed">{paragraph}</p>;
+              return (
+                <p key={index} className="leading-relaxed">
+                  {renderFormattedText(paragraph, setSelectedArticleId)}
+                </p>
+              );
             })}
           </div>
 

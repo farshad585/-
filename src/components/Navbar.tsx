@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { PRODUCTS } from '../data/products';
+import BreathingWidget from './BreathingWidget';
 import { 
   ShoppingBag, 
   Heart, 
@@ -206,6 +207,9 @@ export default function Navbar() {
           </div>
         </div>
       </header>
+
+      {/* Deep Breathing Live Wave Guidance Widget */}
+      <BreathingWidget />
 
       {/* Slide-out Mobile Menu (Overlay) */}
       <AnimatePresence>
