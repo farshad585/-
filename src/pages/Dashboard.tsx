@@ -49,31 +49,13 @@ export default function Dashboard() {
     logout
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'orders' | 'downloads' | 'wishlist' | 'profile' | 'emails'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'downloads' | 'wishlist' | 'profile'>('orders');
   const [notification, setNotification] = useState<string | null>(null);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 4000);
   };
-  
-  // Email logs state
-  const [emailLogs, setEmailLogs] = useState<any[]>([]);
-
-  const fetchEmailLogs = () => {
-    fetch('/api/email/logs')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setEmailLogs(data.logs || []);
-        }
-      })
-      .catch(err => console.warn('Email logs error:', err));
-  };
-
-  useEffect(() => {
-    fetchEmailLogs();
-  }, [activeTab]);
 
   // Status update handler with email trigger
   const handleTriggerStatusChange = (order: any, newStatus: string) => {
@@ -341,18 +323,6 @@ export default function Dashboard() {
             >
               <Edit3 size={14} />
               <span>ویرایش مشخصات پستی</span>
-            </button>
-
-            <button
-              onClick={() => { setActiveTab('emails'); fetchEmailLogs(); }}
-              className={`text-right py-3 px-4 rounded-2xl flex items-center gap-3 transition-colors ${
-                activeTab === 'emails'
-                  ? 'bg-indigo-600 text-white font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <Mail size={14} />
-              <span>تاریخچه ایمیل‌ها و اطلاع‌رسانی</span>
             </button>
 
             <button
@@ -823,89 +793,9 @@ export default function Dashboard() {
                   type="submit"
                   className="geom-button-primary text-white font-bold text-xs px-8 py-3 rounded-xl transition-all cursor-pointer shadow-sm"
                 >
-                  ذخیره ویرایش‌ها و ارسال ایمیل خوش‌آمدگویی
+                  ذخیره ویرایش‌ها
                 </button>
               </form>
-            </div>
-          )}
-
-          {/* TAB 5: Email Notification Center & Logs */}
-          {activeTab === 'emails' && (
-            <div className="p-6 rounded-3xl bg-white border border-indigo-100 space-y-6 text-right shadow-xs">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                <div className="space-y-1">
-                  <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                    <Mail className="text-indigo-600" size={18} />
-                    <span>مرکز اطلاع‌رسانی و ایمیل‌های ارسال شده</span>
-                  </h2>
-                  <p className="text-[11px] text-slate-500">
-                    تنظیمات فرستنده و مدیریت ارسال ایمیل‌ها از متغیرهای محیطی سرور (GMAIL_USER و ADMIN_EMAIL) خوانده می‌شود.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={fetchEmailLogs}
-                  className="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl cursor-pointer"
-                >
-                  <RefreshCw size={12} />
-                  <span>بروزرسانی لیست</span>
-                </button>
-              </div>
-
-              {/* Status info box */}
-              <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-4 text-xs space-y-2">
-                <div className="flex items-center gap-2 text-amber-400 font-bold">
-                  <Sparkles size={16} />
-                  <span>تنظیمات سرور ارسال ایمیل (SMTP / Gmail Transporter)</span>
-                </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  سیستم ارسال ایمیل به‌صورت مستقیم و امن از سمت سرور صادر می‌گردد. ایمیل‌های ثبت‌نام، تایید سفارش، تغییر وضعیت سفارش و کد رهگیری پستی از طریق متغیرهای محیطی تنظیم شده ارسال می‌شوند.
-                </p>
-              </div>
-
-              {/* Email Logs Table */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold text-slate-900">آخرین ایمیل‌های صادر شده از سیستم:</h3>
-
-                {emailLogs.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-2xl space-y-2">
-                    <p>هنوز ایمیلی ثبت نشده است. می‌توانید با ویرایش مشخصات یا ثبت سفارش جدید، ارسال ایمیل را تست کنید.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {emailLogs.map((log) => (
-                      <div
-                        key={log.id}
-                        className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              log.type === 'welcome' ? 'bg-purple-100 text-purple-700' :
-                              log.type === 'order-admin' ? 'bg-amber-100 text-amber-800' :
-                              'bg-indigo-100 text-indigo-700'
-                            }`}>
-                              {log.type === 'welcome' ? 'خوش‌آمدگویی' : log.type === 'order-admin' ? 'اعلام به مدیریت' : 'اطلاع‌رسانی خریدار'}
-                            </span>
-                            <span className="font-bold text-slate-900">{log.subject}</span>
-                          </div>
-                          <span className="block text-[10px] text-slate-500 font-mono">گیرنده: {log.to}</span>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-[10px]">
-                          <span className="text-slate-400 font-mono">{log.timestamp}</span>
-                          <span className={`px-2 py-0.5 rounded font-bold ${
-                            log.status === 'sent' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {log.status === 'sent' ? 'ارسال شده (SMTP)' : 'ثبت شده در سرور'}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
             </div>
           )}
 

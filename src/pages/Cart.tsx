@@ -36,13 +36,21 @@ export default function Cart() {
   const [couponMessage, setCouponMessage] = useState<{ isError: boolean; text: string } | null>(null);
 
   // Subtotal calculations
-  const totalBeforeDiscount = cart.reduce((acc, item) => {
-    const price = item.product.salePrice || item.product.price;
+  const totalOriginalPrice = cart.reduce((acc, item) => {
+    const price = item.product.price || item.product.salePrice || 0;
     return acc + price * item.quantity;
   }, 0);
 
-  const discountAmount = Math.round(totalBeforeDiscount * (discountPercentage / 100));
-  const amountAfterDiscount = totalBeforeDiscount - discountAmount;
+  const totalSalePrice = cart.reduce((acc, item) => {
+    const price = item.product.salePrice || item.product.price || 0;
+    return acc + price * item.quantity;
+  }, 0);
+
+  const directSavings = totalOriginalPrice - totalSalePrice;
+  const couponDiscountAmount = Math.round(totalSalePrice * (discountPercentage / 100));
+  const userSavings = directSavings + couponDiscountAmount;
+
+  const amountAfterDiscount = totalSalePrice - couponDiscountAmount;
 
   // 10% VAT (مالیات بر ارزش افزوده)
   const vatAmount = Math.round(amountAfterDiscount * 0.10);
@@ -52,7 +60,7 @@ export default function Cart() {
     item => item.product.type === 'pdf' || item.product.type === 'audio' || item.product.type === 'course'
   );
 
-  const shippingFee = (totalBeforeDiscount >= 2000000 || isOnlyDigital || cart.length === 0) ? 0 : 290000;
+  const shippingFee = (amountAfterDiscount >= 2000000 || isOnlyDigital || cart.length === 0) ? 0 : 290000;
 
   const grandTotal = amountAfterDiscount + vatAmount + shippingFee;
 
@@ -199,25 +207,29 @@ export default function Cart() {
 
               <div className="space-y-3.5 text-xs">
                 
+                {/* 1. جمع کل خرید شما */}
                 <div className="flex justify-between text-slate-600">
-                  <span>جمع اقلام سبد خرید:</span>
-                  <span className="font-mono text-slate-900 font-bold">{formatPrice(totalBeforeDiscount)}</span>
+                  <span>جمع کل خرید شما:</span>
+                  <span className="font-mono text-slate-900 font-bold">{formatPrice(totalOriginalPrice)}</span>
                 </div>
 
-                {discountPercentage > 0 && (
-                  <div className="flex justify-between text-indigo-700 font-bold">
-                    <span>کد تخفیف اعمال شده ({discountPercentage.toLocaleString('fa-IR')}٪):</span>
-                    <span className="font-mono">-{formatPrice(discountAmount)}</span>
-                  </div>
-                )}
+                {/* 2. سود شما از این خرید */}
+                <div className="flex justify-between text-emerald-700 font-bold">
+                  <span>سود شما از این خرید:</span>
+                  <span className="font-mono">
+                    {userSavings > 0 ? `-${formatPrice(userSavings)}` : '۰ تومان'}
+                  </span>
+                </div>
 
+                {/* 3. مالیات بر ارزش افزوده */}
                 <div className="flex justify-between text-slate-600">
-                  <span>مالیات بر ارزش افزوده (۱۰٪):</span>
+                  <span>مالیات بر ارزش افزوده:</span>
                   <span className="font-mono text-slate-900 font-bold">{formatPrice(vatAmount)}</span>
                 </div>
 
+                {/* 4. هزینه بسته‌بندی و ارسال پستی */}
                 <div className="flex justify-between text-slate-600">
-                  <span>هزینه بسته‌بندی و ارسال پست:</span>
+                  <span>هزینه بسته‌بندی و ارسال پستی:</span>
                   <span className="font-mono text-slate-900 font-bold">
                     {shippingFee === 0 ? 'رایگان' : formatPrice(shippingFee)}
                   </span>
@@ -229,9 +241,10 @@ export default function Cart() {
                   </p>
                 )}
 
+                {/* 5. مبلغ قابل پرداخت */}
                 <div className="border-t border-slate-100 pt-4 flex justify-between items-center text-sm font-bold text-slate-900">
-                  <span>جمع کل فاکتور نهایی:</span>
-                  <span className="text-indigo-700 text-base">{formatPrice(grandTotal)}</span>
+                  <span>مبلغ قابل پرداخت:</span>
+                  <span className="text-indigo-700 text-base font-extrabold">{formatPrice(grandTotal)}</span>
                 </div>
               </div>
 

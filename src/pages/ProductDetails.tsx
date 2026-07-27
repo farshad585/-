@@ -44,6 +44,7 @@ export default function ProductDetails() {
   
   // Variations Selector State
   const [selectedFormat, setSelectedFormat] = useState<string>('');
+  const [selectedVipConsultation, setSelectedVipConsultation] = useState<'none' | '30days' | '60days' | '90days'>('none');
   
   // Shipping calculator
   const [selectedProvince, setSelectedProvince] = useState('tehran');
@@ -69,6 +70,7 @@ export default function ProductDetails() {
           found.type === 'audio' ? 'کتاب صوتی MP3' : 
           found.type === 'course' ? 'دوره ویدیویی آنلاین' : 'کیفیت معمولی';
         setSelectedFormat(defaultFormatLabel);
+        setSelectedVipConsultation('none');
       }
     }
   }, [selectedProductId]);
@@ -131,11 +133,22 @@ export default function ProductDetails() {
 
   // Calculate dynamic price based on print quality or format selection
   const getQualityPricing = () => {
+    let vipFee = 0;
+    if (selectedVipConsultation === '30days') vipFee = 8900000;
+    if (selectedVipConsultation === '60days') vipFee = 14900000;
+    if (selectedVipConsultation === '90days') vipFee = 19900000;
+
     if (product.id === '45363') { // 4-volume set
+      let baseOrig = 1999000;
+      let baseFinal = 1699150;
       if (selectedFormat.includes('تمام رنگی')) {
-        return { originalPrice: 2999000, finalPrice: 2549150, discountPercent: 15 };
+        baseOrig = 2999000;
+        baseFinal = 2549150;
       }
-      return { originalPrice: 1999000, finalPrice: 1699150, discountPercent: 15 };
+      const totalOrig = baseOrig + vipFee;
+      const totalFinal = baseFinal + vipFee;
+      const disc = Math.round(((totalOrig - totalFinal) / totalOrig) * 100);
+      return { originalPrice: totalOrig, finalPrice: totalFinal, discountPercent: disc };
     }
 
     if (product.id === '45322') { // Farasouy Reality
@@ -328,7 +341,7 @@ export default function ProductDetails() {
           {/* Product variations / Print Quality selector */}
           <div className="space-y-3">
             <span className="block text-xs font-bold text-slate-900">
-              {product.type === 'printed' ? '«انتخاب کیفیت چاپ:»' : 'فرمت و نوع محصول:'}
+              {product.type === 'printed' ? 'انتخاب کیفیت چاپ:' : 'فرمت و نوع محصول:'}
             </span>
             <div className="flex flex-wrap gap-3">
               {product.type === 'printed' ? (
@@ -388,6 +401,74 @@ export default function ProductDetails() {
             </div>
           </div>
 
+          {/* VIP Consultation Options for product 45363 */}
+          {product.id === '45363' && (
+            <div className="space-y-3 p-4 rounded-2xl bg-amber-50/50 border border-amber-200/70">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-amber-600" />
+                <span className="block text-xs font-extrabold text-amber-950">
+                  انتخاب مشاوره VIP:
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-900/80 leading-relaxed">
+                مشاوره بصورت چت تلگرام بوده و نتایج تمرین و رویاهای شما هر روز توسط استاد تحلیل خواهد شد.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedVipConsultation('none')}
+                  className={`p-3 rounded-xl border text-xs transition-all text-right ${
+                    selectedVipConsultation === 'none'
+                      ? 'border-indigo-600 bg-white text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-300'
+                  }`}
+                >
+                  <span className="block font-bold text-slate-900">بدون مشاوره VIP</span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">فقط مجموعه ۴ جلدی چهل دروازه</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedVipConsultation('30days')}
+                  className={`p-3 rounded-xl border text-xs transition-all text-right ${
+                    selectedVipConsultation === '30days'
+                      ? 'border-indigo-600 bg-white text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-300'
+                  }`}
+                >
+                  <span className="block font-bold text-slate-900">مشاوره VIP ۳۰ روزه</span>
+                  <span className="text-[11px] text-amber-700 font-extrabold mt-0.5 block">۸,۹۰۰,۰۰۰ تومان</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedVipConsultation('60days')}
+                  className={`p-3 rounded-xl border text-xs transition-all text-right ${
+                    selectedVipConsultation === '60days'
+                      ? 'border-indigo-600 bg-white text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-300'
+                  }`}
+                >
+                  <span className="block font-bold text-slate-900">مشاوره VIP ۶۰ روزه</span>
+                  <span className="text-[11px] text-amber-700 font-extrabold mt-0.5 block">۱۴,۹۰۰,۰۰۰ تومان</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedVipConsultation('90days')}
+                  className={`p-3 rounded-xl border text-xs transition-all text-right ${
+                    selectedVipConsultation === '90days'
+                      ? 'border-indigo-600 bg-white text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-300'
+                  }`}
+                >
+                  <span className="block font-bold text-slate-900">مشاوره VIP ۹۰ روزه</span>
+                  <span className="text-[11px] text-amber-700 font-extrabold mt-0.5 block">۱۹,۹۰۰,۰۰۰ تومان</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-slate-200">
             {product.stock > 0 ? (
@@ -399,8 +480,15 @@ export default function ProductDetails() {
                     price: originalPrice,
                     salePrice: finalPrice
                   };
-                  addToCart(customProduct, 1, selectedFormat);
-                  setNotification(`«${product.title} (${selectedFormat})» با موفقیت به سبد خرید شما اضافه شد.`);
+                  let vipLabel = '';
+                  if (selectedVipConsultation === '30days') vipLabel = ' + مشاوره VIP ۳۰ روزه';
+                  if (selectedVipConsultation === '60days') vipLabel = ' + مشاوره VIP ۶۰ روزه';
+                  if (selectedVipConsultation === '90days') vipLabel = ' + مشاوره VIP ۹۰ روزه';
+
+                  const finalFormatLabel = `${selectedFormat}${vipLabel}`;
+
+                  addToCart(customProduct, 1, finalFormatLabel);
+                  setNotification(`«${product.title} (${finalFormatLabel})» با موفقیت به سبد خرید شما اضافه شد.`);
                   setTimeout(() => setNotification(null), 4000);
                 }}
                 className="flex-1 geom-button-primary hover:opacity-90 active:scale-98 transition-all text-white font-bold text-xs py-4 rounded-xl flex items-center justify-center gap-2 shadow-md"
@@ -461,8 +549,12 @@ export default function ProductDetails() {
           {/* TAB 1: Description */}
           {activeTab === 'desc' && (
             <div className="space-y-6">
-              <div className="prose prose-slate max-w-none text-xs leading-relaxed text-slate-700">
-                <p className="mb-4">{product.description}</p>
+              <div className="prose prose-slate max-w-none text-xs leading-relaxed text-slate-700 space-y-4">
+                {product.description.split('\n\n').map((paragraph, index) => (
+                  <p key={index} className="whitespace-pre-line leading-relaxed text-slate-700">
+                    {paragraph}
+                  </p>
+                ))}
               </div>
 
               {product.tableOfContents && (
@@ -510,7 +602,7 @@ export default function ProductDetails() {
               </div>
               <div className="flex justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100">
                 <span className="text-slate-500">زبان اثر:</span>
-                <strong className="text-slate-900">فارسی دری</strong>
+                <strong className="text-slate-900">فارسی</strong>
               </div>
             </div>
           )}

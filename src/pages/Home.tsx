@@ -302,7 +302,7 @@ export default function Home() {
             <span className="text-[10px] text-indigo-700 border border-indigo-300 rounded-full px-3 py-1 font-mono font-bold uppercase bg-white w-fit block shadow-xs">LIMITED PACKAGE</span>
             <h3 className="text-xl md:text-2xl font-extrabold text-slate-900 leading-normal">
               مجموعه چهارجلدی چهل دروازه به ماورا: <br />
-              <span className="text-gold-gradient font-display italic">به همراه مشاوره تخصصی VIP تلگرام</span>
+              <span className="text-gold-gradient font-display italic">به همراه مشاوره تخصصی VIP</span>
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               اگر مصمم هستید تا مهارت رویابینی آگاهانه را زیر نظر مستقیم استاد فرا بگیرید، مجموعه کامل چهارجلدی چهل دروازه به ماورا همراه با مشاوره اختصاصی تلگرام بهترین گزینه است. رویاها و تمرینات روزانه شما تحلیل شده و نکات کلیدی به شما آموزش داده می‌شود.

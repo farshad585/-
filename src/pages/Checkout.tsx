@@ -68,13 +68,21 @@ export default function Checkout() {
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   // Totals calculations
-  const totalBeforeDiscount = cart.reduce((acc, item) => {
-    const price = item.product.salePrice || item.product.price;
+  const totalOriginalPrice = cart.reduce((acc, item) => {
+    const price = item.product.price || item.product.salePrice || 0;
     return acc + price * item.quantity;
   }, 0);
 
-  const discountAmount = Math.round(totalBeforeDiscount * (discountPercentage / 100));
-  const amountAfterDiscount = totalBeforeDiscount - discountAmount;
+  const totalSalePrice = cart.reduce((acc, item) => {
+    const price = item.product.salePrice || item.product.price || 0;
+    return acc + price * item.quantity;
+  }, 0);
+
+  const directSavings = totalOriginalPrice - totalSalePrice;
+  const couponDiscountAmount = Math.round(totalSalePrice * (discountPercentage / 100));
+  const userSavings = directSavings + couponDiscountAmount;
+
+  const amountAfterDiscount = totalSalePrice - couponDiscountAmount;
 
   // 10% VAT (مالیات بر ارزش افزوده)
   const vatAmount = Math.round(amountAfterDiscount * 0.10);
@@ -84,7 +92,7 @@ export default function Checkout() {
     item => item.product.type === 'pdf' || item.product.type === 'audio' || item.product.type === 'course'
   );
 
-  const shippingFee = (totalBeforeDiscount >= 2000000 || isOnlyDigital || cart.length === 0) ? 0 : 290000;
+  const shippingFee = (amountAfterDiscount >= 2000000 || isOnlyDigital || cart.length === 0) ? 0 : 290000;
   const grandTotal = amountAfterDiscount + vatAmount + shippingFee;
 
   const formatPrice = (price: number) => {
@@ -94,6 +102,14 @@ export default function Checkout() {
 
   const handleCreateCardOrder = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const targetEmail = (email || userProfile.email || '').trim();
+
+    if (!targetEmail || !targetEmail.includes('@')) {
+      showNotification('لطفاً آدرس ایمیل معتبر جهت دریافت فاکتور و اطلاع‌رسانی را وارد کنید.');
+      return;
+    }
+
     if (!isOnlyDigital && (!fullName || !phone || !address || !postalCode)) {
       showNotification('لطفاً اطلاعات ارسال و تحویل پستی را به طور کامل پر کنید.');
       return;
@@ -108,11 +124,9 @@ export default function Checkout() {
       address
     };
 
-    const targetEmail = email.trim() || userProfile.email || 'customer@40gates.ir';
-
     // Save profile
     updateUserProfile({
-      fullName,
+      fullName: fullName || userProfile.fullName,
       email: targetEmail,
       phone,
       province,
@@ -217,28 +231,26 @@ export default function Checkout() {
         <div className="bg-white border border-indigo-100 rounded-3xl p-6 text-right text-xs space-y-3 shadow-xs">
           <h4 className="font-bold text-slate-900 border-b border-slate-100 pb-2">خلاصه حساب فاکتور:</h4>
           <div className="flex justify-between text-slate-600">
-            <span>جمع اقلام:</span>
-            <span className="font-mono text-slate-900 font-bold">{formatPrice(orderSubtotal)}</span>
+            <span>جمع کل خرید شما:</span>
+            <span className="font-mono text-slate-900 font-bold">{formatPrice(orderSubtotal + orderDiscount)}</span>
           </div>
-          {orderDiscount > 0 && (
-            <div className="flex justify-between text-indigo-700 font-bold">
-              <span>تخفیف:</span>
-              <span className="font-mono">-{formatPrice(orderDiscount)}</span>
-            </div>
-          )}
+          <div className="flex justify-between text-emerald-700 font-bold">
+            <span>سود شما از این خرید:</span>
+            <span className="font-mono">{orderDiscount > 0 ? `-${formatPrice(orderDiscount)}` : '۰ تومان'}</span>
+          </div>
           <div className="flex justify-between text-slate-600">
-            <span>مالیات بر ارزش افزوده (۱۰٪):</span>
+            <span>مالیات بر ارزش افزوده:</span>
             <span className="font-mono text-slate-900 font-bold">{formatPrice(orderVat)}</span>
           </div>
           <div className="flex justify-between text-slate-600">
-            <span>هزینه بسته‌بندی و ارسال پست:</span>
+            <span>هزینه بسته‌بندی و ارسال پستی:</span>
             <span className="font-mono text-slate-900 font-bold">
               {orderShipping === 0 ? 'رایگان' : formatPrice(orderShipping)}
             </span>
           </div>
           <div className="flex justify-between border-t border-slate-100 pt-3 text-sm font-bold text-slate-900">
-            <span>مبلغ نهایی قابل واریز:</span>
-            <span className="text-indigo-700">{formatPrice(orderTotal)}</span>
+            <span>مبلغ قابل پرداخت:</span>
+            <span className="text-indigo-700 font-extrabold">{formatPrice(orderTotal)}</span>
           </div>
         </div>
 
@@ -482,21 +494,19 @@ export default function Checkout() {
 
             <div className="space-y-3 text-xs border-b border-slate-100 pb-4">
               <div className="flex justify-between text-slate-600">
-                <span>جمع اقلام سبد:</span>
-                <span className="font-mono text-slate-900 font-bold">{formatPrice(totalBeforeDiscount)}</span>
+                <span>جمع کل خرید شما:</span>
+                <span className="font-mono text-slate-900 font-bold">{formatPrice(totalOriginalPrice)}</span>
               </div>
-              {couponCode && (
-                <div className="flex justify-between text-indigo-700 font-bold">
-                  <span>تخفیف کد ({couponCode}):</span>
-                  <span className="font-mono">-{formatPrice(discountAmount)}</span>
-                </div>
-              )}
+              <div className="flex justify-between text-emerald-700 font-bold">
+                <span>سود شما از این خرید:</span>
+                <span className="font-mono">{userSavings > 0 ? `-${formatPrice(userSavings)}` : '۰ تومان'}</span>
+              </div>
               <div className="flex justify-between text-slate-600">
-                <span>مالیات بر ارزش افزوده (۱۰٪):</span>
+                <span>مالیات بر ارزش افزوده:</span>
                 <span className="font-mono text-slate-900 font-bold">{formatPrice(vatAmount)}</span>
               </div>
               <div className="flex justify-between text-slate-600">
-                <span>هزینه بسته‌بندی و ارسال پست:</span>
+                <span>هزینه بسته‌بندی و ارسال پستی:</span>
                 <span className="font-mono text-slate-900 font-bold">{shippingFee === 0 ? 'رایگان' : formatPrice(shippingFee)}</span>
               </div>
               {shippingFee > 0 && (
@@ -507,8 +517,8 @@ export default function Checkout() {
             </div>
 
             <div className="flex justify-between items-center text-sm font-bold text-slate-900">
-              <span>مبلغ نهایی قابل پرداخت:</span>
-              <span className="text-indigo-700 font-sans text-base">{formatPrice(grandTotal)}</span>
+              <span>مبلغ قابل پرداخت:</span>
+              <span className="text-indigo-700 font-sans text-base font-extrabold">{formatPrice(grandTotal)}</span>
             </div>
 
             {/* Action Payment Trigger */}

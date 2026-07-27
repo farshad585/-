@@ -21,9 +21,15 @@ import Checkout from './pages/Checkout';
 import Dashboard from './pages/Dashboard';
 import Auth from './pages/Auth';
 import Legal from './pages/Legal';
+import Admin from './pages/Admin';
 
 function MainAppContent() {
   const { currentPage, isAuthenticated } = useApp();
+
+  // Protected Admin Route (standalone full screen interface)
+  if (currentPage === 'admin' || window.location.pathname === '/admin') {
+    return <Admin />;
+  }
 
   // Route Dispatcher
   const renderActivePage = () => {

@@ -31,9 +31,19 @@ export default function Contact() {
     setTimeout(() => setNotification(null), 4000);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !message) return;
+
+    try {
+      await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, subject, message })
+      });
+    } catch (err) {
+      console.warn('Contact message save error:', err);
+    }
 
     showNotification('سپاس از تماس شما! پیام شما در سیستم تیکتینگ آکادمی ثبت شد. مربیان ما تا حداکثر ۲۴ ساعت آینده به ایمیل شما پاسخ خواهند داد.');
     setName('');

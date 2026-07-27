@@ -236,7 +236,17 @@ export default function Navbar() {
             >
               <div>
                 <div className="flex justify-between items-center mb-8">
-                  <span className="text-lg font-bold text-slate-900 border-b border-indigo-200 pb-1">ناوبری آگاهی</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-xl border border-indigo-300 overflow-hidden bg-white p-0.5 flex items-center justify-center shadow-xs">
+                      <img 
+                        src={logoIcon} 
+                        alt="لوگو ۴۰ دروازه" 
+                        className="w-full h-full object-cover rounded-lg"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <span className="text-sm font-black text-slate-900">آکادمی ۴۰ دروازه</span>
+                  </div>
                   <button 
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="p-2 text-slate-400 hover:text-slate-700"

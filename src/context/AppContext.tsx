@@ -145,12 +145,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Synchronized URL-hash router
   const setCurrentPage = (page: string) => {
     setCurrentPageReal(page);
-    window.location.hash = page;
+    if (page === 'admin') {
+      window.history.pushState(null, '', '/admin');
+      window.location.hash = 'admin';
+    } else {
+      window.location.hash = page;
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   useEffect(() => {
     const handleHashChange = () => {
+      if (window.location.pathname === '/admin') {
+        setCurrentPageReal('admin');
+        return;
+      }
       const hash = window.location.hash.replace('#', '');
       if (hash) {
         // Parse simple sub-arguments

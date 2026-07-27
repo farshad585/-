@@ -47,9 +47,378 @@ const emailLogs: Array<{
   status: 'sent' | 'simulated';
 }> = [];
 
+// Contact Messages Store
+const contactMessages: Array<{
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  timestamp: string;
+  faDate: string;
+  faTime: string;
+  read: boolean;
+}> = [];
+
+// Admin Authentication & Security State
+interface AdminOTP {
+  code: string;
+  expiresAt: number;
+  failedOtpCount: number;
+}
+
+interface AdminSession {
+  token: string;
+  email: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+interface AdminLoginLog {
+  id: string;
+  timestamp: string;
+  faTime: string;
+  faDate: string;
+  ip: string;
+  status: 'SUCCESS' | 'FAILED_PASSWORD' | 'FAILED_OTP' | 'LOCKED';
+  email: string;
+  userAgent?: string;
+}
+
+const adminSecurityState = {
+  failedPasswordCount: 0,
+  lockedUntil: 0,
+  activeOtp: null as AdminOTP | null,
+  activeSessions: new Map<string, AdminSession>(),
+  loginLogs: [] as AdminLoginLog[],
+};
+
+function getAdminConfig() {
+  const adminEmail = (process.env.ADMIN_EMAIL || process.env.GMAIL_USER || 'fmfarshad585@gmail.com').trim();
+  const adminPassword = (process.env.ADMIN_PASSWORD || 'Admin40Gates!2026').trim();
+  return { adminEmail, adminPassword };
+}
+
+function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'دسترسی غیرمجاز. لطفا وارد شوید.' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  const session = adminSecurityState.activeSessions.get(token);
+
+  if (!session || Date.now() > session.expiresAt) {
+    if (session) adminSecurityState.activeSessions.delete(token);
+    return res.status(401).json({ success: false, error: 'نشست مدیریتی منقضی شده است. لطفا مجددا وارد شوید.' });
+  }
+
+  // Extend session expiry
+  session.expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+  (req as any).adminSession = session;
+  next();
+}
+
 // API Endpoint 1: Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', serverTime: new Date().toISOString() });
+});
+
+// Admin Auth Step 1: Login Check & OTP Dispatch
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    if (Date.now() < adminSecurityState.lockedUntil) {
+      const remainingMinutes = Math.ceil((adminSecurityState.lockedUntil - Date.now()) / 60000);
+      return res.status(429).json({
+        success: false,
+        error: `حساب مدیریت به دلیل تلاش‌های ناموفق متعدد قفل شده است. لطفا ${remainingMinutes} دقیقه دیگر مجدداً تلاش کنید.`
+      });
+    }
+
+    const { email, password } = req.body;
+    const { adminEmail, adminPassword } = getAdminConfig();
+    const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || '127.0.0.1').split(',')[0].trim();
+
+    if (!email || !password || email.trim().toLowerCase() !== adminEmail.toLowerCase() || password.trim() !== adminPassword) {
+      adminSecurityState.failedPasswordCount += 1;
+      
+      adminSecurityState.loginLogs.unshift({
+        id: 'LOG-' + Date.now(),
+        timestamp: new Date().toISOString(),
+        faTime: new Date().toLocaleTimeString('fa-IR'),
+        faDate: new Date().toLocaleDateString('fa-IR'),
+        ip: clientIp,
+        status: 'FAILED_PASSWORD',
+        email: email || 'نامشخص',
+        userAgent: req.headers['user-agent']
+      });
+
+      if (adminSecurityState.failedPasswordCount >= 5) {
+        adminSecurityState.lockedUntil = Date.now() + 15 * 60 * 1000;
+        return res.status(429).json({
+          success: false,
+          error: 'تعداد ۵ تلاش ناموفق ورود ثبت شد. حساب مدیریت به مدت ۱۵ دقیقه مسدود گردید.'
+        });
+      }
+
+      return res.status(401).json({
+        success: false,
+        error: `ایمیل یا رمز عبور مدیر اشتباه است. (تلاش ${adminSecurityState.failedPasswordCount} از ۵)`
+      });
+    }
+
+    // Credentials match! Reset failed attempt counter and send 6-digit OTP
+    adminSecurityState.failedPasswordCount = 0;
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    adminSecurityState.activeOtp = {
+      code: otpCode,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes validity
+      failedOtpCount: 0
+    };
+
+    const transporter = getTransporter();
+    const gmailUser = process.env.GMAIL_USER;
+    const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه';
+
+    const otpHtml = `
+      <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #0f172a; padding: 30px; color: #f8fafc;">
+        <div style="max-width: 500px; margin: 0 auto; background-color: #1e293b; border-radius: 16px; padding: 25px; border: 1px solid #334155; text-align: center;">
+          <h2 style="color: #fbbf24; margin-top: 0;">🔑 کد یک‌بار مصرف ورود مدیر</h2>
+          <p style="font-size: 13px; color: #cbd5e1; line-height: 1.6;">
+            درخواست ورود به پنل مدیریت آکادمی ۴۰ دروازه ثبت شده است. کد تایید زیر را وارد کنید:
+          </p>
+          <div style="background-color: #0f172a; border: 2px dashed #6366f1; border-radius: 12px; padding: 15px; margin: 20px 0; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #818cf8;">
+            ${otpCode}
+          </div>
+          <p style="font-size: 11px; color: #94a3b8; margin-bottom: 0;">
+            ⏳ این کد فقط به مدت <strong>۵ دقیقه</strong> معتبر است. اگر شما این درخواست را نداده‌اید، سریعاً رمز عبور را تغییر دهید.
+          </p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: sender,
+      to: adminEmail,
+      subject: `🔑 کد یک‌بار مصرف ورود به پنل مدیریت: ${otpCode}`,
+      html: otpHtml,
+    });
+
+    emailLogs.unshift({
+      id: 'EML-OTP-' + Date.now(),
+      type: 'admin-otp',
+      to: adminEmail,
+      subject: `کد یک‌بار مصرف ورود مدیر`,
+      timestamp: new Date().toLocaleTimeString('fa-IR'),
+      status: gmailUser && process.env.GMAIL_APP_PASSWORD ? 'sent' : 'simulated'
+    });
+
+    return res.json({
+      success: true,
+      message: `کد ۶ رقمی یک‌بار مصرف به ایمیل مدیر (${adminEmail}) ارسال گردید.`,
+      emailSentTo: adminEmail
+    });
+
+  } catch (err: any) {
+    console.error('Admin login error:', err);
+    return res.status(500).json({ success: false, error: 'خطا در ارسال کد تایید یک‌بار مصرف' });
+  }
+});
+
+// Admin Auth Step 2: Verify OTP
+app.post('/api/admin/verify-otp', async (req, res) => {
+  try {
+    if (Date.now() < adminSecurityState.lockedUntil) {
+      const remainingMinutes = Math.ceil((adminSecurityState.lockedUntil - Date.now()) / 60000);
+      return res.status(429).json({
+        success: false,
+        error: `حساب مدیریت قفل شده است. لطفا ${remainingMinutes} دقیقه دیگر صبر کنید.`
+      });
+    }
+
+    const { code } = req.body;
+    const { adminEmail } = getAdminConfig();
+    const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || '127.0.0.1').split(',')[0].trim();
+
+    if (!adminSecurityState.activeOtp || Date.now() > adminSecurityState.activeOtp.expiresAt) {
+      return res.status(400).json({
+        success: false,
+        error: 'کد یک‌بار مصرف منقضی شده است یا درخواستی یافت نشد. لطفا کد جدید دریافت کنید.'
+      });
+    }
+
+    if (!code || code.trim() !== adminSecurityState.activeOtp.code) {
+      adminSecurityState.activeOtp.failedOtpCount += 1;
+
+      adminSecurityState.loginLogs.unshift({
+        id: 'LOG-' + Date.now(),
+        timestamp: new Date().toISOString(),
+        faTime: new Date().toLocaleTimeString('fa-IR'),
+        faDate: new Date().toLocaleDateString('fa-IR'),
+        ip: clientIp,
+        status: 'FAILED_OTP',
+        email: adminEmail,
+        userAgent: req.headers['user-agent']
+      });
+
+      if (adminSecurityState.activeOtp.failedOtpCount >= 5) {
+        adminSecurityState.lockedUntil = Date.now() + 15 * 60 * 1000;
+        adminSecurityState.activeOtp = null;
+        return res.status(429).json({
+          success: false,
+          error: 'تعداد ۵ کد اشتباه وارد شد. ورود به پنل مدیریت به مدت ۱۵ دقیقه مسدود گردید.'
+        });
+      }
+
+      return res.status(401).json({
+        success: false,
+        error: `کد تایید یک‌بار مصرف اشتباه است. (تلاش ${adminSecurityState.activeOtp.failedOtpCount} از ۵)`
+      });
+    }
+
+    // OTP Correct! Create session and log success
+    adminSecurityState.activeOtp = null;
+    adminSecurityState.failedPasswordCount = 0;
+
+    const token = 'adm_sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
+    adminSecurityState.activeSessions.set(token, {
+      token,
+      email: adminEmail,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 Hours session
+    });
+
+    adminSecurityState.loginLogs.unshift({
+      id: 'LOG-' + Date.now(),
+      timestamp: new Date().toISOString(),
+      faTime: new Date().toLocaleTimeString('fa-IR'),
+      faDate: new Date().toLocaleDateString('fa-IR'),
+      ip: clientIp,
+      status: 'SUCCESS',
+      email: adminEmail,
+      userAgent: req.headers['user-agent']
+    });
+
+    return res.json({
+      success: true,
+      token,
+      admin: { email: adminEmail },
+      message: 'احراز هویت دومرحله‌ای با موفقیت تایید شد.'
+    });
+
+  } catch (err: any) {
+    console.error('Verify OTP error:', err);
+    return res.status(500).json({ success: false, error: 'خطا در بررسی کد تایید' });
+  }
+});
+
+// Admin Auth: Verify Active Session
+app.get('/api/admin/verify-session', requireAdminAuth, (req, res) => {
+  const session = (req as any).adminSession;
+  res.json({ success: true, valid: true, admin: { email: session.email } });
+});
+
+// Admin Auth: Logout
+app.post('/api/admin/logout', requireAdminAuth, (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (token) adminSecurityState.activeSessions.delete(token);
+  res.json({ success: true, message: 'با موفقیت از پنل مدیریت خارج شدید.' });
+});
+
+// Admin Logs Endpoint
+app.get('/api/admin/logs', requireAdminAuth, (req, res) => {
+  res.json({ success: true, logs: adminSecurityState.loginLogs });
+});
+
+// Admin Settings Endpoint
+app.get('/api/admin/settings', requireAdminAuth, (req, res) => {
+  const { adminEmail } = getAdminConfig();
+  const gmailUser = process.env.GMAIL_USER;
+  const isSmtpConfigured = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
+
+  res.json({
+    success: true,
+    settings: {
+      adminEmail,
+      smtpConfigured: isSmtpConfigured,
+      smtpUser: gmailUser || 'تنظیم نشده',
+      activeSessionsCount: adminSecurityState.activeSessions.size,
+      totalLogins: adminSecurityState.loginLogs.length
+    }
+  });
+});
+
+// Public Contact Endpoint
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, email, subject, message } = req.body;
+    if (!name || !email || !message) {
+      return res.status(400).json({ success: false, error: 'نام، ایمیل و متن پیام الزامی است.' });
+    }
+
+    const newMessage = {
+      id: 'MSG-' + Date.now(),
+      name: name.trim(),
+      email: email.trim(),
+      subject: subject || 'پشتیبانی',
+      message: message.trim(),
+      timestamp: new Date().toISOString(),
+      faDate: new Date().toLocaleDateString('fa-IR'),
+      faTime: new Date().toLocaleTimeString('fa-IR'),
+      read: false
+    };
+
+    contactMessages.unshift(newMessage);
+
+    // Send notification email to admin if SMTP configured
+    const { adminEmail } = getAdminConfig();
+    if (adminEmail) {
+      const transporter = getTransporter();
+      const gmailUser = process.env.GMAIL_USER;
+      const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه';
+
+      try {
+        await transporter.sendMail({
+          from: sender,
+          to: adminEmail,
+          subject: `💬 پیام جدید از فرم تماس: ${name.trim()}`,
+          html: `
+            <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 20px;">
+              <h3 style="color: #4338ca;">پیام جدید از کاربر</h3>
+              <p><strong>نام:</strong> ${name.trim()}</p>
+              <p><strong>ایمیل:</strong> ${email.trim()}</p>
+              <p><strong>موضوع:</strong> ${subject || 'پشتیبانی'}</p>
+              <p><strong>متن پیام:</strong></p>
+              <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px;">
+                ${message.trim()}
+              </div>
+            </div>
+          `
+        });
+      } catch (err) {
+        console.warn('Could not send contact message alert email:', err);
+      }
+    }
+
+    return res.json({ success: true, message: 'پیام شما در سیستم پشتیبانی ثبت شد.' });
+  } catch (err: any) {
+    console.error('Contact endpoint error:', err);
+    return res.status(500).json({ success: false, error: 'خطا در ثبت پیام' });
+  }
+});
+
+// Protected Contact Messages Endpoint for Admin
+app.get('/api/admin/contact-messages', requireAdminAuth, (req, res) => {
+  res.json({ success: true, messages: contactMessages });
+});
+
+app.patch('/api/admin/contact-messages/:id', requireAdminAuth, (req, res) => {
+  const msg = contactMessages.find(m => m.id === req.params.id);
+  if (msg) {
+    msg.read = true;
+    return res.json({ success: true, message: 'وضعیت پیام به خوانده شده تغییر یافت.' });
+  }
+  return res.status(404).json({ success: false, error: 'پیام یافت نشد.' });
 });
 
 // API Endpoint 2: Get Email Logs
@@ -147,15 +516,20 @@ app.post('/api/email/order-created', async (req, res) => {
 
     const transporter = getTransporter();
     const gmailUser = process.env.GMAIL_USER;
-    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER;
     const isRealSmtp = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
     const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه';
 
-    const itemsHtml = order.items.map((item: any) => `
+    const items = order.items || [];
+    const subtotal = order.subtotal || 0;
+    const shippingFee = order.shippingFee || 0;
+    const totalAmount = order.totalAmount || 0;
+
+    const itemsHtml = items.map((item: any) => `
       <tr style="border-bottom: 1px solid #f1f5f9;">
-        <td style="padding: 10px; font-size: 13px;">${item.title} (${item.quantity} عدد)</td>
+        <td style="padding: 10px; font-size: 13px;">${item.title || 'محصول'} (${item.quantity || 1} عدد)</td>
         <td style="padding: 10px; font-size: 13px; text-align: left; font-weight: bold; color: #4338ca;">
-          ${(item.price * item.quantity).toLocaleString('fa-IR')} تومان
+          ${((item.price || 0) * (item.quantity || 1)).toLocaleString('fa-IR')} تومان
         </td>
       </tr>
     `).join('');
@@ -191,14 +565,14 @@ app.post('/api/email/order-created', async (req, res) => {
 
             <div style="background-color: #f8fafc; border-radius: 12px; padding: 15px; margin: 15px 0;">
               <p style="margin: 4px 0; display: flex; justify-content: space-between;">
-                <span>جمع کل اقلام:</span> <strong>${order.subtotal.toLocaleString('fa-IR')} تومان</strong>
+                <span>جمع کل اقلام:</span> <strong>${subtotal.toLocaleString('fa-IR')} تومان</strong>
               </p>
-              ${order.shippingFee > 0 ? `
+              ${shippingFee > 0 ? `
               <p style="margin: 4px 0; display: flex; justify-content: space-between;">
-                <span>هزینه ارسال پستی:</span> <strong>${order.shippingFee.toLocaleString('fa-IR')} تومان</strong>
+                <span>هزینه ارسال پستی:</span> <strong>${shippingFee.toLocaleString('fa-IR')} تومان</strong>
               </p>` : ''}
-              <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: bold; color: #1e1b4b; border-top: 1px border-dashed #cbd5e1; padding-top: 8px;">
-                مبلغ نهایی پرداختی: ${order.totalAmount.toLocaleString('fa-IR')} تومان
+              <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: bold; color: #1e1b4b; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
+                مبلغ نهایی پرداختی: ${totalAmount.toLocaleString('fa-IR')} تومان
               </p>
             </div>
 
@@ -222,24 +596,33 @@ app.post('/api/email/order-created', async (req, res) => {
       </div>
     `;
 
-    // Send email to Customer
-    await transporter.sendMail({
-      from: sender,
-      to: customerEmail,
-      subject: `تایید سفارش #${order.id} - آکادمی ۴۰ دروازه`,
-      html: customerHtml,
-    });
+    let customerSent = false;
+    let adminSent = false;
 
-    emailLogs.unshift({
-      id: 'EML-' + Date.now(),
-      type: 'order-customer',
-      to: customerEmail,
-      subject: `تایید سفارش #${order.id}`,
-      timestamp: new Date().toLocaleTimeString('fa-IR'),
-      status: isRealSmtp ? 'sent' : 'simulated',
-    });
+    // 1. Send email to Customer
+    if (customerEmail && !customerEmail.includes('@40gates.ir')) {
+      try {
+        await transporter.sendMail({
+          from: sender,
+          to: customerEmail,
+          subject: `تایید سفارش #${order.id} - آکادمی ۴۰ دروازه`,
+          html: customerHtml,
+        });
+        customerSent = true;
+        emailLogs.unshift({
+          id: 'EML-' + Date.now(),
+          type: 'order-customer',
+          to: customerEmail,
+          subject: `تایید سفارش #${order.id}`,
+          timestamp: new Date().toLocaleTimeString('fa-IR'),
+          status: isRealSmtp ? 'sent' : 'simulated',
+        });
+      } catch (custErr) {
+        console.error('Failed to send customer order email:', custErr);
+      }
+    }
 
-    // Send email notification to Site Owner (Admin) if ADMIN_EMAIL is configured
+    // 2. Send email notification to Site Owner / Admin
     if (adminEmail) {
       const ownerHtml = `
         <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 20px; color: #0f172a;">
@@ -248,35 +631,44 @@ app.post('/api/email/order-created', async (req, res) => {
           <p><strong>نام مشتری:</strong> ${customerName || order.shippingAddress?.fullName || 'ثبت شده'}</p>
           <p><strong>ایمیل مشتری:</strong> ${customerEmail}</p>
           <p><strong>تلفن مشتری:</strong> ${order.shippingAddress?.phone || '-'}</p>
-          <p><strong>مبلغ کل:</strong> ${order.totalAmount.toLocaleString('fa-IR')} تومان</p>
-          <p><strong>درگاه پرداخت:</strong> ${order.paymentGateway}</p>
+          <p><strong>مبلغ کل:</strong> ${totalAmount.toLocaleString('fa-IR')} تومان</p>
+          <p><strong>روش پرداخت:</strong> ${order.paymentGateway || 'کارت به کارت'}</p>
           <p><strong>آدرس ارسال:</strong> ${order.shippingAddress?.address || 'ارسال دیجیتال/آنلاین'}</p>
           <hr/>
           <h4>اقلام سفارش:</h4>
           <ul>
-            ${order.items.map((i: any) => `<li>${i.title} - ${i.quantity} عدد (${i.price.toLocaleString('fa-IR')} تومان)</li>`).join('')}
+            ${items.map((i: any) => `<li>${i.title || 'محصول'} - ${i.quantity || 1} عدد (${(i.price || 0).toLocaleString('fa-IR')} تومان)</li>`).join('')}
           </ul>
         </div>
       `;
 
-      await transporter.sendMail({
-        from: sender,
-        to: adminEmail,
-        subject: `🔔 سفارش جدید ثبت شد #${order.id} - ${order.totalAmount.toLocaleString('fa-IR')} تومان`,
-        html: ownerHtml,
-      });
-
-      emailLogs.unshift({
-        id: 'EML-ADM-' + Date.now(),
-        type: 'order-admin',
-        to: adminEmail,
-        subject: `🔔 سفارش جدید ثبت شد #${order.id}`,
-        timestamp: new Date().toLocaleTimeString('fa-IR'),
-        status: isRealSmtp ? 'sent' : 'simulated',
-      });
+      try {
+        await transporter.sendMail({
+          from: sender,
+          to: adminEmail,
+          subject: `🔔 سفارش جدید ثبت شد #${order.id} - ${totalAmount.toLocaleString('fa-IR')} تومان`,
+          html: ownerHtml,
+        });
+        adminSent = true;
+        emailLogs.unshift({
+          id: 'EML-ADM-' + Date.now(),
+          type: 'order-admin',
+          to: adminEmail,
+          subject: `🔔 سفارش جدید ثبت شد #${order.id}`,
+          timestamp: new Date().toLocaleTimeString('fa-IR'),
+          status: isRealSmtp ? 'sent' : 'simulated',
+        });
+      } catch (adminErr) {
+        console.error('Failed to send admin order email:', adminErr);
+      }
     }
 
-    return res.json({ success: true, message: 'ایمیل سفارش با موفقیت ارسال گردید.' });
+    return res.json({ 
+      success: true, 
+      message: 'ایمیل سفارش پردازش گردید.',
+      customerSent,
+      adminSent
+    });
   } catch (err: any) {
     console.error('Order email error:', err);
     return res.status(500).json({ success: false, error: err?.message || 'خطا در ارسال ایمیل سفارش' });
