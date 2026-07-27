@@ -55,7 +55,7 @@ import audioCourse1Img from '../assets/images/audio_forty_gates_1_1785043024507.
 import audioBeyondRealityImg from '../assets/images/audio_beyond_reality_1785043034665.jpg';
 import astral8MinCourseImg from '../assets/images/astral_8min_course_1785043045652.jpg';
 import audioPersonalParadiseImg from '../assets/images/audio_personal_paradise_1785043058019.jpg';
-import masterGoldenCourseImg from '../assets/images/master_golden_course_1785043068498.jpg';
+import masterGoldenCourseImg from '../assets/images/master_golden_v2_1785053595759.jpg';
 
 export const book40GatesRealImages = [
   book40GatesImg1,
@@ -77,9 +77,9 @@ export const PRODUCTS: Product[] = [
     title: 'دوره صوتی چهل دروازه به ماورا 3',
     englishTitle: '40 Gates to Beyond - Audio Course 3',
     description: 'کتاب سوم: راهنمای اکتشاف گنج درون. ده‌ها ساعت آموزش کامل صوتی، ۸ تکنیک دروازه‌های رویایی برای ورود آگاهانه به خواب دلخواه، هنر یادآوری شفاف رؤیاها و ملاقات با استاد درون.',
-    shortDescription: 'دوره پیشرفته صوتی کتاب سوم چهل دروازه به ماورا همراه تخفیف ویژه.',
+    shortDescription: 'دوره پیشرفته صوتی کتاب سوم چهل دروازه به ماورا همراه ۱۰٪ تخفیف ویژه.',
     price: 9900000,
-    salePrice: 4851000,
+    salePrice: 8910000,
     type: 'course',
     category: 'courses',
     images: [audioCourse3Img],

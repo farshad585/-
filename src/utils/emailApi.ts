@@ -41,7 +41,7 @@ export async function sendWelcomeEmail(params: SendWelcomeEmailParams): Promise<
 }
 
 /**
- * Send Order Creation Email to Customer and Admin (fmfarshad585@gmail.com / 40gates.main@gmail.com)
+ * Send Order Creation Email to Customer and Admin via server endpoint
  */
 export async function sendOrderCreatedEmail(params: SendOrderEmailParams): Promise<{ success: boolean; message?: string }> {
   try {

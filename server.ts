@@ -10,10 +10,10 @@ app.use(express.json());
 
 // Configure Nodemailer Transporter
 const getTransporter = () => {
-  const gmailUser = process.env.GMAIL_USER || '40gates.main@gmail.com';
+  const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
 
-  if (gmailPass) {
+  if (gmailUser && gmailPass) {
     return nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -23,16 +23,16 @@ const getTransporter = () => {
     });
   }
 
-  // Fallback logger mode if no app password set yet
+  // Fallback logger mode if GMAIL_USER or GMAIL_APP_PASSWORD are not set in environment variables
   return {
     sendMail: async (options: nodemailer.SendMailOptions) => {
-      console.log('--- [EMAIL DISPATCH LOG] ---');
+      console.log('--- [EMAIL DISPATCH LOG (SMTP credentials pending in env)] ---');
       console.log('To:', options.to);
       console.log('Subject:', options.subject);
-      console.log('From:', options.from || gmailUser);
+      console.log('From:', options.from || gmailUser || 'system');
       console.log('Body length:', options.html?.toString().length || 0);
       console.log('---------------------------');
-      return { messageId: 'test-msg-id-' + Date.now() };
+      return { messageId: 'simulated-msg-id-' + Date.now() };
     },
   };
 };
@@ -66,8 +66,9 @@ app.post('/api/email/welcome', async (req, res) => {
     }
 
     const transporter = getTransporter();
-    const isRealSmtp = !!process.env.GMAIL_APP_PASSWORD;
-    const sender = `آکادمی ۴۰ دروازه <40gates.main@gmail.com>`;
+    const gmailUser = process.env.GMAIL_USER;
+    const isRealSmtp = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
+    const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه';
 
     const htmlContent = `
       <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
@@ -101,7 +102,7 @@ app.post('/api/email/welcome', async (req, res) => {
               <p style="margin: 0;"><strong>راه ارتباط مستقیم با فرشاد میرشکاری:</strong></p>
               <p style="margin: 4px 0;">📷 اینستاگرام: <a href="https://www.instagram.com/farshad_g.o.d" style="color: #4f46e5;">instagram.com/farshad_g.o.d</a></p>
               <p style="margin: 4px 0;">✈️ تلگرام: <a href="https://t.me/Farshad_God" style="color: #0284c7;">t.me/Farshad_God</a></p>
-              <p style="margin: 4px 0;">✉️ ایمیل پشتیبانی: <a href="mailto:40gates.main@gmail.com" style="color: #4f46e5;">40gates.main@gmail.com</a></p>
+              ${gmailUser ? `<p style="margin: 4px 0;">✉️ ایمیل پشتیبانی: <a href="mailto:${gmailUser}" style="color: #4f46e5;">${gmailUser}</a></p>` : ''}
             </div>
           </div>
 
@@ -145,9 +146,10 @@ app.post('/api/email/order-created', async (req, res) => {
     }
 
     const transporter = getTransporter();
-    const isRealSmtp = !!process.env.GMAIL_APP_PASSWORD;
-    const sender = `آکادمی ۴۰ دروازه <40gates.main@gmail.com>`;
-    const adminEmail = process.env.ADMIN_EMAIL || 'fmfarshad585@gmail.com';
+    const gmailUser = process.env.GMAIL_USER;
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const isRealSmtp = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
+    const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه';
 
     const itemsHtml = order.items.map((item: any) => `
       <tr style="border-bottom: 1px solid #f1f5f9;">
@@ -214,7 +216,7 @@ app.post('/api/email/order-created', async (req, res) => {
 
           <!-- Footer -->
           <div style="background-color: #f8fafc; padding: 12px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
-            پشتیبانی: 40gates.main@gmail.com | t.me/Farshad_God
+            پشتیبانی آکادمی ۴۰ دروازه
           </div>
         </div>
       </div>
@@ -237,40 +239,42 @@ app.post('/api/email/order-created', async (req, res) => {
       status: isRealSmtp ? 'sent' : 'simulated',
     });
 
-    // Send email notification to Site Owner (Admin)
-    const ownerHtml = `
-      <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 20px; color: #0f172a;">
-        <h2 style="color: #047857;">🔔 سفارش جدید در وبسایت ثبت شد!</h2>
-        <p><strong>شماره سفارش:</strong> ${order.id}</p>
-        <p><strong>نام مشتری:</strong> ${customerName || order.shippingAddress?.fullName || 'ثبت شده'}</p>
-        <p><strong>ایمیل مشتری:</strong> ${customerEmail}</p>
-        <p><strong>تلفن مشتری:</strong> ${order.shippingAddress?.phone || '-'}</p>
-        <p><strong>مبلغ کل:</strong> ${order.totalAmount.toLocaleString('fa-IR')} تومان</p>
-        <p><strong>درگاه پرداخت:</strong> ${order.paymentGateway}</p>
-        <p><strong>آدرس ارسال:</strong> ${order.shippingAddress?.address || 'ارسال دیجیتال/آنلاین'}</p>
-        <hr/>
-        <h4>اقلام سفارش:</h4>
-        <ul>
-          ${order.items.map((i: any) => `<li>${i.title} - ${i.quantity} عدد (${i.price.toLocaleString('fa-IR')} تومان)</li>`).join('')}
-        </ul>
-      </div>
-    `;
+    // Send email notification to Site Owner (Admin) if ADMIN_EMAIL is configured
+    if (adminEmail) {
+      const ownerHtml = `
+        <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 20px; color: #0f172a;">
+          <h2 style="color: #047857;">🔔 سفارش جدید در وبسایت ثبت شد!</h2>
+          <p><strong>شماره سفارش:</strong> ${order.id}</p>
+          <p><strong>نام مشتری:</strong> ${customerName || order.shippingAddress?.fullName || 'ثبت شده'}</p>
+          <p><strong>ایمیل مشتری:</strong> ${customerEmail}</p>
+          <p><strong>تلفن مشتری:</strong> ${order.shippingAddress?.phone || '-'}</p>
+          <p><strong>مبلغ کل:</strong> ${order.totalAmount.toLocaleString('fa-IR')} تومان</p>
+          <p><strong>درگاه پرداخت:</strong> ${order.paymentGateway}</p>
+          <p><strong>آدرس ارسال:</strong> ${order.shippingAddress?.address || 'ارسال دیجیتال/آنلاین'}</p>
+          <hr/>
+          <h4>اقلام سفارش:</h4>
+          <ul>
+            ${order.items.map((i: any) => `<li>${i.title} - ${i.quantity} عدد (${i.price.toLocaleString('fa-IR')} تومان)</li>`).join('')}
+          </ul>
+        </div>
+      `;
 
-    await transporter.sendMail({
-      from: sender,
-      to: adminEmail,
-      subject: `🔔 سفارش جدید ثبت شد #${order.id} - ${order.totalAmount.toLocaleString('fa-IR')} تومان`,
-      html: ownerHtml,
-    });
+      await transporter.sendMail({
+        from: sender,
+        to: adminEmail,
+        subject: `🔔 سفارش جدید ثبت شد #${order.id} - ${order.totalAmount.toLocaleString('fa-IR')} تومان`,
+        html: ownerHtml,
+      });
 
-    emailLogs.unshift({
-      id: 'EML-ADM-' + Date.now(),
-      type: 'order-admin',
-      to: adminEmail,
-      subject: `🔔 سفارش جدید ثبت شد #${order.id}`,
-      timestamp: new Date().toLocaleTimeString('fa-IR'),
-      status: isRealSmtp ? 'sent' : 'simulated',
-    });
+      emailLogs.unshift({
+        id: 'EML-ADM-' + Date.now(),
+        type: 'order-admin',
+        to: adminEmail,
+        subject: `🔔 سفارش جدید ثبت شد #${order.id}`,
+        timestamp: new Date().toLocaleTimeString('fa-IR'),
+        status: isRealSmtp ? 'sent' : 'simulated',
+      });
+    }
 
     return res.json({ success: true, message: 'ایمیل سفارش با موفقیت ارسال گردید.' });
   } catch (err: any) {
@@ -288,8 +292,9 @@ app.post('/api/email/order-status', async (req, res) => {
     }
 
     const transporter = getTransporter();
-    const isRealSmtp = !!process.env.GMAIL_APP_PASSWORD;
-    const sender = `آکادمی ۴۰ دروازه <40gates.main@gmail.com>`;
+    const gmailUser = process.env.GMAIL_USER;
+    const isRealSmtp = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
+    const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه';
 
     const statusLabels: Record<string, string> = {
       pending: 'در انتظار پرداخت و تایید اولیه',

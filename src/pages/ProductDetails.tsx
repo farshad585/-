@@ -363,19 +363,21 @@ export default function ProductDetails() {
                     </button>
                   )}
 
-                  {/* Quality 2: تمام رنگی */}
-                  <button 
-                    type="button"
-                    onClick={() => setSelectedFormat('کیفیت تمام رنگی')}
-                    className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
-                      selectedFormat.includes('تمام رنگی')
-                        ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
-                    }`}
-                  >
-                    <span className="block font-bold">کیفیت تمام رنگی</span>
-                    <span className="text-[10px] text-slate-500 mt-1 block">چاپ گلاسه/رنگی ویژه</span>
-                  </button>
+                  {/* Quality 2: تمام رنگی (برای تمامی کتب چاپی به‌جز جلد اول چهل دروازه که فقط کیفیت معمولی دارد) */}
+                  {product.id !== '45375' && (
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedFormat('کیفیت تمام رنگی')}
+                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                        selectedFormat.includes('تمام رنگی')
+                          ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                      }`}
+                    >
+                      <span className="block font-bold">کیفیت تمام رنگی</span>
+                      <span className="text-[10px] text-slate-500 mt-1 block">چاپ رنگی ویژه</span>
+                    </button>
+                  )}
                 </>
               ) : (
                 <button className="px-4 py-3 rounded-2xl border border-indigo-200 bg-indigo-50/50 text-indigo-950 text-xs font-semibold w-full text-right cursor-default">

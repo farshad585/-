@@ -27,11 +27,12 @@ export default function Shop() {
   const { searchQuery, setSearchQuery } = useApp();
 
   // Shop filter states
+  const MAX_SHOP_PRICE = 50000000;
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<string>('featured');
-  const [priceRange, setPriceRange] = useState<number>(10000000); // Max Toman
+  const [priceRange, setPriceRange] = useState<number>(MAX_SHOP_PRICE); // Max Toman
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState<boolean>(false);
 
   const categories = [
@@ -54,7 +55,7 @@ export default function Shop() {
     setSelectedCategory('all');
     setSelectedType('all');
     setOnlyInStock(false);
-    setPriceRange(10000000);
+    setPriceRange(MAX_SHOP_PRICE);
     setSearchQuery('');
     setSortBy('featured');
   };
@@ -232,8 +233,8 @@ export default function Shop() {
                 id="desktop-price-slider"
                 type="range"
                 min={0}
-                max={10000000}
-                step={50000}
+                max={MAX_SHOP_PRICE}
+                step={250000}
                 value={priceRange}
                 onChange={(e) => setPriceRange(Number(e.target.value))}
                 className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
@@ -378,8 +379,8 @@ export default function Shop() {
                   id="mobile-price-slider"
                   type="range"
                   min={0}
-                  max={10000000}
-                  step={50000}
+                  max={MAX_SHOP_PRICE}
+                  step={250000}
                   value={priceRange}
                   onChange={(e) => setPriceRange(Number(e.target.value))}
                   className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"

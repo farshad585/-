@@ -133,7 +133,7 @@ export default function Checkout() {
       customerName: fullName || userProfile.fullName
     }).then(res => {
       if (res.success) {
-        showNotification('📧 ایمیل تایید سفارش برای شما و مدیریت سایت (fmfarshad585@gmail.com) ارسال شد.');
+        showNotification('📧 ایمیل تایید سفارش برای شما و مدیریت سایت ارسال گردید.');
       }
     });
   };

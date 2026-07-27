@@ -183,13 +183,13 @@ export default function Dashboard() {
 
     showNotification('اطلاعات کاربری با موفقیت ویرایش و در سیستم ذخیره گردید.');
 
-    // Dispatch Welcome Email from 40gates.main@gmail.com
+    // Dispatch Welcome Email via server route
     sendWelcomeEmail({
       email: updatedEmail,
       fullName
     }).then((res) => {
       if (res.success) {
-        showNotification('📧 ایمیل خوش‌آمدگویی و عضویت از آدرس 40gates.main@gmail.com برای شما ارسال گردید.');
+        showNotification('📧 ایمیل خوش‌آمدگویی و عضویت با موفقیت برای شما ارسال گردید.');
       }
     });
   };
@@ -828,7 +828,7 @@ export default function Dashboard() {
                     <span>مرکز اطلاع‌رسانی و ایمیل‌های ارسال شده</span>
                   </h2>
                   <p className="text-[11px] text-slate-500">
-                    فرستنده اصلی تمامی ایمیل‌های سیستم: <strong className="text-indigo-900 font-mono">40gates.main@gmail.com</strong> | دریافت‌کننده مدیریت: <strong className="text-indigo-900 font-mono">fmfarshad585@gmail.com</strong>
+                    تنظیمات فرستنده و مدیریت ارسال ایمیل‌ها از متغیرهای محیطی سرور (GMAIL_USER و ADMIN_EMAIL) خوانده می‌شود.
                   </p>
                 </div>
                 <button
@@ -848,7 +848,7 @@ export default function Dashboard() {
                   <span>تنظیمات سرور ارسال ایمیل (SMTP / Gmail Transporter)</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
-                  سیستم ارسال ایمیل به صورت خودکار بر روی پورت اختصاصی سرور فعال است. ایمیل‌های ثبت‌نام، تایید سفارش، تغییر وضعیت به «در حال آماده‌سازی» و ارسال «کد رهگیری پستی» همزمان به ایمیل مشتری و مدیر سایت (fmfarshad585@gmail.com) صادر می‌گردد.
+                  سیستم ارسال ایمیل به‌صورت مستقیم و امن از سمت سرور صادر می‌گردد. ایمیل‌های ثبت‌نام، تایید سفارش، تغییر وضعیت سفارش و کد رهگیری پستی از طریق متغیرهای محیطی تنظیم شده ارسال می‌شوند.
                 </p>
               </div>
 

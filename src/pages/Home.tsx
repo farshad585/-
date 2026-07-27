@@ -109,7 +109,7 @@ export default function Home() {
               className="text-4xl md:text-6xl font-extrabold text-white leading-[1.3] md:leading-[1.25] tracking-tight"
             >
               بیدار شدن در رویا، <br />
-              <span className="text-gold-gradient font-display italic">دروازه چهلم</span> خودشناسی
+              <span className="text-amber-400 bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 font-display italic font-extrabold drop-shadow-sm">دروازه چهلم</span> خودشناسی
             </motion.h1>
           </div>
 
