@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import logoIcon from '../assets/images/icon40fates.png';
 import { 
   Instagram, 
   Send, 
@@ -40,7 +41,7 @@ export default function Footer() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl border border-indigo-300 overflow-hidden p-0.5 bg-white shadow-xs">
               <img 
-                src="/src/assets/images/icon40fates.png" 
+                src={logoIcon} 
                 alt="لوگو ۴۰ دروازه" 
                 className="w-full h-full object-cover rounded-lg"
                 referrerPolicy="no-referrer"

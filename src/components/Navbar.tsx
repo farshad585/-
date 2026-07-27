@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { PRODUCTS } from '../data/products';
 import BreathingWidget from './BreathingWidget';
+import logoIcon from '../assets/images/icon40fates.png';
 import { 
   ShoppingBag, 
   Heart, 
@@ -106,7 +107,7 @@ export default function Navbar() {
             >
               <div className="w-11 h-11 rounded-xl border border-indigo-300 overflow-hidden bg-white p-0.5 transition-transform group-hover:scale-105 flex items-center justify-center shadow-xs">
                 <img 
-                  src="/src/assets/images/icon40fates.png" 
+                  src={logoIcon} 
                   alt="لوگو ۴۰ دروازه" 
                   className="w-full h-full object-cover rounded-lg"
                   referrerPolicy="no-referrer"
