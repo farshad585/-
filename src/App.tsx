@@ -19,10 +19,11 @@ import Contact from './pages/Contact';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Dashboard from './pages/Dashboard';
+import Auth from './pages/Auth';
 import Legal from './pages/Legal';
 
 function MainAppContent() {
-  const { currentPage } = useApp();
+  const { currentPage, isAuthenticated } = useApp();
 
   // Route Dispatcher
   const renderActivePage = () => {
@@ -46,8 +47,14 @@ function MainAppContent() {
         return <Cart />;
       case 'checkout':
         return <Checkout />;
+      case 'auth':
+        return <Auth />;
       case 'dashboard':
       case 'tracking':
+      case 'profile':
+        if (!isAuthenticated) {
+          return <Auth />;
+        }
         return <Dashboard />;
       case 'legal':
         return <Legal />;

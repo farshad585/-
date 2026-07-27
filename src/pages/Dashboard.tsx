@@ -28,7 +28,8 @@ import {
   Sparkles,
   Mail,
   CheckCircle,
-  RefreshCw
+  RefreshCw,
+  LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -43,7 +44,9 @@ export default function Dashboard() {
     setSelectedProductId,
     trackOrderId,
     setTrackOrderId,
-    setCurrentPage
+    setCurrentPage,
+    isAuthenticated,
+    logout
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'orders' | 'downloads' | 'wishlist' | 'profile' | 'emails'>('orders');
@@ -350,6 +353,14 @@ export default function Dashboard() {
             >
               <Mail size={14} />
               <span>تاریخچه ایمیل‌ها و اطلاع‌رسانی</span>
+            </button>
+
+            <button
+              onClick={() => logout()}
+              className="text-right py-3 px-4 rounded-2xl flex items-center gap-3 transition-colors text-rose-600 hover:bg-rose-50 font-bold border border-transparent hover:border-rose-100 cursor-pointer"
+            >
+              <LogOut size={14} />
+              <span>خروج از حساب کاربری</span>
             </button>
           </div>
 

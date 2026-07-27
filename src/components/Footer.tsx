@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export default function Footer() {
-  const { setCurrentPage } = useApp();
+  const { setCurrentPage, isAuthenticated } = useApp();
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +40,7 @@ export default function Footer() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl border border-indigo-300 overflow-hidden p-0.5 bg-white shadow-xs">
               <img 
-                src="/src/assets/images/40gates_logo_1784533471317.jpg" 
+                src="/src/assets/images/icon40fates.png" 
                 alt="لوگو ۴۰ دروازه" 
                 className="w-full h-full object-cover rounded-lg"
                 referrerPolicy="no-referrer"
@@ -94,7 +94,7 @@ export default function Footer() {
               <button onClick={() => setCurrentPage('faq')} className="hover:text-indigo-600 transition-colors">پاسخ به سوالات متداول</button>
             </li>
             <li>
-              <button onClick={() => setCurrentPage('dashboard')} className="hover:text-indigo-600 transition-colors">پنل کاربری و دانلودها</button>
+              <button onClick={() => setCurrentPage(isAuthenticated ? 'dashboard' : 'auth')} className="hover:text-indigo-600 transition-colors">پنل کاربری و دانلودها</button>
             </li>
             <li>
               <button onClick={() => setCurrentPage('privacy')} className="hover:text-indigo-600 transition-colors">حریم خصوصی کاربران</button>

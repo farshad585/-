@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, CartItem, Order, UserProfile } from '../types';
 import { PRODUCTS } from '../data/products';
+import { sendWelcomeEmail } from '../utils/emailApi';
 
 interface AppContextType {
   currentPage: string;
@@ -29,6 +30,11 @@ interface AppContextType {
   
   userProfile: UserProfile;
   updateUserProfile: (profile: Partial<UserProfile>) => void;
+  
+  isAuthenticated: boolean;
+  login: (email: string, password?: string) => boolean;
+  register: (data: { fullName: string; email: string; phone?: string; password?: string }) => Promise<{ success: boolean; message?: string }>;
+  logout: () => void;
   
   orders: Order[];
   placeOrder: (gateway: 'card-to-card' | 'zarinpal' | 'idpay', shippingAddress: Order['shippingAddress']) => Order;
@@ -60,6 +66,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([]);
 
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('40gates_authenticated') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   // User and Orders
   const [userProfile, setUserProfile] = useState<UserProfile>({
     fullName: '',
@@ -73,6 +88,55 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     recentlyViewed: []
   });
   const [orders, setOrders] = useState<Order[]>([]);
+
+  const login = (email: string, password?: string): boolean => {
+    setIsAuthenticated(true);
+    localStorage.setItem('40gates_authenticated', 'true');
+    if (email) {
+      setUserProfile((prev) => ({
+        ...prev,
+        email: email || prev.email,
+        fullName: prev.fullName || 'هنرجوی رویابینی شفاف'
+      }));
+    }
+    setCurrentPage('dashboard');
+    return true;
+  };
+
+  const register = async (data: { fullName: string; email: string; phone?: string; password?: string }) => {
+    const updatedProfile: UserProfile = {
+      ...userProfile,
+      fullName: data.fullName,
+      email: data.email,
+      phone: data.phone || userProfile.phone || ''
+    };
+    setUserProfile(updatedProfile);
+    localStorage.setItem('40gates_profile', JSON.stringify(updatedProfile));
+    
+    // Sign the user in automatically
+    setIsAuthenticated(true);
+    localStorage.setItem('40gates_authenticated', 'true');
+
+    // Send welcome email using the server-side email service and Vercel environment variables
+    try {
+      await sendWelcomeEmail({
+        email: data.email,
+        fullName: data.fullName
+      });
+    } catch (e) {
+      console.warn('Welcome email trigger error:', e);
+    }
+
+    // Redirect the user to their account dashboard
+    setCurrentPage('dashboard');
+    return { success: true };
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('40gates_authenticated');
+    setCurrentPage('home');
+  };
 
   // Coupons
   const [couponCode, setCouponCode] = useState<string | null>(null);
@@ -389,6 +453,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addToRecentlyViewed,
         userProfile,
         updateUserProfile,
+        isAuthenticated,
+        login,
+        register,
+        logout,
         orders,
         placeOrder,
         updateOrderStatus,

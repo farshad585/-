@@ -37,7 +37,8 @@ export default function Navbar() {
     updateCartQuantity, 
     removeFromCart,
     searchQuery,
-    setSearchQuery
+    setSearchQuery,
+    isAuthenticated
   } = useApp();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -105,7 +106,7 @@ export default function Navbar() {
             >
               <div className="w-11 h-11 rounded-xl border border-indigo-300 overflow-hidden bg-white p-0.5 transition-transform group-hover:scale-105 flex items-center justify-center shadow-xs">
                 <img 
-                  src="/src/assets/images/40gates_logo_1784533471317.jpg" 
+                  src="/src/assets/images/icon40fates.png" 
                   alt="لوگو ۴۰ دروازه" 
                   className="w-full h-full object-cover rounded-lg"
                   referrerPolicy="no-referrer"
@@ -166,7 +167,7 @@ export default function Navbar() {
             {/* Wishlist Button */}
             <button
               id="wishlist-toggle-btn"
-              onClick={() => setCurrentPage('dashboard')}
+              onClick={() => setCurrentPage(isAuthenticated ? 'dashboard' : 'auth')}
               className="p-2.5 text-slate-600 hover:text-indigo-600 transition-colors relative rounded-full hover:bg-indigo-50"
               title="لیست علاقه‌مندی‌ها"
             >
@@ -196,9 +197,9 @@ export default function Navbar() {
             {/* User Dashboard */}
             <button
               id="dashboard-route-btn"
-              onClick={() => setCurrentPage('dashboard')}
+              onClick={() => setCurrentPage(isAuthenticated ? 'dashboard' : 'auth')}
               className={`p-2.5 rounded-full hover:bg-indigo-50 transition-colors ${
-                currentPage === 'dashboard' ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'
+                currentPage === 'dashboard' || currentPage === 'auth' ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'
               }`}
               title="پنل کاربری"
             >
