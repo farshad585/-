@@ -85,7 +85,6 @@ export default function Dashboard() {
     }).then(res => {
       if (res.success) {
         showNotification(`📧 ایمیل «${statusMap[newStatus] || newStatus}» برای خریدار ارسال گردید.`);
-        fetchEmailLogs();
       }
     });
   };

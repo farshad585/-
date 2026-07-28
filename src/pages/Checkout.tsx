@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   Lock,
   Sparkles,
-  Mail
+  Mail,
+  ShoppingBag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -65,17 +66,17 @@ export default function Checkout() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [generatedOrder, setGeneratedOrder] = useState<any>(null);
 
-  const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+  const cartCount = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
 
   // Totals calculations
   const totalOriginalPrice = cart.reduce((acc, item) => {
-    const price = item.product.price || item.product.salePrice || 0;
-    return acc + price * item.quantity;
+    const price = item.product?.price || item.product?.salePrice || 0;
+    return acc + price * (item.quantity || 1);
   }, 0);
 
   const totalSalePrice = cart.reduce((acc, item) => {
-    const price = item.product.salePrice || item.product.price || 0;
-    return acc + price * item.quantity;
+    const price = item.product?.salePrice || item.product?.price || 0;
+    return acc + price * (item.quantity || 1);
   }, 0);
 
   const directSavings = totalOriginalPrice - totalSalePrice;
@@ -88,68 +89,80 @@ export default function Checkout() {
   const vatAmount = Math.round(amountAfterDiscount * 0.10);
 
   // Determine if shipping is free (>= 2,000,000 Toman or digital-only)
-  const isOnlyDigital = cart.every(
-    item => item.product.type === 'pdf' || item.product.type === 'audio' || item.product.type === 'course'
+  const isOnlyDigital = cart.length > 0 && cart.every(
+    item => item.product?.type === 'pdf' || item.product?.type === 'audio' || item.product?.type === 'course'
   );
 
   const shippingFee = (amountAfterDiscount >= 2000000 || isOnlyDigital || cart.length === 0) ? 0 : 290000;
   const grandTotal = amountAfterDiscount + vatAmount + shippingFee;
 
-  const formatPrice = (price: number) => {
-    if (price === 0) return 'رایگان';
+  const formatPrice = (price?: number) => {
+    if (price === undefined || price === null || isNaN(price) || price === 0) return 'رایگان';
     return price.toLocaleString('fa-IR') + ' تومان';
   };
 
-  const handleCreateCardOrder = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateCardOrder = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault();
 
-    const targetEmail = (email || userProfile.email || '').trim();
-
-    if (!targetEmail || !targetEmail.includes('@')) {
-      showNotification('لطفاً آدرس ایمیل معتبر جهت دریافت فاکتور و اطلاع‌رسانی را وارد کنید.');
+    if (cart.length === 0 && !generatedOrder) {
+      showNotification('سبد خرید شما خالی است.');
       return;
     }
 
-    if (!isOnlyDigital && (!fullName || !phone || !address || !postalCode)) {
-      showNotification('لطفاً اطلاعات ارسال و تحویل پستی را به طور کامل پر کنید.');
-      return;
-    }
+    try {
+      const targetEmail = (email || userProfile.email || '').trim();
 
-    const shippingAddress = isOnlyDigital ? undefined : {
-      fullName,
-      phone,
-      province,
-      city,
-      postalCode,
-      address
-    };
-
-    // Save profile
-    updateUserProfile({
-      fullName: fullName || userProfile.fullName,
-      email: targetEmail,
-      phone,
-      province,
-      city,
-      postalCode,
-      address
-    });
-
-    const newOrder = placeOrder('card-to-card', shippingAddress);
-    setGeneratedOrder(newOrder);
-    setPaymentSuccess(true);
-    clearCart();
-
-    // Dispatch Order Emails to Customer and Admin
-    sendOrderCreatedEmail({
-      order: newOrder,
-      customerEmail: targetEmail,
-      customerName: fullName || userProfile.fullName
-    }).then(res => {
-      if (res.success) {
-        showNotification('📧 ایمیل تایید سفارش برای شما و مدیریت سایت ارسال گردید.');
+      if (!targetEmail || !targetEmail.includes('@')) {
+        showNotification('لطفاً آدرس ایمیل معتبر جهت دریافت فاکتور و اطلاع‌رسانی را وارد کنید.');
+        return;
       }
-    });
+
+      if (!isOnlyDigital && (!fullName || !phone || !address || !postalCode)) {
+        showNotification('لطفاً اطلاعات ارسال و تحویل پستی (نام، تلفن، آدرس و کد پستی) را به طور کامل پر کنید.');
+        return;
+      }
+
+      const shippingAddress = isOnlyDigital ? undefined : {
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        province,
+        city: city.trim(),
+        postalCode: postalCode.trim(),
+        address: address.trim()
+      };
+
+      // Save profile
+      updateUserProfile({
+        fullName: fullName || userProfile.fullName,
+        email: targetEmail,
+        phone,
+        province,
+        city,
+        postalCode,
+        address
+      });
+
+      const newOrder = placeOrder('card-to-card', shippingAddress);
+      setGeneratedOrder(newOrder);
+      setPaymentSuccess(true);
+      clearCart();
+
+      // Dispatch Order Emails to Customer and Admin asynchronously
+      sendOrderCreatedEmail({
+        order: newOrder,
+        customerEmail: targetEmail,
+        customerName: fullName || userProfile.fullName
+      }).then(res => {
+        if (res?.success) {
+          showNotification('📧 ایمیل تایید سفارش برای شما و مدیریت سایت ارسال گردید.');
+        }
+      }).catch(err => {
+        console.warn('Order email dispatch warning:', err);
+      });
+    } catch (err) {
+      console.error('Error in handleCreateCardOrder:', err);
+      showNotification('خطایی در ثبت سفارش به وجود آمد. لطفاً مجدداً تلاش کنید.');
+    }
   };
 
   const [copiedCard, setCopiedCard] = useState(false);
@@ -171,10 +184,10 @@ export default function Checkout() {
   // ORDER CONFIRMATION / CARD TO CARD PAYMENT INSTRUCTIONS SCREEN
   if (paymentSuccess || generatedOrder) {
     const orderTotal = generatedOrder?.totalAmount || grandTotal;
-    const orderSubtotal = generatedOrder?.subtotal || totalBeforeDiscount;
+    const orderSubtotal = generatedOrder?.subtotal || totalSalePrice;
     const orderVat = generatedOrder?.vatAmount || vatAmount;
     const orderShipping = generatedOrder?.shippingFee !== undefined ? generatedOrder.shippingFee : shippingFee;
-    const orderDiscount = generatedOrder?.discountAmount || discountAmount;
+    const orderDiscount = generatedOrder?.discountAmount || couponDiscountAmount;
 
     return (
       <div className="max-w-xl mx-auto px-4 py-16 text-center space-y-6">
@@ -260,6 +273,33 @@ export default function Checkout() {
           className="geom-button-primary text-white font-bold text-xs px-8 py-3.5 rounded-xl transition-all w-full shadow-md"
         >
           ورود به پنل کاربری و مشاهده وضعیت سفارش
+        </button>
+      </div>
+    );
+  }
+
+  // IF CART IS EMPTY & NO PAYMENT CREATED
+  if (cart.length === 0 && !paymentSuccess && !generatedOrder) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center space-y-6">
+        <SEO 
+          title="تکمیل اطلاعات و پرداخت سفارش" 
+          description="سبد خرید شما خالی است."
+        />
+        <div className="w-16 h-16 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-full flex items-center justify-center mx-auto shadow-sm">
+          <ShoppingBag size={32} />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-xl md:text-2xl font-extrabold text-slate-900">سبد خرید شما خالی است</h1>
+          <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+            هیچ محصول یا دوره‌ای در سبد خرید شما جهت تسویه حساب وجود ندارد.
+          </p>
+        </div>
+        <button
+          onClick={() => setCurrentPage('shop')}
+          className="geom-button-primary text-white font-bold text-xs px-8 py-3.5 rounded-xl transition-all shadow-md"
+        >
+          مشاهده فروشگاه و انتخاب محصول
         </button>
       </div>
     );
@@ -484,9 +524,9 @@ export default function Checkout() {
             <div className="max-h-[160px] overflow-y-auto pr-1 space-y-2.5 border-b border-slate-100 pb-4">
               {cart.map((item, i) => (
                 <div key={i} className="flex justify-between text-[11px] text-slate-600">
-                  <span className="truncate max-w-[200px]">{item.product.title}</span>
+                  <span className="truncate max-w-[200px]">{item.product?.title || 'محصول'}</span>
                   <span className="font-mono text-slate-900 flex-shrink-0 font-bold">
-                    ({item.quantity} عدد)
+                    ({item.quantity || 1} عدد)
                   </span>
                 </div>
               ))}

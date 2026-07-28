@@ -996,7 +996,7 @@ export default function Admin() {
                         <p className="text-[11px] text-slate-400 line-clamp-1">{post.excerpt}</p>
                         <div className="flex gap-4 text-[10px] text-indigo-300 pt-1">
                           <span>تاریخ: {post.date}</span>
-                          <span>نویسنده: {post.author.name}</span>
+                          <span>نویسنده: {post.author}</span>
                           <span>زمان مطالعه: {post.readTime}</span>
                         </div>
                       </div>

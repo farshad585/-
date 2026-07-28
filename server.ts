@@ -95,7 +95,7 @@ const adminSecurityState = {
 
 function getAdminConfig() {
   const adminEmail = (process.env.ADMIN_EMAIL || process.env.GMAIL_USER || 'fmfarshad585@gmail.com').trim();
-  const adminPassword = (process.env.ADMIN_PASSWORD || 'Admin40Gates!2026').trim();
+  const adminPassword = (process.env.ADMIN_PASSWORD || '').trim();
   return { adminEmail, adminPassword };
 }
 
@@ -138,6 +138,13 @@ app.post('/api/admin/login', async (req, res) => {
     const { email, password } = req.body;
     const { adminEmail, adminPassword } = getAdminConfig();
     const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || '127.0.0.1').split(',')[0].trim();
+
+    if (!adminPassword) {
+      return res.status(500).json({
+        success: false,
+        error: 'رمز عبور مدیریت در متغیرهای محیطی (ADMIN_PASSWORD) تنظیم نشده است. لطفاً متغیر ADMIN_PASSWORD را در تنظیمات سیستم تعریف کنید.'
+      });
+    }
 
     if (!email || !password || email.trim().toLowerCase() !== adminEmail.toLowerCase() || password.trim() !== adminPassword) {
       adminSecurityState.failedPasswordCount += 1;

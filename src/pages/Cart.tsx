@@ -73,7 +73,7 @@ export default function Cart() {
     e.preventDefault();
     setCouponMessage(null);
 
-    const res = applyCoupon(couponInput, totalBeforeDiscount);
+    const res = applyCoupon(couponInput, totalSalePrice);
     if (res.success) {
       setCouponMessage({ isError: false, text: res.message });
       setCouponInput('');

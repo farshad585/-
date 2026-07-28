@@ -306,8 +306,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Place Order Simulation
   const placeOrder = (gateway: 'card-to-card' | 'zarinpal' | 'idpay', shippingAddress: Order['shippingAddress']): Order => {
     const subtotal = cart.reduce((acc, item) => {
-      const price = item.product.salePrice || item.product.price;
-      return acc + price * item.quantity;
+      const price = item.product?.salePrice || item.product?.price || 0;
+      return acc + price * (item.quantity || 1);
     }, 0);
 
     const discountAmount = Math.round(subtotal * (discountPercentage / 100));
@@ -316,8 +316,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 10% VAT on item total after discount
     const vatAmount = Math.round(amountAfterDiscount * 0.10);
 
-    const isOnlyDigital = cart.every(
-      item => item.product.type === 'pdf' || item.product.type === 'audio' || item.product.type === 'course'
+    const isOnlyDigital = cart.length > 0 && cart.every(
+      item => item.product?.type === 'pdf' || item.product?.type === 'audio' || item.product?.type === 'course'
     );
     
     // Shipping fee is 290,000 Toman, or FREE (0) if subtotal >= 2,000,000 Toman or digital-only
@@ -334,11 +334,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       date: new Date().toLocaleDateString('fa-IR'),
       status: 'pending',
       items: cart.map((item) => ({
-        productId: item.product.id,
-        title: item.product.title,
-        quantity: item.quantity,
-        price: item.product.salePrice || item.product.price,
-        type: item.product.type
+        productId: item.product?.id || ('prod-' + Date.now()),
+        title: item.product?.title || 'محصول',
+        quantity: item.quantity || 1,
+        price: item.product?.salePrice || item.product?.price || 0,
+        type: item.product?.type || 'printed'
       })),
       subtotal,
       discountAmount,
@@ -346,7 +346,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       shippingFee,
       totalAmount: grandTotal,
       shippingAddress,
-      trackingCode: cart.some(i => i.type === 'printed') ? trackingCode : undefined,
+      trackingCode: cart.some(i => i.product?.type === 'printed') ? trackingCode : undefined,
       paymentGateway: gateway,
       couponUsed: couponCode || undefined
     };
