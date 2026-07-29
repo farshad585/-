@@ -7,6 +7,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import GoftinoWidget from './components/GoftinoWidget';
+import OnlineVisitorsIndicator from './components/OnlineVisitorsIndicator';
 
 // Pages
 import Home from './pages/Home';
@@ -92,6 +93,9 @@ function MainAppContent() {
 
       {/* Goftino Live Chat Widget */}
       <GoftinoWidget />
+
+      {/* Floating Online Visitors Indicator */}
+      <OnlineVisitorsIndicator />
     </div>
   );
 }

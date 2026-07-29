@@ -6,6 +6,7 @@
 import React from 'react';
 import SEO from '../components/SEO';
 import { useApp } from '../context/AppContext';
+import farshadImg from '../assets/images/فرشاد میرشکاری.jpg';
 import { 
   Sparkles, 
   Award, 
@@ -85,7 +86,7 @@ export default function About() {
         <div className="md:col-span-5 relative sticky top-24">
           <div className="aspect-[4/5] rounded-3xl overflow-hidden border-2 border-indigo-200 bg-white shadow-xl p-1.5 relative">
             <img 
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800" 
+              src={farshadImg} 
               alt="فرشاد میرشکاری - نویسنده ۴۰ دروازه" 
               className="w-full h-full object-cover rounded-2xl"
             />

@@ -94,7 +94,7 @@ const adminSecurityState = {
 };
 
 function getAdminConfig() {
-  const adminEmail = (process.env.ADMIN_EMAIL || process.env.GMAIL_USER || 'fmfarshad585@gmail.com').trim();
+  const adminEmail = (process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim();
   const adminPassword = (process.env.ADMIN_PASSWORD || '').trim();
   return { adminEmail, adminPassword };
 }
@@ -377,37 +377,123 @@ app.post('/api/contact', async (req, res) => {
 
     contactMessages.unshift(newMessage);
 
-    // Send notification email to admin if SMTP configured
-    const { adminEmail } = getAdminConfig();
-    if (adminEmail) {
-      const transporter = getTransporter();
-      const gmailUser = process.env.GMAIL_USER;
-      const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه';
+    const transporter = getTransporter();
+    const gmailUser = process.env.GMAIL_USER;
+    const isRealSmtp = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
+    const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه <40gates.main@gmail.com>';
+    const siteEmail = process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
 
-      try {
-        await transporter.sendMail({
-          from: sender,
-          to: adminEmail,
-          subject: `💬 پیام جدید از فرم تماس: ${name.trim()}`,
-          html: `
-            <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 20px;">
-              <h3 style="color: #4338ca;">پیام جدید از کاربر</h3>
-              <p><strong>نام:</strong> ${name.trim()}</p>
-              <p><strong>ایمیل:</strong> ${email.trim()}</p>
-              <p><strong>موضوع:</strong> ${subject || 'پشتیبانی'}</p>
-              <p><strong>متن پیام:</strong></p>
-              <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px;">
-                ${message.trim()}
+    // 1. Send notification email to site email (40gates.main@gmail.com)
+    try {
+      await transporter.sendMail({
+        from: sender,
+        to: siteEmail,
+        subject: `💬 پیام جدید از فرم تماس: ${name.trim()} (${newMessage.id})`,
+        html: `
+          <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+              <h2 style="color: #4338ca; margin-top: 0; border-bottom: 2px solid #e0e7ff; pb: 10px;">💬 پیام جدید در بخش تماس با فرشاد میرشکاری</h2>
+              
+              <div style="margin: 20px 0; font-size: 14px; line-height: 1.8;">
+                <p><strong>کد تیکت:</strong> <span style="font-family: monospace; color: #4338ca;">${newMessage.id}</span></p>
+                <p><strong>نام فرستنده:</strong> ${name.trim()}</p>
+                <p><strong>ایمیل فرستنده:</strong> <a href="mailto:${email.trim()}" style="color: #2563eb;">${email.trim()}</a></p>
+                <p><strong>موضوع پیام:</strong> ${subject || 'پشتیبانی'}</p>
+                <p><strong>تاریخ و زمان:</strong> ${newMessage.faDate} - ساعت ${newMessage.faTime}</p>
               </div>
+
+              <div style="background-color: #f1f5f9; border-right: 4px solid #6366f1; padding: 18px; border-radius: 8px; font-size: 13px; line-height: 1.8; color: #0f172a;">
+                <strong>متن پیام:</strong><br/>
+                ${message.trim().replace(/\n/g, '<br/>')}
+              </div>
+
+              <p style="font-size: 11px; color: #64748b; margin-top: 25px; border-top: 1px solid #f1f5f9; pt: 15px;">
+                این پیام از فرم تماس با فرشاد میرشکاری وب‌سایت آکادمی ۴۰ دروازه ارسال گردیده است.
+              </p>
             </div>
-          `
-        });
-      } catch (err) {
-        console.warn('Could not send contact message alert email:', err);
-      }
+          </div>
+        `
+      });
+
+      emailLogs.unshift({
+        id: 'EML-ADM-' + Date.now(),
+        type: 'contact-admin-notify',
+        to: siteEmail,
+        subject: `پیام جدید از فرم تماس: ${name.trim()}`,
+        timestamp: new Date().toLocaleTimeString('fa-IR'),
+        status: isRealSmtp ? 'sent' : 'simulated'
+      });
+    } catch (err) {
+      console.warn('Could not send contact message alert email to admin:', err);
     }
 
-    return res.json({ success: true, message: 'پیام شما در سیستم پشتیبانی ثبت شد.' });
+    // 2. Send auto-reply confirmation email to the user
+    try {
+      const userHtml = `
+        <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            
+            <div style="text-align: center; margin-bottom: 25px;">
+              <h2 style="color: #4338ca; margin: 0 0 8px 0;">✨ پیام شما دریافت شد</h2>
+              <p style="color: #64748b; font-size: 13px; margin: 0;">آکادمی ۴۰ دروازه | فرشاد میرشکاری</p>
+            </div>
+
+            <p style="font-size: 14px; line-height: 1.8; color: #334155;">
+              جناب آقای / سرکار خانم <strong>${name.trim()}</strong> عزیز، با سلام و احترام؛
+            </p>
+
+            <p style="font-size: 13px; line-height: 1.8; color: #475569;">
+              پیام شما با موفقیت در سیستم تیکتینگ آکادمی ۴۰ دروازه ثبت گردید. پیام شما توسط فرشاد میرشکاری و تیم پشتیبانی بررسی شده و در کمتر از ۲۴ ساعت آینده، پاسخ آن به همین آدرس ایمیل ارسال خواهد شد.
+            </p>
+
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 20px 0; font-size: 13px; line-height: 1.8;">
+              <h4 style="color: #312e81; margin-top: 0; margin-bottom: 12px; font-size: 14px;">📋 خلاصه پیام ثبت شده شما:</h4>
+              <p style="margin: 4px 0;"><strong>کد پیگیری:</strong> <span style="font-family: monospace; color: #4338ca;">${newMessage.id}</span></p>
+              <p style="margin: 4px 0;"><strong>موضوع:</strong> ${subject || 'پشتیبانی'}</p>
+              <p style="margin: 4px 0;"><strong>تاریخ ثبت:</strong> ${newMessage.faDate} - ساعت ${newMessage.faTime}</p>
+              <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; color: #334155;">
+                <strong>متن پیام:</strong><br/>
+                ${message.trim().replace(/\n/g, '<br/>')}
+              </div>
+            </div>
+
+            <div style="background-color: #eff6ff; border-radius: 10px; padding: 15px; font-size: 12px; color: #1e40af; line-height: 1.6;">
+              💡 <strong>نکته:</strong> اگر نیاز به ارسال فایل یا توضیحات تکمیلی دارید، می‌توانید مستقیماً به همین ایمیل (40gates.main@gmail.com) یا اکانت تلگرام <a href="https://t.me/Farshad_God" style="color: #2563eb; font-weight: bold;">t.me/Farshad_God</a> پیام دهید.
+            </div>
+
+            <div style="text-align: center; margin-top: 30px; pt: 20px; border-top: 1px solid #f1f5f9; color: #94a3b8; font-size: 11px;">
+              آکادمی ۴۰ دروازه — مرجع تخصصی رویابینی آگاهانه<br/>
+              ایمیل رسمی: <a href="mailto:40gates.main@gmail.com" style="color: #6366f1;">40gates.main@gmail.com</a>
+            </div>
+
+          </div>
+        </div>
+      `;
+
+      await transporter.sendMail({
+        from: sender,
+        to: email.trim(),
+        subject: `✨ دریافت پیام شما در آکادمی ۴۰ دروازه (کد تیکت: ${newMessage.id})`,
+        html: userHtml
+      });
+
+      emailLogs.unshift({
+        id: 'EML-USR-' + Date.now(),
+        type: 'contact-user-autoreply',
+        to: email.trim(),
+        subject: `تایید دریافت پیام در آکادمی ۴۰ دروازه (${newMessage.id})`,
+        timestamp: new Date().toLocaleTimeString('fa-IR'),
+        status: isRealSmtp ? 'sent' : 'simulated'
+      });
+    } catch (err) {
+      console.warn('Could not send auto-reply email to user:', err);
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'پیام شما ثبت شد. یک ایمیل تاییدیه دریافت پیام به آدرس ایمیل شما ارسال گردید.',
+      ticketId: newMessage.id
+    });
   } catch (err: any) {
     console.error('Contact endpoint error:', err);
     return res.status(500).json({ success: false, error: 'خطا در ثبت پیام' });

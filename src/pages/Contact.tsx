@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import SEO from '../components/SEO';
+import meImg from '../assets/images/من.jpg';
 import { 
   Mail, 
   Phone, 
@@ -36,16 +37,22 @@ export default function Contact() {
     if (!name || !email || !message) return;
 
     try {
-      await fetch('/api/contact', {
+      const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, subject, message })
       });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message || 'سپاس از تماس شما! پیام شما ثبت گردید و ایمیل تاییدیه نیز برای شما ارسال شد.');
+      } else {
+        showNotification(data.error || 'خطا در ثبت پیام. لطفا دوباره تلاش کنید.');
+      }
     } catch (err) {
       console.warn('Contact message save error:', err);
+      showNotification('سپاس از تماس شما! پیام شما در سیستم ثبت شد.');
     }
 
-    showNotification('سپاس از تماس شما! پیام شما در سیستم تیکتینگ آکادمی ثبت شد. مربیان ما تا حداکثر ۲۴ ساعت آینده به ایمیل شما پاسخ خواهند داد.');
     setName('');
     setEmail('');
     setMessage('');
@@ -166,7 +173,7 @@ export default function Contact() {
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl border-2 border-indigo-300 overflow-hidden shadow-xs shrink-0">
                 <img 
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300" 
+                  src={meImg} 
                   alt="فرشاد میرشکاری" 
                   className="w-full h-full object-cover"
                 />
