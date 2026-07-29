@@ -13,7 +13,6 @@ import {
   BookOpen, 
   Compass, 
   User, 
-  History,
   ArrowLeft,
   Eye, 
   ShieldCheck, 
@@ -23,20 +22,13 @@ import {
   Star,
   Zap,
   Activity,
-  Smile
+  Smile,
+  Play
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function About() {
   const { setCurrentPage } = useApp();
-
-  const journeyMilestones = [
-    { year: 'تولد تا ۴ سالگی', title: 'معجزه اولین رویای شفاف و شفای دست راست', desc: 'ابتلا به فلج دست راست از بدو تولد، تجربه اولین رویای شفاف ۵ دقیقه‌ای، پرواز معلق و بازگشت شگفت‌انگیز پالس‌های حرکتی به دست راست در روز بعد!' },
-    { year: 'کودکی', title: 'شوق اختراع و طراحی اولین ربات‌ها', desc: 'ساخت نخستین وسیله حرکتی با نی و چوب بستنی، و سپس جرقه‌زدن ایده اختراعات پیشرفته‌تر مانند ربات کروی دوزیست.' },
-    { year: 'نوجوانی و جوانی', title: 'سفر در هویت‌ها تا تبدیل شدن به فرشاد', desc: 'تجربه لقب‌های پیکاسو (نقاشی)، انیشتین (الکترونیک)، کاسپارف (شطرنج) و استرلینگ (موتور خورشیدی) و در نهایت کشف هویت اصیل و حقیقی «فرشاد».' },
-    { year: 'پژوهش حرفه‌ای', title: 'بیست سال پژوهش و ۲۰,۰۰۰ سال زیست در درون', desc: 'مطالعات عمیق بر روان‌شناسی تحلیلی، آزمایش‌های خواب و بسط زمان در ناخودآگاه که معادل ۲۰,۰۰0 سال تجربه زیسته در رویاها بود.' },
-    { year: 'امروز', title: 'تأسیس ۴۰ دروازه و خلق کتاب‌های مرجع', desc: 'تالیف کتاب‌های چهل دروازه، رمان‌های مفهومی (بوسه خداوند، شب‌شکن، شکارچی کابوس‌ها) و آموزش مهارتهای بیداری ذهن.' }
-  ];
 
   return (
     <>
@@ -196,26 +188,21 @@ export default function About() {
         </div>
       </section>
 
-      {/* Timeline of Farshad's Journey */}
-      <section className="max-w-3xl mx-auto px-4 mb-20">
-        <div className="text-center space-y-2 mb-12">
-          <h2 className="text-xl md:text-2xl font-bold text-slate-900">مراحل سیر و سلوک شخصی من</h2>
-          <p className="text-xs text-slate-500">مسیر رشد، تجربه‌اندوزی و خلق آثار چهل دروازه</p>
-        </div>
-
-        <div className="border-r-2 border-indigo-200 pr-6 mr-4 space-y-10 relative">
-          {journeyMilestones.map((item, index) => (
-            <div key={index} className="relative space-y-1.5">
-              <div className="absolute top-1 -right-[31px] w-4.5 h-4.5 rounded-full bg-white border-2 border-indigo-600 flex items-center justify-center shadow-xs">
-                <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full" />
-              </div>
-              <span className="inline-block text-xs font-bold text-indigo-700 font-mono bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
-                {item.year}
-              </span>
-              <h3 className="text-sm font-bold text-slate-900">{item.title}</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">{item.desc}</p>
-            </div>
-          ))}
+      {/* Video Presentation Section */}
+      <section className="max-w-4xl mx-auto px-4 mb-20">
+        <div className="bg-white border border-indigo-100 rounded-3xl p-4 md:p-6 shadow-md space-y-4">
+          <div className="flex items-center gap-2 text-indigo-900 font-extrabold text-base border-b border-indigo-100 pb-3">
+            <Play className="text-indigo-600 fill-indigo-600" size={20} />
+            <h2>ویدیو اختراعم «ربات کروی دوزیست»</h2>
+          </div>
+          <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-slate-900 shadow-inner">
+            <iframe
+              src="https://www.aparat.com/video/video/embed/videohash/CDvKM/vt/frame"
+              allowFullScreen={true}
+              title="ویدیو اختراعم «ربات کروی دوزیست»"
+              className="w-full h-full border-0"
+            />
+          </div>
         </div>
       </section>
 

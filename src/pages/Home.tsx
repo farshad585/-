@@ -119,8 +119,17 @@ export default function Home() {
             transition={{ duration: 0.8, delay: 0.3 }}
             className="text-xs md:text-sm text-indigo-100 leading-relaxed max-w-2xl mx-auto bg-slate-900/70 backdrop-blur-md p-4 rounded-2xl border border-indigo-400/30 shadow-inner"
           >
-            <span className="font-bold text-amber-300 block mb-1">💬 گپ دوستانه با شما:</span>
-            ما هرشب رویا می‌بینیم؛ چه دلمون بخواد، چه نخواد... پس چه بهتر که به جای سرگردان بودن در خواب‌های خسته کننده، آستین همت رو بالا بزنیم و از دنیای رویاهامون یه بهشت شخصی بسازیم! 💖
+            <span className="font-bold text-amber-300 block mb-1">
+              💬 گپ دوستانه من،{' '}
+              <button 
+                onClick={() => setCurrentPage('about')}
+                className="no-underline text-amber-300 hover:text-amber-100 transition-colors font-extrabold cursor-pointer"
+              >
+                فرشاد میرشکاری
+              </button>
+              {' '}با شما همراهان عزیز:
+            </span>
+            حقیقت اینه که ما هر شب رویا می‌بینیم؛ چه دلمون بخواد، چه نخواد... پس چه بهتر که به جای سرگردان بودن در خواب‌های خسته‌کننده، آستین همت رو بالا بزنیم و از دنیای رویاهامون یه بهشت شخصی بسازیم! 💖
           </motion.p>
 
           <motion.div
@@ -200,33 +209,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Love Key Philosophy Message Section */}
-      <section className="max-w-7xl mx-auto px-4 py-4">
-        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 text-white border border-indigo-500/30 rounded-3xl p-6 md:p-10 relative overflow-hidden shadow-xl space-y-5">
-          <div className="flex items-center gap-3 border-b border-white/10 pb-3">
-            <Heart className="text-rose-400 fill-rose-400 animate-pulse shrink-0" size={22} />
-            <div>
-              <h3 className="text-base md:text-lg font-extrabold text-amber-300 font-display">
-                وبسایت چهل دروازه: آموزش + کتاب + مشاوره + عشق
-              </h3>
-              <span className="text-[11px] text-indigo-200">شاهکلید یادگیری عمیق در قلمرو رویاها</span>
-            </div>
-          </div>
-
-          <div className="space-y-3 text-xs md:text-sm text-slate-200 leading-relaxed font-light text-justify">
-            <p>
-              پس از هزاران سال مکاشفه در رویاهای شفاف، دانستم که شاه‌کلید یادگیری فقط یک چیز است: <strong className="text-amber-300 font-bold">«عشق»</strong>. زمانی که با معشوقی صمیمی دیدار می‌کنیم؛ بلااستثنا می‌کوشیم تا از تک‌تک لحظات، نهایت لذت را ببریم و تا آنجا که می‌توانیم، این لحظات عاشقانه را بهتر و طولانی‌تر کنیم.
-            </p>
-            <p>
-              پس وقتی در کنار او می‌نشینیم، با نهایت احساس به طنین خوش‌آهنگ فرازونشیب نفس‌هایش گوش فرا می‌دهیم؛ با نهایت تمرکز به زیبایی‌های بی‌مثال او خیره می‌شویم؛ با نهایت احساس، او را می‌بوییم؛ با نهایت لطافت، پوست ظریفش را لمس می‌کنیم؛ و برای چیدن بوسه از لب‌هایش، چشم‌ها را می‌بندیم تا نهایت شیرینیِ وجود او را بچشیم.
-            </p>
-            <p className="text-amber-200 font-medium pt-2 border-t border-white/10">
-              این‌چنین است که عشق میان ما و معشوق، محکم‌تر و عمیق‌تر می‌گردد؛ و خاطرات این لحظات، شفاف و رنگی، به صورت معجونی از هر پنج حس در حافظه به یادگار می‌ماند.
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* Category Grid Section */}
       <section className="max-w-7xl mx-auto px-4 py-16 space-y-10">
         <div className="text-center space-y-2">
@@ -302,7 +284,7 @@ export default function Home() {
             <span className="text-[10px] text-indigo-700 border border-indigo-300 rounded-full px-3 py-1 font-mono font-bold uppercase bg-white w-fit block shadow-xs">LIMITED PACKAGE</span>
             <h3 className="text-xl md:text-2xl font-extrabold text-slate-900 leading-normal">
               مجموعه چهارجلدی چهل دروازه به ماورا: <br />
-              <span className="text-gold-gradient font-display italic">به همراه مشاوره تخصصی VIP</span>
+              <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-700 bg-clip-text text-transparent font-display italic font-extrabold">به همراه مشاوره تخصصی VIP</span>
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               اگر مصمم هستید تا مهارت رویابینی آگاهانه را زیر نظر مستقیم استاد فرا بگیرید، مجموعه کامل چهارجلدی چهل دروازه به ماورا همراه با مشاوره اختصاصی تلگرام بهترین گزینه است. رویاها و تمرینات روزانه شما تحلیل شده و نکات کلیدی به شما آموزش داده می‌شود.

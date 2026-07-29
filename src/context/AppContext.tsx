@@ -156,7 +156,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const handleHashChange = () => {
-      if (window.location.pathname === '/admin') {
+      if (window.location.pathname === '/admin' || window.location.hash === '#admin') {
         setCurrentPageReal('admin');
         return;
       }

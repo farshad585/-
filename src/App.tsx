@@ -28,7 +28,7 @@ function MainAppContent() {
   const { currentPage, isAuthenticated } = useApp();
 
   // Protected Admin Route (standalone full screen interface)
-  if (currentPage === 'admin' || window.location.pathname === '/admin') {
+  if (currentPage === 'admin' || window.location.pathname === '/admin' || window.location.hash === '#admin') {
     return <Admin />;
   }
 
