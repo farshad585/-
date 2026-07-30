@@ -22,7 +22,9 @@ import {
   ZoomIn,
   MessageSquare,
   Sparkles,
-  Info
+  Info,
+  Download,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -436,7 +438,7 @@ export default function ProductDetails() {
                       : 'border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-300'
                   }`}
                 >
-                  <span className="block font-bold text-slate-900">مشاوره VIP ۳۰ روزه</span>
+                  <span className="block font-bold text-slate-900">مشاوره ۳۰روزه VIP</span>
                   <span className="text-[11px] text-amber-700 font-extrabold mt-0.5 block">۸,۹۰۰,۰۰۰ تومان</span>
                 </button>
 
@@ -449,7 +451,7 @@ export default function ProductDetails() {
                       : 'border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-300'
                   }`}
                 >
-                  <span className="block font-bold text-slate-900">مشاوره VIP ۶۰ روزه</span>
+                  <span className="block font-bold text-slate-900">مشاوره ۶۰روزه VIP</span>
                   <span className="text-[11px] text-amber-700 font-extrabold mt-0.5 block">۱۴,۹۰۰,۰۰۰ تومان</span>
                 </button>
 
@@ -462,7 +464,7 @@ export default function ProductDetails() {
                       : 'border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-300'
                   }`}
                 >
-                  <span className="block font-bold text-slate-900">مشاوره VIP ۹۰ روزه</span>
+                  <span className="block font-bold text-slate-900">مشاوره ۹۰روزه VIP</span>
                   <span className="text-[11px] text-amber-700 font-extrabold mt-0.5 block">۱۹,۹۰۰,۰۰۰ تومان</span>
                 </button>
               </div>
@@ -471,7 +473,17 @@ export default function ProductDetails() {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-slate-200">
-            {product.stock > 0 ? (
+            {product.downloadUrl ? (
+              <a
+                href={product.downloadUrl}
+                download
+                id="details-direct-download-btn"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-98 transition-all text-white font-bold text-xs py-4 rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
+              >
+                <Download size={18} />
+                <span>دانلود مستقیم فایل PDF کتاب</span>
+              </a>
+            ) : product.stock > 0 ? (
               <button
                 id="details-add-to-cart-btn"
                 onClick={() => {
@@ -481,9 +493,9 @@ export default function ProductDetails() {
                     salePrice: finalPrice
                   };
                   let vipLabel = '';
-                  if (selectedVipConsultation === '30days') vipLabel = ' + مشاوره VIP ۳۰ روزه';
-                  if (selectedVipConsultation === '60days') vipLabel = ' + مشاوره VIP ۶۰ روزه';
-                  if (selectedVipConsultation === '90days') vipLabel = ' + مشاوره VIP ۹۰ روزه';
+                  if (selectedVipConsultation === '30days') vipLabel = ' + مشاوره ۳۰روزه VIP';
+                  if (selectedVipConsultation === '60days') vipLabel = ' + مشاوره ۶۰روزه VIP';
+                  if (selectedVipConsultation === '90days') vipLabel = ' + مشاوره ۹۰روزه VIP';
 
                   const finalFormatLabel = `${selectedFormat}${vipLabel}`;
 
@@ -499,6 +511,21 @@ export default function ProductDetails() {
             ) : (
               <button className="flex-1 bg-slate-100 text-slate-400 font-bold text-xs py-4 rounded-xl cursor-not-allowed">
                 در حال حاضر ناموجود است
+              </button>
+            )}
+
+            {product.downloadUrl && (
+              <button
+                id="details-add-to-cart-btn-secondary"
+                onClick={() => {
+                  addToCart(product, 1, selectedFormat);
+                  setNotification(`«${product.title}» به سبد خرید اضافه شد.`);
+                  setTimeout(() => setNotification(null), 4000);
+                }}
+                className="px-4 py-4 rounded-xl border border-indigo-200 hover:border-indigo-400 bg-indigo-50/50 text-indigo-950 font-bold text-xs flex items-center justify-center gap-2"
+              >
+                <ShoppingCart size={16} />
+                <span>افزودن به سبد</span>
               </button>
             )}
 

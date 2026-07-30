@@ -41,6 +41,7 @@ import { useApp } from '../context/AppContext';
 import { PRODUCTS } from '../data/products';
 import { BLOG_ARTICLES } from '../data/blog';
 import { Product, Order } from '../types';
+import { sendOrderStatusEmail } from '../utils/emailApi';
 
 interface LoginLog {
   id: string;
@@ -319,6 +320,16 @@ export default function Admin() {
   const handleUpdateStatus = (orderId: string, newStatus: Order['status']) => {
     const trackingCode = trackingInputs[orderId];
     updateOrderStatus(orderId, newStatus, trackingCode);
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (targetOrder) {
+      sendOrderStatusEmail({
+        orderId,
+        newStatus,
+        trackingCode,
+        customerEmail: targetOrder.customerInfo?.email || 'customer@40gates.ir',
+        customerName: targetOrder.customerInfo?.fullName || 'خریدار محترم'
+      });
+    }
   };
 
   // Add coupon

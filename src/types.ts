@@ -25,6 +25,7 @@ export interface Product {
   duration?: string;      // For audiobooks / courses
   format?: string;        // e.g. "PDF", "MP3", "Hardcover"
   author: string;         // e.g. "Farshad" or "۴۰ دروازه"
+  downloadUrl?: string;    // Direct downloadable file URL
   tableOfContents?: string[]; // Table of contents
 }
 

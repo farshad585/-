@@ -425,7 +425,8 @@ export const PRODUCTS: Product[] = [
     tags: ['PDF رایگان', 'چهل دروازه به ماورا', 'کتاب الکترونیکی', 'فرشاد میرشکاری'],
     pages: 352,
     format: 'PDF وکتور دیجیتال',
-    author: 'فرشاد میرشکاری'
+    author: 'فرشاد میرشکاری',
+    downloadUrl: '/40-gates-vol1.pdf'
   },
 
   // 17. کتاب pdf چهل دروازه به ماورا - جلد2
@@ -445,7 +446,8 @@ export const PRODUCTS: Product[] = [
     tags: ['PDF رایگان', 'چهل دروازه به ماورا', 'جلد دوم', 'فرشاد میرشکاری'],
     pages: 320,
     format: 'PDF وکتور دیجیتال',
-    author: 'فرشاد میرشکاری'
+    author: 'فرشاد میرشکاری',
+    downloadUrl: '/40-gates-vol2.pdf'
   },
 
   // 18. کتاب pdf چهل دروازه به ماورا - جلد3
@@ -465,7 +467,8 @@ export const PRODUCTS: Product[] = [
     tags: ['PDF رایگان', 'چهل دروازه به ماورا', 'جلد سوم', 'فرشاد میرشکاری'],
     pages: 310,
     format: 'PDF وکتور دیجیتال',
-    author: 'فرشاد میرشکاری'
+    author: 'فرشاد میرشکاری',
+    downloadUrl: '/40-gates-vol3.pdf'
   },
 
   // 19. کتاب pdf چهل دروازه به ماورا - جلد4
@@ -485,7 +488,8 @@ export const PRODUCTS: Product[] = [
     tags: ['PDF رایگان', 'چهل دروازه به ماورا', 'جلد چهارم', 'بازنویسی واقعیت', 'فرشاد میرشکاری'],
     pages: 290,
     format: 'PDF وکتور دیجیتال',
-    author: 'فرشاد میرشکاری'
+    author: 'فرشاد میرشکاری',
+    downloadUrl: '/40-gates-vol4.pdf'
   }
 ];
 

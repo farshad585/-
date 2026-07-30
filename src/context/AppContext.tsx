@@ -325,9 +325,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     const grandTotal = amountAfterDiscount + vatAmount + shippingFee;
 
-    // Generate order ID & Tracking code
+    // Generate order ID
     const randomId = 'IRN-' + Math.floor(100000 + Math.random() * 900000);
-    const trackingCode = 'PST-' + Math.floor(10000000 + Math.random() * 90000000);
 
     const newOrder: Order = {
       id: randomId,
@@ -346,7 +345,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       shippingFee,
       totalAmount: grandTotal,
       shippingAddress,
-      trackingCode: cart.some(i => i.product?.type === 'printed') ? trackingCode : undefined,
+      trackingCode: undefined,
       paymentGateway: gateway,
       couponUsed: couponCode || undefined
     };

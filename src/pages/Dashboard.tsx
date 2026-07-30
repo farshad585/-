@@ -56,38 +56,6 @@ export default function Dashboard() {
     setNotification(msg);
     setTimeout(() => setNotification(null), 4000);
   };
-
-  // Status update handler with email trigger
-  const handleTriggerStatusChange = (order: any, newStatus: string) => {
-    const trackingCode = order.trackingCode || ('PST-' + Math.floor(10000000 + Math.random() * 90000000));
-    updateOrderStatus(order.id, newStatus as any, trackingCode);
-
-    const updatedOrder = { ...order, status: newStatus, trackingCode };
-    if (activeTrackOrder && activeTrackOrder.id === order.id) {
-      setActiveTrackOrder(updatedOrder);
-    }
-
-    const statusMap: Record<string, string> = {
-      pending: 'در انتظار پرداخت و تایید اولیه',
-      processing: 'تایید سفارش و در حال آماده‌سازی',
-      shipped: 'ارسال شده با کد پستی پیشتاز',
-      completed: 'تحویل داده شده'
-    };
-
-    const targetEmail = userProfile.email || 'customer@40gates.ir';
-
-    sendOrderStatusEmail({
-      orderId: order.id,
-      newStatus,
-      trackingCode,
-      customerEmail: targetEmail,
-      customerName: userProfile.fullName
-    }).then(res => {
-      if (res.success) {
-        showNotification(`📧 ایمیل «${statusMap[newStatus] || newStatus}» برای خریدار ارسال گردید.`);
-      }
-    });
-  };
   
   // Profile Form States
   const [fullName, setFullName] = useState(userProfile.fullName || '');
@@ -128,19 +96,34 @@ export default function Dashboard() {
 
   // Filter completed or processing digital downloads from orders
   const digitalDownloads = useMemo(() => {
-    const downloads: {id: string, title: string, type: string, format: string, image: string}[] = [];
+    const downloads: {id: string, title: string, type: string, format: string, image: string, downloadUrl?: string}[] = [];
+    
+    // Include all PDF products that are downloadable by default
+    PRODUCTS.filter(p => p.type === 'pdf' || p.downloadUrl).forEach(prod => {
+      downloads.push({
+        id: prod.id,
+        title: prod.title,
+        type: prod.type,
+        format: 'پی دی اف کتاب (رایگان)',
+        image: prod.images[0],
+        downloadUrl: prod.downloadUrl
+      });
+    });
+
     orders.forEach(order => {
       order.items.forEach(item => {
         if (item.type === 'pdf' || item.type === 'audio' || item.type === 'course') {
-          // Find original product for image
           const prod = PRODUCTS.find(p => p.id === item.productId);
-          downloads.push({
-            id: item.productId,
-            title: item.title,
-            type: item.type,
-            format: item.type === 'pdf' ? 'پی دی اف کتاب' : item.type === 'audio' ? 'کتاب صوتی (MP3)' : 'دوره ویدیویی دانلودی',
-            image: prod?.images[0] || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=600'
-          });
+          if (!downloads.some(d => d.id === item.productId)) {
+            downloads.push({
+              id: item.productId,
+              title: item.title,
+              type: item.type,
+              format: item.type === 'pdf' ? 'پی دی اف کتاب' : item.type === 'audio' ? 'کتاب صوتی (MP3)' : 'دوره ویدیویی دانلودی',
+              image: prod?.images[0] || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=600',
+              downloadUrl: prod?.downloadUrl
+            });
+          }
         }
       });
     });
@@ -571,45 +554,18 @@ export default function Dashboard() {
                         ))}
                       </div>
 
-                      {/* Quick Status Email Trigger Actions */}
-                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 space-y-2 text-xs">
-                        <div className="flex justify-between items-center text-[10px] text-slate-600">
-                          <span className="font-bold text-slate-800 flex items-center gap-1">
-                            <Mail size={12} className="text-indigo-600" />
-                            <span>تغییر وضعیت سفارش و ارسال ایمیل به خریدار:</span>
+                      {/* Tracking Code Info Box for Customer */}
+                      {order.trackingCode && (
+                        <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl p-3 flex justify-between items-center text-xs">
+                          <span className="text-slate-700 font-medium flex items-center gap-1.5">
+                            <Truck size={14} className="text-indigo-600" />
+                            <span>کد رهگیری پستی پیشتاز:</span>
                           </span>
-                          {order.trackingCode && (
-                            <span className="font-mono text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                              کد پست: {order.trackingCode}
-                            </span>
-                          )}
+                          <span className="font-mono font-bold text-indigo-900 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shadow-2xs">
+                            {order.trackingCode}
+                          </span>
                         </div>
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => handleTriggerStatusChange(order, 'processing')}
-                            className="text-[10px] bg-white border border-slate-200 hover:border-indigo-400 text-slate-800 hover:text-indigo-700 font-bold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                          >
-                            ✓ تایید سفارش و آماده‌سازی
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleTriggerStatusChange(order, 'shipped')}
-                            className="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
-                          >
-                            <Truck size={10} />
-                            <span>ارسال پست + ارسال کد رهگیری</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleTriggerStatusChange(order, 'completed')}
-                            className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
-                          >
-                            <CheckCircle size={10} />
-                            <span>تحویل شد</span>
-                          </button>
-                        </div>
-                      </div>
+                      )}
 
                       <div className="flex justify-between items-center border-t border-slate-100 pt-3.5 mt-2">
                         <div className="text-right">
@@ -657,8 +613,16 @@ export default function Dashboard() {
                         
                         <div className="flex gap-2 pt-2">
                           <a 
-                            href="#" 
-                            onClick={(e) => { e.preventDefault(); showNotification(`کتاب دیجیتالی «${down.title}» با فرمت بالا در حال دانلود شبیه‌سازی شده است.`); }}
+                            href={down.downloadUrl || '#'} 
+                            download={down.downloadUrl ? true : undefined}
+                            onClick={(e) => { 
+                              if (!down.downloadUrl) {
+                                e.preventDefault(); 
+                                showNotification(`کتاب دیجیتالی «${down.title}» در حال آماده‌سازی دانلود است.`); 
+                              } else {
+                                showNotification(`در حال دانلود فایل PDF «${down.title}»...`);
+                              }
+                            }}
                             className="text-[9px] geom-button-primary text-white font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-xs"
                           >
                             <FileText size={10} />

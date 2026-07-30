@@ -5,6 +5,7 @@
 
 import { useApp } from '../context/AppContext';
 import { PRODUCTS } from '../data/products';
+import { TESTIMONIALS } from '../data/testimonials';
 import ProductCard from '../components/ProductCard';
 import SEO from '../components/SEO';
 import { 
@@ -108,8 +109,8 @@ export default function Home() {
               transition={{ duration: 0.8, delay: 0.15 }}
               className="text-4xl md:text-6xl font-extrabold text-white leading-[1.3] md:leading-[1.25] tracking-tight"
             >
-              بیدار شدن در رویا، <br />
-              <span className="text-amber-400 bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 font-display italic font-extrabold drop-shadow-sm">دروازه چهلم</span> خودشناسی
+              تبدیل شدن به آفریدگار رویا، <br />
+              <span className="text-amber-400 font-extrabold">دروازه چهلم</span> خودشناسی
             </motion.h1>
           </div>
 
@@ -354,65 +355,27 @@ export default function Home() {
           <p className="text-xs text-slate-500">کسانی که توانستند دنیای رویاهایشان را فتح کنند</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          {/* Testimonial 1 */}
-          <div className="p-6 rounded-2xl bg-white border border-purple-100 hover:border-indigo-300 transition-all duration-300 space-y-4 flex flex-col justify-between shadow-xs">
-            <div className="space-y-3">
-              <div className="flex gap-1">
-                {[...Array(5)].map((_, i) => <Star key={i} size={14} className="fill-amber-400 text-amber-400" />)}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {TESTIMONIALS.map((item) => (
+            <div key={item.id} className="p-6 rounded-2xl bg-white border border-purple-100 hover:border-indigo-300 transition-all duration-300 space-y-4 flex flex-col justify-between shadow-xs">
+              <div className="space-y-3">
+                <div className="flex gap-1">
+                  {[...Array(5)].map((_, i) => <Star key={i} size={14} className="fill-amber-400 text-amber-400" />)}
+                </div>
+                <p className="text-xs leading-relaxed text-slate-700 whitespace-pre-line">
+                  {item.text}
+                </p>
               </div>
-              <p className="text-xs leading-relaxed text-slate-600">
-                «من بیش از دو سال بود که سعی می‌کردم پرواز رویا رو کامل کنترل کنم ولی هیجان‌زده می‌شدم و سریع بیدار می‌شدم. با استفاده از کتاب ۴۰ دروازه و تکنیک اسپینینگ (چرخش آگاهی) یاد گرفتم خواب رو تثبیت کنم. دیشب فوق‌العاده‌ترین تجربه پرواز رویا رو داشتم.»
-              </p>
-            </div>
-            <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
-              <div className="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-xs flex items-center justify-center">ر</div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-900">رضا شهبازی</h4>
-                <span className="text-[10px] text-slate-400">خریدار کتاب ۴۰ دروازه</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Testimonial 2 */}
-          <div className="p-6 rounded-2xl bg-white border border-purple-100 hover:border-indigo-300 transition-all duration-300 space-y-4 flex flex-col justify-between shadow-xs">
-            <div className="space-y-3">
-              <div className="flex gap-1">
-                {[...Array(5)].map((_, i) => <Star key={i} size={14} className="fill-amber-400 text-amber-400" />)}
-              </div>
-              <p className="text-xs leading-relaxed text-slate-600">
-                «بزرگترین وحشت زندگی من بختک یا فلج خواب بود. هر بار که میافتادم حس خفگی عجیبی داشتم. بعد از خواندن راهنمای فلج خواب فهمیدم چطور ترس رو کنار بذارم. دیشب که فلج شدم، کاملاً ریلکس موندم و با تکنیک غوطه‌وری خودم رو جدا کردم و وارد یک خواب شفاف فوق‌العاده با وضوح رنگی بی‌نظیر شدم!»
-              </p>
-            </div>
-            <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
-              <div className="w-9 h-9 rounded-full bg-purple-50 border border-purple-200 text-purple-700 font-bold text-xs flex items-center justify-center">م</div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-900">مریم یزدانی</h4>
-                <span className="text-[10px] text-slate-400">خریدار پکیج PDF</span>
+              <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+                <div className={`w-9 h-9 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 ${item.avatarBg}`}>
+                  {item.avatarInitial}
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold text-slate-900 truncate">{item.name}</h4>
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Testimonial 3 */}
-          <div className="p-6 rounded-2xl bg-white border border-purple-100 hover:border-indigo-300 transition-all duration-300 space-y-4 flex flex-col justify-between shadow-xs">
-            <div className="space-y-3">
-              <div className="flex gap-1">
-                {[...Array(5)].map((_, i) => <Star key={i} size={14} className="fill-amber-400 text-amber-400" />)}
-              </div>
-              <p className="text-xs leading-relaxed text-slate-600">
-                «پخش صوتی فرکانس‌های تتا فوق‌العاده روی من جواب داد. دو هفته بود که کتاب صوتی سفر به درون رویاها رو مرتب قبل خواب گوش می‌کردم و دیشب تونستم توی خواب، متوجه ساعت بشم که عقربه‌هاش به عقب برمی‌گشتن و همونجا کارهای هیجان‌انگیزی کردم. تجربه‌ای بود که زندگی آدم رو تغییر میده.»
-              </p>
-            </div>
-            <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
-              <div className="w-9 h-9 rounded-full bg-violet-50 border border-violet-200 text-violet-700 font-bold text-xs flex items-center justify-center">س</div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-900">سینا محبی</h4>
-                <span className="text-[10px] text-slate-400">هنرجوی دوره جامع ویدیویی</span>
-              </div>
-            </div>
-          </div>
-
+          ))}
         </div>
       </section>
     </>

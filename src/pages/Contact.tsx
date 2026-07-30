@@ -160,10 +160,10 @@ export default function Contact() {
             <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-white p-4 rounded-2xl shadow-sm space-y-2 text-xs">
               <div className="flex items-center gap-2 font-bold text-amber-100">
                 <MessageSquare size={16} />
-                <span>چت زنده گفتینو (Goftino)</span>
+                <span>چت زنده</span>
               </div>
               <p className="text-[11px] text-amber-50 leading-relaxed">
-                می‌توانید برای گفتگو آنلاین و لحظه‌ای با پشتیبان، روی دکمه شناور گفتینو در گوشه پایین سمت چپ کلیک کنید.
+                میتوانید برای گفتگوی آنلاین با پشتیبان، روی دکمه آبی شناور در گوشه پایین سمت راست کلیک کنید.
               </p>
             </div>
           </div>
@@ -264,7 +264,7 @@ export default function Contact() {
                 className="w-full geom-button-primary text-white font-bold text-xs py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-sm"
               >
                 <Send size={14} />
-                <span>ثبت نهایی پیام و ارسال به تیکتینگ</span>
+                <span>ارسال پیام</span>
               </button>
 
             </form>
