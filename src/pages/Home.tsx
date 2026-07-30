@@ -107,10 +107,12 @@ export default function Home() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.15 }}
-              className="text-4xl md:text-6xl font-extrabold text-white leading-[1.3] md:leading-[1.25] tracking-tight"
+              className="text-[21px] xs:text-2xl sm:text-4xl md:text-6xl font-extrabold text-white leading-[1.4] sm:leading-[1.3] md:leading-[1.25] tracking-tight"
             >
-              تبدیل شدن به آفریدگار رویا، <br />
-              <span className="text-amber-400 font-extrabold">دروازه چهلم</span> خودشناسی
+              <span className="block whitespace-nowrap">تبدیل شدن به آفریدگار رویا،</span>
+              <span className="block whitespace-nowrap">
+                <span className="text-amber-400 font-extrabold">دروازه چهلم</span> خودشناسی
+              </span>
             </motion.h1>
           </div>
 

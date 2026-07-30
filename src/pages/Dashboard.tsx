@@ -440,7 +440,7 @@ export default function Dashboard() {
                     <span className="text-slate-500 block mb-0.5">آدرس ارسال:</span>
                     <p className="text-slate-900 leading-relaxed">{activeTrackOrder.shippingAddress?.address || 'ثبت نشده'}</p>
                   </div>
-                  {activeTrackOrder.trackingCode && (
+                  {activeTrackOrder.trackingCode && !activeTrackOrder.trackingCode.startsWith('PST-') && (
                     <div className="sm:col-span-2 border-t border-slate-200 pb-1 pt-3 flex flex-col sm:flex-row justify-between items-center gap-3">
                       <div>
                         <span className="text-slate-500 block mb-0.5">کد رهگیری پست پیشتاز (سامانه پست):</span>
@@ -555,7 +555,7 @@ export default function Dashboard() {
                       </div>
 
                       {/* Tracking Code Info Box for Customer */}
-                      {order.trackingCode && (
+                      {order.trackingCode && !order.trackingCode.startsWith('PST-') && (
                         <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl p-3 flex justify-between items-center text-xs">
                           <span className="text-slate-700 font-medium flex items-center gap-1.5">
                             <Truck size={14} className="text-indigo-600" />

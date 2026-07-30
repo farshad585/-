@@ -823,7 +823,7 @@ export default function Admin() {
                               <input
                                 type="text"
                                 placeholder="کد رهگیری پستی ۲۴ رقمی..."
-                                value={trackingInputs[order.id] || order.trackingCode || ''}
+                                value={trackingInputs[order.id] !== undefined ? trackingInputs[order.id] : (order.trackingCode && !order.trackingCode.startsWith('PST-') ? order.trackingCode : '')}
                                 onChange={e => setTrackingInputs({ ...trackingInputs, [order.id]: e.target.value })}
                                 className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500 dir-ltr text-left"
                               />
