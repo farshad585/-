@@ -25,7 +25,8 @@ import {
   HelpCircle,
   PhoneCall,
   Home as HomeIcon,
-  ShoppingBag as ShopIcon
+  ShoppingBag as ShopIcon,
+  Gamepad2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -69,6 +70,7 @@ export default function Navbar() {
   const navLinks = [
     { id: 'home', label: 'صفحه اصلی', icon: HomeIcon },
     { id: 'shop', label: 'فروشگاه کتاب', icon: ShopIcon },
+    { id: 'dream-game', label: 'بازی کنترل رویا 🎮', icon: Gamepad2 },
     { id: 'blog', label: 'مجله آگاهی', icon: BookOpen },
     { id: 'faq', label: 'سوالات متداول', icon: HelpCircle },
     { id: 'about', label: 'درباره من', icon: Info },

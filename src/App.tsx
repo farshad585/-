@@ -23,6 +23,7 @@ import Dashboard from './pages/Dashboard';
 import Auth from './pages/Auth';
 import Legal from './pages/Legal';
 import Admin from './pages/Admin';
+import DreamGame from './pages/DreamGame';
 
 function MainAppContent() {
   const { currentPage, isAuthenticated } = useApp();
@@ -65,6 +66,8 @@ function MainAppContent() {
         return <Dashboard />;
       case 'legal':
         return <Legal />;
+      case 'dream-game':
+        return <DreamGame />;
       default:
         return <Home />;
     }
