@@ -422,8 +422,21 @@ export default function Navbar() {
 
                 {/* Subtotal and Action Button */}
                 {cart.length > 0 && (
-                  <div className="border-t border-slate-100 pt-4 mt-4">
-                    <div className="flex justify-between items-center text-sm mb-4">
+                  <div className="border-t border-slate-100 pt-4 mt-4 space-y-3">
+                    {totalBeforeDiscount < 2000000 && (
+                      <div className="text-[10px] text-amber-950 bg-amber-50/90 border border-amber-200 p-2 rounded-xl font-medium flex items-center gap-1.5 shadow-xs">
+                        <span className="animate-blink-lamp text-amber-500 text-xs shrink-0">💡</span>
+                        <span>
+                          فقط <strong className="text-amber-700 font-extrabold mx-0.5">{
+                            (2000000 - totalBeforeDiscount) % 1000 === 0 && (2000000 - totalBeforeDiscount) < 1000000
+                              ? `${((2000000 - totalBeforeDiscount) / 1000).toLocaleString('fa-IR')} هزار تومان`
+                              : `${(2000000 - totalBeforeDiscount).toLocaleString('fa-IR')} تومان`
+                          }</strong> تا رایگان شدن ارسال خرید شما
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center text-sm">
                       <span className="text-slate-500">جمع کل سبد خرید:</span>
                       <span className="text-indigo-700 font-bold text-base">{formatPrice(totalBeforeDiscount)}</span>
                     </div>

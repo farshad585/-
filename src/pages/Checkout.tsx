@@ -549,10 +549,17 @@ export default function Checkout() {
                 <span>هزینه بسته‌بندی و ارسال پستی:</span>
                 <span className="font-mono text-slate-900 font-bold">{shippingFee === 0 ? 'رایگان' : formatPrice(shippingFee)}</span>
               </div>
-              {shippingFee > 0 && (
-                <p className="text-[10px] text-slate-600 leading-relaxed text-right bg-indigo-50/70 border border-indigo-100 p-2.5 rounded-xl font-medium">
-                  💡 با افزودن مابه‌التفاوت خرید به سقف ۲ میلیون تومان، هزینه ارسال را کاملاً رایگان کنید.
-                </p>
+              {shippingFee > 0 && amountAfterDiscount < 2000000 && (
+                <div className="text-[11px] text-amber-950 leading-relaxed text-right bg-amber-50/90 border border-amber-200/90 p-2.5 rounded-xl font-medium flex items-center gap-2 shadow-xs">
+                  <span className="animate-blink-lamp text-amber-500 text-sm shrink-0">💡</span>
+                  <span>
+                    فقط <strong className="text-amber-700 font-extrabold text-xs mx-0.5">{
+                      (2000000 - amountAfterDiscount) % 1000 === 0 && (2000000 - amountAfterDiscount) < 1000000
+                        ? `${((2000000 - amountAfterDiscount) / 1000).toLocaleString('fa-IR')} هزار تومان`
+                        : `${(2000000 - amountAfterDiscount).toLocaleString('fa-IR')} تومان`
+                    }</strong> تا رایگان شدن ارسال خرید شما
+                  </span>
+                </div>
               )}
             </div>
 

@@ -104,6 +104,7 @@ export default function Admin() {
   const [loginLogs, setLoginLogs] = useState<LoginLog[]>([]);
   const [contactMsgs, setContactMsgs] = useState<ContactMessage[]>([]);
   const [settingsInfo, setSettingsInfo] = useState<any>(null);
+  const [serverUsers, setServerUsers] = useState<Array<{ id: string; fullName: string; email: string; phone?: string; registeredAt?: string; faDate?: string }>>([]);
 
   // Custom Discount Coupons state
   const [coupons, setCoupons] = useState([
@@ -139,8 +140,16 @@ export default function Admin() {
     }
   }, [adminToken]);
 
-  // Fetch admin logs, settings, and contact messages
+  // Fetch admin logs, settings, contact messages, users, and orders
   const fetchAdminData = () => {
+    // Users (Public/Admin sync)
+    fetch('/api/users')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.users)) setServerUsers(data.users);
+      })
+      .catch(err => console.warn('Users error:', err));
+
     if (!adminToken) return;
 
     // Logs
@@ -474,6 +483,25 @@ export default function Admin() {
                       ⏱️ {Math.floor(otpTimer / 60)}:{(otpTimer % 60).toString().padStart(2, '0')}
                     </span>
                   </div>
+
+                  {authMessage && (
+                    <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-2.5 mb-2 text-[11px] text-indigo-300 flex items-center justify-between gap-2">
+                      <span>{authMessage}</span>
+                      {authMessage.match(/\d{6}/) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const matched = authMessage.match(/\d{6}/);
+                            if (matched) setOtpInput(matched[0]);
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-2 py-1 rounded shrink-0 cursor-pointer"
+                        >
+                          درج خودکار کد
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <input
                     type="text"
                     maxLength={6}
@@ -559,6 +587,15 @@ export default function Admin() {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => fetchAdminData()}
+                className="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer font-bold"
+                title="بروزرسانی لیست سفارش‌ها و کاربران"
+              >
+                <RefreshCw size={14} />
+                <span className="hidden sm:inline">بروزرسانی داده‌ها</span>
+              </button>
+
               <button
                 onClick={() => setCurrentPage('home')}
                 className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3.5 py-2 rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -949,46 +986,61 @@ export default function Admin() {
             )}
 
             {/* TAB 4: CUSTOMERS */}
-            {activeTab === 'customers' && (
-              <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4 text-right">
-                <h2 className="text-sm font-extrabold text-white flex items-center gap-2 pb-3 border-b border-slate-700">
-                  <Users className="text-indigo-400" size={18} />
-                  <span>لیست مشتریان و خریداران آکادمی</span>
-                </h2>
+            {activeTab === 'customers' && (() => {
+              const combinedEmails = Array.from(new Set([
+                ...serverUsers.map(u => u.email),
+                ...orders.map(o => o.shippingAddress?.email || o.userEmail).filter(Boolean) as string[]
+              ]));
 
-                {orders.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-8">هنوز مشتری ثبت شده‌ای در سیستم وجود ندارد.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {Array.from(new Set(orders.map(o => o.shippingAddress?.email || o.userEmail || 'کاربر مهمان'))).map((custEmail, i) => {
-                      const userOrders = orders.filter(o => (o.shippingAddress?.email || o.userEmail) === custEmail);
-                      const totalSpent = userOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-                      const name = userOrders[0]?.shippingAddress?.fullName || 'هنرجوی رویابینی شفاف';
-                      const phone = userOrders[0]?.shippingAddress?.phone || '-';
-
-                      return (
-                        <div key={i} className="bg-slate-900 border border-slate-700/80 rounded-xl p-3.5 text-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-white text-sm">{name}</span>
-                              <span className="bg-purple-500/20 text-purple-300 text-[10px] px-2 py-0.5 rounded font-mono">
-                                {custEmail}
-                              </span>
-                            </div>
-                            <span className="block text-[11px] text-slate-400">تلفن: {phone}</span>
-                          </div>
-
-                          <div className="text-left sm:text-right">
-                            <span className="block text-slate-400 text-[11px]">{userOrders.length} سفارش ثبت شده</span>
-                            <span className="font-extrabold text-emerald-400">{totalSpent.toLocaleString('fa-IR')} تومان</span>
-                          </div>
-                        </div>
-                      );
-                    })}
+              return (
+                <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4 text-right">
+                  <div className="flex justify-between items-center pb-3 border-b border-slate-700">
+                    <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
+                      <Users className="text-indigo-400" size={18} />
+                      <span>لیست کاربران ثبت‌نامی و خریداران آکادمی ({combinedEmails.length} کاربر)</span>
+                    </h2>
                   </div>
-                )}
-              </div>
-            )}
+
+                  {combinedEmails.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-8">هنوز کاربر ثبت شده‌ای در سیستم وجود ندارد.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {combinedEmails.map((custEmail, i) => {
+                        const registeredUser = serverUsers.find(u => u.email.toLowerCase() === custEmail.toLowerCase());
+                        const userOrders = orders.filter(o => (o.shippingAddress?.email || o.userEmail)?.toLowerCase() === custEmail.toLowerCase());
+                        const totalSpent = userOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+                        const name = registeredUser?.fullName || userOrders[0]?.shippingAddress?.fullName || 'هنرجوی رویابینی شفاف';
+                        const phone = registeredUser?.phone || userOrders[0]?.shippingAddress?.phone || '-';
+                        const regDate = registeredUser?.faDate || 'عضو آکادمی';
+
+                        return (
+                          <div key={i} className="bg-slate-900 border border-slate-700/80 rounded-xl p-3.5 text-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 hover:border-indigo-500/40 transition-colors">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white text-sm">{name}</span>
+                                <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] px-2 py-0.5 rounded font-mono">
+                                  {custEmail}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                                <span>تلفن: {phone}</span>
+                                <span>•</span>
+                                <span className="text-indigo-300">تاریخ ثبت: {regDate}</span>
+                              </div>
+                            </div>
+
+                            <div className="text-left sm:text-right">
+                              <span className="block text-slate-400 text-[11px]">{userOrders.length} سفارش ثبت شده</span>
+                              <span className="font-extrabold text-emerald-400">{totalSpent.toLocaleString('fa-IR')} تومان</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* TAB 5: ARTICLES / BLOG */}
             {activeTab === 'articles' && (

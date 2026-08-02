@@ -768,7 +768,8 @@ function NightmareDisregardGraphic({
   playerPosition,
   veerDirection,
   isFailed,
-  isHolding
+  isHolding,
+  onSelectLane
 }: {
   nightmareType: number;
   progress: number;
@@ -776,6 +777,7 @@ function NightmareDisregardGraphic({
   veerDirection: number; // -1 for left curve, +1 for right curve
   isFailed: boolean;
   isHolding: boolean;
+  onSelectLane?: (pos: 'center' | 'left' | 'right') => void;
 }) {
   const nightmareY = 35 + (progress / 100) * 185;
   const nightmareScale = 0.25 + (progress / 100) * 1.05;
@@ -846,6 +848,8 @@ function NightmareDisregardGraphic({
           fill={playerPosition === 'left' ? 'rgba(245, 158, 11, 0.35)' : 'rgba(30, 41, 59, 0.5)'}
           stroke={playerPosition === 'left' ? '#f59e0b' : 'rgba(148, 163, 184, 0.3)'}
           strokeWidth="2"
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={(e) => { e.stopPropagation(); onSelectLane?.('left'); }}
         />
 
         <ellipse
@@ -856,6 +860,8 @@ function NightmareDisregardGraphic({
           fill={playerPosition === 'right' ? 'rgba(245, 158, 11, 0.35)' : 'rgba(30, 41, 59, 0.5)'}
           stroke={playerPosition === 'right' ? '#f59e0b' : 'rgba(148, 163, 184, 0.3)'}
           strokeWidth="2"
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={(e) => { e.stopPropagation(); onSelectLane?.('right'); }}
         />
 
         <ellipse
@@ -866,6 +872,8 @@ function NightmareDisregardGraphic({
           fill={playerPosition === 'center' ? (isHolding ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)') : 'rgba(30, 41, 59, 0.5)'}
           stroke={playerPosition === 'center' ? (isHolding ? '#10b981' : '#f59e0b') : '#64748b'}
           strokeWidth="3"
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={(e) => { e.stopPropagation(); onSelectLane?.('center'); }}
         />
 
         {/* Player Figure */}
@@ -1037,37 +1045,97 @@ function NightmareDisregardPracticeGame() {
     setFeedbackType('success');
   };
 
-  const handleHoldStart = () => {
+  const handleSelectLane = (pos: 'center' | 'left' | 'right') => {
     if (gameState === 'idle') {
       startGame();
       return;
     }
-    if (gameState === 'running') {
+    if (gameState !== 'running') return;
+
+    setPlayerPosition(pos);
+    if (pos === 'center') {
       setIsHolding(true);
-      setPlayerPosition('center');
       setFeedbackMessage('کاراکتر به مرکز بازگشت و سبز شد! بی‌توجهی فعال است.');
       setFeedbackType('success');
+    } else if (pos === 'left') {
+      setIsHolding(false);
+      setFeedbackMessage('کاراکتر به چپ منحرف شد (زردرنگ). با لمس مرکز آن را به مرکز برگردانید!');
+      setFeedbackType('warning');
+    } else if (pos === 'right') {
+      setIsHolding(false);
+      setFeedbackMessage('کاراکتر به راست منحرف شد (زردرنگ). با لمس مرکز آن را به مرکز برگردانید!');
+      setFeedbackType('warning');
     }
   };
 
-  const handleHoldEnd = () => {
+  const handlePointerStart = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    if (gameState === 'idle') {
+      startGame();
+      return;
+    }
+    if (gameState !== 'running') return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const relX = (clientX - rect.left) / rect.width;
+
+    if (relX < 0.35) {
+      handleSelectLane('left');
+    } else if (relX > 0.65) {
+      handleSelectLane('right');
+    } else {
+      handleSelectLane('center');
+    }
+  };
+
+  const handlePointerMove = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    if (gameState !== 'running') return;
+    if ('buttons' in e && e.buttons !== 1 && e.type !== 'touchmove') return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const relX = (clientX - rect.left) / rect.width;
+
+    if (relX < 0.35) {
+      handleSelectLane('left');
+    } else if (relX > 0.65) {
+      handleSelectLane('right');
+    } else {
+      handleSelectLane('center');
+    }
+  };
+
+  const handlePointerRelease = () => {
     if (gameState === 'running') {
       setIsHolding(false);
+      if (playerPosition === 'center') {
+        const fleeSide = veerDirection === 1 ? 'left' : 'right';
+        setPlayerPosition(fleeSide);
+        setFeedbackMessage('دستتان رها شد؛ کاراکتر فرار کرد! سریعاً مرکز را لمس کنید تا به مرکز برگردد.');
+        setFeedbackType('warning');
+      }
     }
   };
 
-  // Keyboard support (holding space or down key)
+  // Keyboard support (ArrowLeft, ArrowRight, ArrowDown / Space)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === ' ' || e.key === 'ArrowDown') {
+      if (gameState !== 'running') return;
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
         e.preventDefault();
-        handleHoldStart();
+        handleSelectLane('left');
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        handleSelectLane('right');
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S' || e.key === ' ') {
+        e.preventDefault();
+        handleSelectLane('center');
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === ' ' || e.key === 'ArrowDown') {
         e.preventDefault();
-        handleHoldEnd();
+        handlePointerRelease();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -1076,7 +1144,7 @@ function NightmareDisregardPracticeGame() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameState]);
+  }, [gameState, playerPosition, veerDirection]);
 
   useEffect(() => {
     if (gameState !== 'running') return;
@@ -1094,9 +1162,8 @@ function NightmareDisregardPracticeGame() {
         return nextTime;
       });
 
-      if (isHolding) {
-        // User holding down -> Player green at center
-        setPlayerPosition('center');
+      if (playerPosition === 'center' && isHolding) {
+        // Player green at center
         setNightmareProgress(prev => {
           const nextProgress = prev + 0.7; // Halved nightmare speed
           if (nextProgress >= 100) {
@@ -1113,16 +1180,14 @@ function NightmareDisregardPracticeGame() {
           return nextProgress;
         });
       } else {
-        // User NOT holding -> Player turns yellow and panics / flees automatically
-        const fleePos = veerDirection === 1 ? 'left' : 'right';
-        setPlayerPosition(fleePos);
+        // Player at left, right, or center without holding -> panicked yellow
         setNightmareProgress(prev => {
           const nextProgress = prev + 1.2; // Halved nightmare speed
           if (nextProgress >= 85) {
             setGameState('gameover');
             setFeedbackType('error');
             setFeedbackMessage(
-              '🚨 شکست! کاراکتر زردرنگ فرار کرد و به کابوس برخورد نمود! با دست زدن دوباره می‌توانید آن را قبل از برخورد به مرکز برگردانید.'
+              '🚨 شکست! کاراکتر زردرنگ فرار کرد و به کابوس برخورد نمود! با دست زدن به مرکز قبل از برخورد می‌توانید آن را نجات دهید.'
             );
           }
           return nextProgress;
@@ -1131,7 +1196,7 @@ function NightmareDisregardPracticeGame() {
     }, 50);
 
     return () => clearInterval(interval);
-  }, [gameState, isHolding, veerDirection, passedNightmares]);
+  }, [gameState, isHolding, playerPosition, veerDirection, passedNightmares]);
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[480px]">
@@ -1146,7 +1211,7 @@ function NightmareDisregardPracticeGame() {
           </div>
           <div>
             <h3 className="text-sm font-bold text-white">تمرین ۳: خنثی‌سازی کابوس با «اصل بی‌توجهی»</h3>
-            <p className="text-xs text-purple-200/80 mt-0.5">دستتان را روی کاراکتر نگه دارید (سبز). در صورت فرار زردرنگ، تا قبل از برخورد فرصت دارید آن را به مرکز برگردانید.</p>
+            <p className="text-xs text-purple-200/80 mt-0.5">مرکز را لمس کنید (سبز). در صورت منحرف شدن کاراکتر، قبل از برخورد با لمس مرکز آن را بازگردانید.</p>
           </div>
         </div>
 
@@ -1183,19 +1248,21 @@ function NightmareDisregardPracticeGame() {
         className="relative z-10 my-4 flex flex-col items-center justify-center perspective-[1200px]"
       >
         <div 
-          className="relative flex items-center justify-center transition-transform duration-200 ease-out cursor-pointer select-none touch-none"
+          className="relative flex items-center justify-center transition-transform duration-200 ease-out select-none touch-none"
           style={{
             transformStyle: 'preserve-3d',
             transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`
           }}
-          onMouseDown={handleHoldStart}
-          onMouseUp={handleHoldEnd}
-          onMouseLeave={handleHoldEnd}
-          onTouchStart={handleHoldStart}
-          onTouchEnd={handleHoldEnd}
-          onTouchCancel={handleHoldEnd}
+          onMouseDown={handlePointerStart}
+          onMouseMove={handlePointerMove}
+          onMouseUp={handlePointerRelease}
+          onMouseLeave={handlePointerRelease}
+          onTouchStart={handlePointerStart}
+          onTouchMove={handlePointerMove}
+          onTouchEnd={handlePointerRelease}
+          onTouchCancel={handlePointerRelease}
         >
-          <div className="w-64 h-64 md:w-72 md:h-72 rounded-3xl relative flex flex-col items-center justify-center select-none shadow-2xl overflow-hidden bg-slate-950 border-4 border-purple-500/40">
+          <div className="w-64 h-64 md:w-72 md:h-72 rounded-3xl relative flex flex-col items-center justify-center select-none shadow-2xl overflow-hidden bg-slate-950 border-4 border-purple-500/40 cursor-pointer">
             <NightmareDisregardGraphic
               nightmareType={currentNightmareType}
               progress={nightmareProgress}
@@ -1203,10 +1270,11 @@ function NightmareDisregardPracticeGame() {
               veerDirection={veerDirection}
               isFailed={gameState === 'gameover'}
               isHolding={isHolding}
+              onSelectLane={handleSelectLane}
             />
 
             {gameState === 'idle' && (
-              <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center">
+              <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20">
                 <Flame size={36} className="text-purple-400 mb-3 animate-bounce" />
                 <button
                   onClick={startGame}
@@ -1217,6 +1285,42 @@ function NightmareDisregardPracticeGame() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* 3 Quick Lane Action Controls */}
+        <div className="flex items-center justify-center gap-2 mt-3 w-full max-w-xs z-10">
+          <button
+            onClick={() => handleSelectLane('left')}
+            className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all ${
+              playerPosition === 'left'
+                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md scale-105'
+                : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-700'
+            }`}
+          >
+            👈 چپ (انحراف)
+          </button>
+
+          <button
+            onClick={() => handleSelectLane('center')}
+            className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all ${
+              playerPosition === 'center' && isHolding
+                ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md scale-105'
+                : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-700'
+            }`}
+          >
+            🧘‍♂️ مرکز (بی‌توجهی)
+          </button>
+
+          <button
+            onClick={() => handleSelectLane('right')}
+            className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all ${
+              playerPosition === 'right'
+                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md scale-105'
+                : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-700'
+            }`}
+          >
+            راست (انحراف) 👉
+          </button>
         </div>
       </div>
 

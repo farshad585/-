@@ -117,8 +117,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(true);
     localStorage.setItem('40gates_authenticated', 'true');
 
-    // Send welcome email using the server-side email service and Vercel environment variables
+    // Send welcome email and register user on server
     try {
+      fetch('/api/users/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: data.fullName,
+          email: data.email,
+          phone: data.phone
+        })
+      }).catch(err => console.warn('User register server sync err:', err));
+
       await sendWelcomeEmail({
         email: data.email,
         fullName: data.fullName
@@ -207,6 +217,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const storedOrders = localStorage.getItem('40gates_orders');
       if (storedOrders) setOrders(JSON.parse(storedOrders));
+
+      // Fetch server orders and merge
+      fetch('/api/orders')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.orders)) {
+            setOrders(prev => {
+              const combined = [...prev];
+              data.orders.forEach((serverOrder: any) => {
+                const idx = combined.findIndex(o => o.id === serverOrder.id);
+                if (idx >= 0) {
+                  combined[idx] = { ...combined[idx], ...serverOrder };
+                } else {
+                  combined.push(serverOrder);
+                }
+              });
+              return combined;
+            });
+          }
+        })
+        .catch(err => console.warn('Failed to load server orders:', err));
     } catch (e) {
       console.error('Failed to load storage state', e);
     }
@@ -360,6 +391,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     setOrders((prev) => [newOrder, ...prev]);
+
+    // Save order to server endpoint
+    try {
+      fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: newOrder })
+      }).catch(err => console.warn('Order server sync err:', err));
+    } catch (e) {
+      console.warn('Order server sync exception:', e);
+    }
+
     return newOrder;
   };
 
@@ -377,6 +420,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return o;
       })
     );
+
+    // Sync status change to server endpoint
+    try {
+      fetch(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, trackingCode })
+      }).catch(err => console.warn('Order status server sync err:', err));
+    } catch (e) {
+      console.warn('Order status server sync exception:', e);
+    }
   };
 
   // Coupon handling with 1-time check and 1,000,000 Toman minimum threshold
