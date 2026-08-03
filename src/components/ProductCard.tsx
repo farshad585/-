@@ -30,8 +30,6 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     addToCart(product, 1);
-    // Visual feedback
-    alert(`«${product.title}» به سبد خرید اضافه شد.`);
   };
 
   const handleWishlistClick = (e: React.MouseEvent) => {

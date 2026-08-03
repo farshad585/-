@@ -8,6 +8,8 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import GoftinoWidget from './components/GoftinoWidget';
 import OnlineVisitorsIndicator from './components/OnlineVisitorsIndicator';
+import { PwaInstallPrompt } from './components/PwaInstallPrompt';
+import { AddToCartDrawer } from './components/AddToCartDrawer';
 
 // Pages
 import Home from './pages/Home';
@@ -99,6 +101,12 @@ function MainAppContent() {
 
       {/* Floating Online Visitors Indicator */}
       <OnlineVisitorsIndicator />
+
+      {/* PWA App Install Banner */}
+      <PwaInstallPrompt />
+
+      {/* Cart Slide-Over Drawer (Left Side - Digikala style) */}
+      <AddToCartDrawer />
     </div>
   );
 }

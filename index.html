@@ -1,22 +1,30 @@
 <!doctype html>
-<html lang="en">
+<html lang="fa" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/icon40fates.png" />
     <link rel="apple-touch-icon" href="/icon40fates.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="۴۰ دروازه" />
     <title>آکادمی ۴۰ دروازه | فرشاد میرشکاری</title>
-    <!-- 
-      راهنمای قرار دادن مستقیم کد گفتینو در index.html:
-      اگر تمایل دارید اسکریپت گفتینو مستقیم اینجا قرار گیرد، کد زیر را کپی کرده و به جای کلید_گفتینو، کلید خود را قرار دهید:
-      <script type="text/javascript">
-        !function(){var i="کلید_گفتینو",a=window,d=document;function g(){var s=d.createElement("script");s.type="text/javascript",s.async=!0,s.src="https://www.goftino.com/widget/"+i,d.getElementsByTagName("head")[0].appendChild(s)}if("complete"===d.readyState)g();else if(a.attachEvent)a.attachEvent("onload",g);else a.addEventListener("load",g,!0)}();
-      </script>
-    -->
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('PWA ServiceWorker registered:', reg.scope))
+            .catch(err => console.log('PWA ServiceWorker registration failed:', err));
+        });
+      }
+    </script>
   </body>
 </html>
 

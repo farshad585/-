@@ -8,44 +8,106 @@ const PORT = 3000;
 
 app.use(express.json());
 
-// Configure Nodemailer Transporter
-const getTransporter = () => {
-  const gmailUser = process.env.GMAIL_USER;
-  const gmailPass = process.env.GMAIL_APP_PASSWORD;
-
-  if (gmailUser && gmailPass) {
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: gmailUser,
-        pass: gmailPass,
-      },
-    });
-  }
-
-  // Fallback logger mode if GMAIL_USER or GMAIL_APP_PASSWORD are not set in environment variables
-  return {
-    sendMail: async (options: nodemailer.SendMailOptions) => {
-      console.log('--- [EMAIL DISPATCH LOG (SMTP credentials pending in env)] ---');
-      console.log('To:', options.to);
-      console.log('Subject:', options.subject);
-      console.log('From:', options.from || gmailUser || 'system');
-      console.log('Body length:', options.html?.toString().length || 0);
-      console.log('---------------------------');
-      return { messageId: 'simulated-msg-id-' + Date.now() };
-    },
-  };
-};
-
-// Log of sent emails for debug / UI status
-const emailLogs: Array<{
+// Email Log Model
+interface EmailLogItem {
   id: string;
   type: string;
   to: string;
   subject: string;
   timestamp: string;
-  status: 'sent' | 'simulated';
-}> = [];
+  status: 'sent' | 'simulated' | 'failed';
+  errorDetails?: string;
+}
+
+// Log of sent emails for debug / UI status
+const emailLogs: Array<EmailLogItem> = [];
+
+/**
+ * Universal Safe Email Sending Helper Function
+ * Checks process.env.GMAIL_USER and process.env.GMAIL_APP_PASSWORD.
+ * Handles timeouts, network glitches, and auth errors gracefully.
+ */
+async function sendMailSafely(
+  options: nodemailer.SendMailOptions,
+  type: string = 'general'
+): Promise<{ success: boolean; status: 'sent' | 'simulated' | 'failed'; error?: string; messageId?: string }> {
+  const gmailUser = (process.env.GMAIL_USER || '').trim();
+  const rawPass = (process.env.GMAIL_APP_PASSWORD || '').trim();
+  const gmailPass = rawPass.replace(/\s+/g, ''); // strip any accidental copy-paste spaces
+
+  const to = Array.isArray(options.to) ? options.to.join(', ') : String(options.to || '');
+  const subject = String(options.subject || '');
+  const sender = options.from || (gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه <40gates.main@gmail.com>');
+
+  if (gmailUser && gmailPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: gmailUser,
+          pass: gmailPass,
+        },
+        connectionTimeout: 8000,
+        greetingTimeout: 5000,
+        socketTimeout: 10000,
+      });
+
+      const info = await transporter.sendMail({
+        ...options,
+        from: sender,
+      });
+
+      console.log(`✅ [EMAIL SENT SUCCESSFULLY] To: ${to} | Subject: ${subject}`);
+
+      emailLogs.unshift({
+        id: 'EML-' + Date.now(),
+        type,
+        to,
+        subject,
+        timestamp: new Date().toLocaleTimeString('fa-IR'),
+        status: 'sent',
+      });
+
+      return { success: true, status: 'sent', messageId: info.messageId };
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      console.error(`❌ [GMAIL SMTP ERROR] To: ${to} | Error:`, errMsg);
+
+      emailLogs.unshift({
+        id: 'EML-ERR-' + Date.now(),
+        type,
+        to,
+        subject: `[خطا] ${subject}`,
+        timestamp: new Date().toLocaleTimeString('fa-IR'),
+        status: 'failed',
+        errorDetails: errMsg,
+      });
+
+      return {
+        success: false,
+        status: 'failed',
+        error: `خطا در اتصال یا احراز هویت Gmail SMTP: ${errMsg}`,
+      };
+    }
+  }
+
+  // Fallback mode if GMAIL_USER or GMAIL_APP_PASSWORD are not set in env
+  console.log(`ℹ️ [EMAIL SIMULATED (GMAIL_USER or GMAIL_APP_PASSWORD pending in env)] To: ${to} | Subject: ${subject}`);
+  emailLogs.unshift({
+    id: 'EML-SIM-' + Date.now(),
+    type,
+    to,
+    subject: `[شبیه‌سازی] ${subject}`,
+    timestamp: new Date().toLocaleTimeString('fa-IR'),
+    status: 'simulated',
+  });
+
+  return {
+    success: true,
+    status: 'simulated',
+    messageId: 'simulated-' + Date.now(),
+  };
+}
 
 // Contact Messages Store
 const contactMessages: Array<{
@@ -345,11 +407,6 @@ app.post('/api/admin/login', async (req, res) => {
       failedOtpCount: 0
     };
 
-    const transporter = getTransporter();
-    const gmailUser = process.env.GMAIL_USER;
-    const isRealSmtp = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
-    const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه';
-
     const otpHtml = `
       <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #0f172a; padding: 30px; color: #f8fafc;">
         <div style="max-width: 500px; margin: 0 auto; background-color: #1e293b; border-radius: 16px; padding: 25px; border: 1px solid #334155; text-align: center;">
@@ -367,33 +424,19 @@ app.post('/api/admin/login', async (req, res) => {
       </div>
     `;
 
-    try {
-      await transporter.sendMail({
-        from: sender,
-        to: adminEmail,
-        subject: `🔑 کد یک‌بار مصرف ورود به پنل مدیریت: ${otpCode}`,
-        html: otpHtml,
-      });
-    } catch (e) {
-      console.warn('Mail send failed in admin login:', e);
-    }
-
-    emailLogs.unshift({
-      id: 'EML-OTP-' + Date.now(),
-      type: 'admin-otp',
+    const otpEmailResult = await sendMailSafely({
       to: adminEmail,
-      subject: `کد یک‌بار مصرف ورود مدیر`,
-      timestamp: new Date().toLocaleTimeString('fa-IR'),
-      status: isRealSmtp ? 'sent' : 'simulated'
-    });
+      subject: `🔑 کد یک‌بار مصرف ورود به پنل مدیریت: ${otpCode}`,
+      html: otpHtml,
+    }, 'admin-otp');
 
     return res.json({
       success: true,
-      message: isRealSmtp 
+      message: otpEmailResult.status === 'sent'
         ? `کد ۶ رقمی یک‌بار مصرف به ایمیل مدیر (${adminEmail}) ارسال گردید.`
         : `کد ۶ رقمی یک‌بار مصرف صادر شد. (کد آزمایشی جهت ورود: ${otpCode})`,
       emailSentTo: adminEmail,
-      debugOtp: !isRealSmtp ? otpCode : undefined
+      debugOtp: otpEmailResult.status !== 'sent' ? otpCode : undefined
     });
 
   } catch (err: any) {
@@ -548,117 +591,85 @@ app.post('/api/contact', async (req, res) => {
 
     contactMessages.unshift(newMessage);
 
-    const transporter = getTransporter();
-    const gmailUser = process.env.GMAIL_USER;
-    const isRealSmtp = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
-    const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه <40gates.main@gmail.com>';
     const siteEmail = process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
 
-    // 1. Send notification email to site email (40gates.main@gmail.com)
-    try {
-      await transporter.sendMail({
-        from: sender,
-        to: siteEmail,
-        subject: `💬 پیام جدید از فرم تماس: ${name.trim()} (${newMessage.id})`,
-        html: `
-          <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
-            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-              <h2 style="color: #4338ca; margin-top: 0; border-bottom: 2px solid #e0e7ff; pb: 10px;">💬 پیام جدید در بخش تماس با فرشاد میرشکاری</h2>
-              
-              <div style="margin: 20px 0; font-size: 14px; line-height: 1.8;">
-                <p><strong>کد تیکت:</strong> <span style="font-family: monospace; color: #4338ca;">${newMessage.id}</span></p>
-                <p><strong>نام فرستنده:</strong> ${name.trim()}</p>
-                <p><strong>ایمیل فرستنده:</strong> <a href="mailto:${email.trim()}" style="color: #2563eb;">${email.trim()}</a></p>
-                <p><strong>موضوع پیام:</strong> ${subject || 'پشتیبانی'}</p>
-                <p><strong>تاریخ و زمان:</strong> ${newMessage.faDate} - ساعت ${newMessage.faTime}</p>
-              </div>
-
-              <div style="background-color: #f1f5f9; border-right: 4px solid #6366f1; padding: 18px; border-radius: 8px; font-size: 13px; line-height: 1.8; color: #0f172a;">
-                <strong>متن پیام:</strong><br/>
-                ${message.trim().replace(/\n/g, '<br/>')}
-              </div>
-
-              <p style="font-size: 11px; color: #64748b; margin-top: 25px; border-top: 1px solid #f1f5f9; pt: 15px;">
-                این پیام از فرم تماس با فرشاد میرشکاری وب‌سایت آکادمی ۴۰ دروازه ارسال گردیده است.
-              </p>
-            </div>
-          </div>
-        `
-      });
-
-      emailLogs.unshift({
-        id: 'EML-ADM-' + Date.now(),
-        type: 'contact-admin-notify',
-        to: siteEmail,
-        subject: `پیام جدید از فرم تماس: ${name.trim()}`,
-        timestamp: new Date().toLocaleTimeString('fa-IR'),
-        status: isRealSmtp ? 'sent' : 'simulated'
-      });
-    } catch (err) {
-      console.warn('Could not send contact message alert email to admin:', err);
-    }
-
-    // 2. Send auto-reply confirmation email to the user
-    try {
-      const userHtml = `
+    // 1. Send notification email to site owner
+    sendMailSafely({
+      to: siteEmail,
+      subject: `💬 پیام جدید از فرم تماس: ${name.trim()} (${newMessage.id})`,
+      html: `
         <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
           <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <h2 style="color: #4338ca; margin-top: 0; border-bottom: 2px solid #e0e7ff; pb: 10px;">💬 پیام جدید در بخش تماس با فرشاد میرشکاری</h2>
             
-            <div style="text-align: center; margin-bottom: 25px;">
-              <h2 style="color: #4338ca; margin: 0 0 8px 0;">✨ پیام شما دریافت شد</h2>
-              <p style="color: #64748b; font-size: 13px; margin: 0;">آکادمی ۴۰ دروازه | فرشاد میرشکاری</p>
+            <div style="margin: 20px 0; font-size: 14px; line-height: 1.8;">
+              <p><strong>کد تیکت:</strong> <span style="font-family: monospace; color: #4338ca;">${newMessage.id}</span></p>
+              <p><strong>نام فرستنده:</strong> ${name.trim()}</p>
+              <p><strong>ایمیل فرستنده:</strong> <a href="mailto:${email.trim()}" style="color: #2563eb;">${email.trim()}</a></p>
+              <p><strong>موضوع پیام:</strong> ${subject || 'پشتیبانی'}</p>
+              <p><strong>تاریخ و زمان:</strong> ${newMessage.faDate} - ساعت ${newMessage.faTime}</p>
             </div>
 
-            <p style="font-size: 14px; line-height: 1.8; color: #334155;">
-              جناب آقای / سرکار خانم <strong>${name.trim()}</strong> عزیز، با سلام و احترام؛
+            <div style="background-color: #f1f5f9; border-right: 4px solid #6366f1; padding: 18px; border-radius: 8px; font-size: 13px; line-height: 1.8; color: #0f172a;">
+              <strong>متن پیام:</strong><br/>
+              ${message.trim().replace(/\n/g, '<br/>')}
+            </div>
+
+            <p style="font-size: 11px; color: #64748b; margin-top: 25px; border-top: 1px solid #f1f5f9; pt: 15px;">
+              این پیام از فرم تماس با فرشاد میرشکاری وب‌سایت آکادمی ۴۰ دروازه ارسال گردیده است.
             </p>
-
-            <p style="font-size: 13px; line-height: 1.8; color: #475569;">
-              پیام شما با موفقیت در سیستم تیکتینگ آکادمی ۴۰ دروازه ثبت گردید. پیام شما توسط فرشاد میرشکاری و تیم پشتیبانی بررسی شده و در کمتر از ۲۴ ساعت آینده، پاسخ آن به همین آدرس ایمیل ارسال خواهد شد.
-            </p>
-
-            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 20px 0; font-size: 13px; line-height: 1.8;">
-              <h4 style="color: #312e81; margin-top: 0; margin-bottom: 12px; font-size: 14px;">📋 خلاصه پیام ثبت شده شما:</h4>
-              <p style="margin: 4px 0;"><strong>کد پیگیری:</strong> <span style="font-family: monospace; color: #4338ca;">${newMessage.id}</span></p>
-              <p style="margin: 4px 0;"><strong>موضوع:</strong> ${subject || 'پشتیبانی'}</p>
-              <p style="margin: 4px 0;"><strong>تاریخ ثبت:</strong> ${newMessage.faDate} - ساعت ${newMessage.faTime}</p>
-              <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; color: #334155;">
-                <strong>متن پیام:</strong><br/>
-                ${message.trim().replace(/\n/g, '<br/>')}
-              </div>
-            </div>
-
-            <div style="background-color: #eff6ff; border-radius: 10px; padding: 15px; font-size: 12px; color: #1e40af; line-height: 1.6;">
-              💡 <strong>نکته:</strong> اگر نیاز به ارسال فایل یا توضیحات تکمیلی دارید، می‌توانید مستقیماً به همین ایمیل (40gates.main@gmail.com) یا اکانت تلگرام <a href="https://t.me/Farshad_God" style="color: #2563eb; font-weight: bold;">t.me/Farshad_God</a> پیام دهید.
-            </div>
-
-            <div style="text-align: center; margin-top: 30px; pt: 20px; border-top: 1px solid #f1f5f9; color: #94a3b8; font-size: 11px;">
-              آکادمی ۴۰ دروازه — مرجع تخصصی رویابینی آگاهانه<br/>
-              ایمیل رسمی: <a href="mailto:40gates.main@gmail.com" style="color: #6366f1;">40gates.main@gmail.com</a>
-            </div>
-
           </div>
         </div>
-      `;
+      `
+    }, 'contact-admin-notify').catch(err => console.warn('Contact admin notify warning:', err));
 
-      await transporter.sendMail({
-        from: sender,
-        to: email.trim(),
-        subject: `✨ دریافت پیام شما در آکادمی ۴۰ دروازه (کد تیکت: ${newMessage.id})`,
-        html: userHtml
-      });
+    // 2. Send auto-reply confirmation email to the user
+    const userHtml = `
+      <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+          
+          <div style="text-align: center; margin-bottom: 25px;">
+            <h2 style="color: #4338ca; margin: 0 0 8px 0;">✨ پیام شما دریافت شد</h2>
+            <p style="color: #64748b; font-size: 13px; margin: 0;">آکادمی ۴۰ دروازه | فرشاد میرشکاری</p>
+          </div>
 
-      emailLogs.unshift({
-        id: 'EML-USR-' + Date.now(),
-        type: 'contact-user-autoreply',
-        to: email.trim(),
-        subject: `تایید دریافت پیام در آکادمی ۴۰ دروازه (${newMessage.id})`,
-        timestamp: new Date().toLocaleTimeString('fa-IR'),
-        status: isRealSmtp ? 'sent' : 'simulated'
-      });
-    } catch (err) {
-      console.warn('Could not send auto-reply email to user:', err);
-    }
+          <p style="font-size: 14px; line-height: 1.8; color: #334155;">
+            جناب آقای / سرکار خانم <strong>${name.trim()}</strong> عزیز، با سلام و احترام؛
+          </p>
+
+          <p style="font-size: 13px; line-height: 1.8; color: #475569;">
+            پیام شما با موفقیت در سیستم تیکتینگ آکادمی ۴۰ دروازه ثبت گردید. پیام شما توسط فرشاد میرشکاری و تیم پشتیبانی بررسی شده و در کمتر از ۲۴ ساعت آینده، پاسخ آن به همین آدرس ایمیل ارسال خواهد شد.
+          </p>
+
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 20px 0; font-size: 13px; line-height: 1.8;">
+            <h4 style="color: #312e81; margin-top: 0; margin-bottom: 12px; font-size: 14px;">📋 خلاصه پیام ثبت شده شما:</h4>
+            <p style="margin: 4px 0;"><strong>کد پیگیری:</strong> <span style="font-family: monospace; color: #4338ca;">${newMessage.id}</span></p>
+            <p style="margin: 4px 0;"><strong>موضوع:</strong> ${subject || 'پشتیبانی'}</p>
+            <p style="margin: 4px 0;"><strong>تاریخ ثبت:</strong> ${newMessage.faDate} - ساعت ${newMessage.faTime}</p>
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; color: #334155;">
+              <strong>متن پیام:</strong><br/>
+              ${message.trim().replace(/\n/g, '<br/>')}
+            </div>
+          </div>
+
+          <div style="background-color: #eff6ff; border-radius: 10px; padding: 15px; font-size: 12px; color: #1e40af; line-height: 1.6;">
+            💡 <strong>نکته:</strong> اگر نیاز به ارسال فایل یا توضیحات تکمیلی دارید، می‌توانید مستقیماً به همین ایمیل (40gates.main@gmail.com) یا اکانت تلگرام <a href="https://t.me/Farshad_God" style="color: #2563eb; font-weight: bold;">t.me/Farshad_God</a> پیام دهید.
+          </div>
+
+          <div style="text-align: center; margin-top: 30px; pt: 20px; border-top: 1px solid #f1f5f9; color: #94a3b8; font-size: 11px;">
+            آکادمی ۴۰ دروازه — مرجع تخصصی رویابینی آگاهانه<br/>
+            ایمیل رسمی: <a href="mailto:40gates.main@gmail.com" style="color: #6366f1;">40gates.main@gmail.com</a>
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    sendMailSafely({
+      to: email.trim(),
+      subject: `✨ دریافت پیام شما در آکادمی ۴۰ دروازه (کد تیکت: ${newMessage.id})`,
+      html: userHtml
+    }, 'contact-user-autoreply').catch(err => console.warn('Contact user autoreply warning:', err));
 
     return res.json({ 
       success: true, 
@@ -690,6 +701,39 @@ app.get('/api/email/logs', (req, res) => {
   res.json({ success: true, logs: emailLogs });
 });
 
+// Admin Test Email Endpoint
+app.post('/api/admin/test-email', requireAdminAuth, async (req, res) => {
+  try {
+    const { testEmail } = req.body;
+    const target = (testEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim();
+
+    const result = await sendMailSafely({
+      to: target,
+      subject: '🧪 ایمیل آزمایشی آکادمی ۴۰ دروازه - تست اتصال SMTP',
+      html: `
+        <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 25px; background: #0f172a; color: #fff;">
+          <h2 style="color: #38bdf8;">✅ تست ارسال ایمیل موفقیت‌آمیز بود!</h2>
+          <p>این ایمیل جهت تست سرویس SMTP آکادمی ۴۰ دروازه ارسال گردیده است.</p>
+          <p style="font-size: 12px; color: #94a3b8;">زمان ارسال: ${new Date().toLocaleString('fa-IR')}</p>
+        </div>
+      `
+    }, 'test-email');
+
+    return res.json({
+      success: result.success,
+      status: result.status,
+      message: result.status === 'sent' 
+        ? `ایمیل تست با موفقیت به ${target} ارسال شد.` 
+        : result.status === 'simulated'
+        ? `سرویس SMTP در محیط فعال نیست (GMAIL_USER و GMAIL_APP_PASSWORD مقداردهی نشده‌اند). ارسال شبیه‌سازی گردید.`
+        : `خطا در ارسال ایمیل واقعی: ${result.error}`,
+      details: result
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'خطا در تست ایمیل' });
+  }
+});
+
 // API Endpoint 3: Register / Welcome Email
 app.post('/api/email/welcome', async (req, res) => {
   try {
@@ -698,10 +742,7 @@ app.post('/api/email/welcome', async (req, res) => {
       return res.status(400).json({ success: false, error: 'آدرس ایمیل الزامی است' });
     }
 
-    const transporter = getTransporter();
     const gmailUser = process.env.GMAIL_USER;
-    const isRealSmtp = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
-    const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه';
 
     const htmlContent = `
       <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
@@ -747,22 +788,6 @@ app.post('/api/email/welcome', async (req, res) => {
       </div>
     `;
 
-    await transporter.sendMail({
-      from: sender,
-      to: email,
-      subject: 'خوش آمدید به آکادمی ۴۰ دروازه | بیداری در قلمرو رویاها',
-      html: htmlContent,
-    });
-
-    emailLogs.unshift({
-      id: 'EML-' + Date.now(),
-      type: 'welcome',
-      to: email,
-      subject: 'خوش آمدید به آکادمی ۴۰ دروازه',
-      timestamp: new Date().toLocaleTimeString('fa-IR'),
-      status: isRealSmtp ? 'sent' : 'simulated',
-    });
-
     // Store user in server memory store
     if (email) {
       const existingUser = registeredUsersStore.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
@@ -778,9 +803,23 @@ app.post('/api/email/welcome', async (req, res) => {
       }
     }
 
-    return res.json({ success: true, message: 'ایمیل خوش‌آمدگویی ارسال شد.' });
+    const welcomeResult = await sendMailSafely({
+      to: email.trim(),
+      subject: 'خوش آمدید به آکادمی ۴۰ دروازه | بیداری در قلمرو رویاها',
+      html: htmlContent,
+    }, 'welcome');
+
+    return res.json({ 
+      success: true, 
+      message: welcomeResult.status === 'sent'
+        ? 'ایمیل خوش‌آمدگویی با موفقیت ارسال شد.'
+        : welcomeResult.status === 'simulated'
+        ? 'ثبت‌نام انجام شد (ایمیل در محیط آزمایشی شبیه‌سازی گردید).'
+        : `ثبت‌نام انجام شد (${welcomeResult.error})`,
+      status: welcomeResult.status
+    });
   } catch (err: any) {
-    console.error('Email error:', err);
+    console.error('Welcome Email error:', err);
     return res.status(500).json({ success: false, error: err?.message || 'خطا در ارسال ایمیل' });
   }
 });
@@ -793,11 +832,7 @@ app.post('/api/email/order-created', async (req, res) => {
       return res.status(400).json({ success: false, error: 'اطلاعات سفارش و ایمیل نامعتبر است' });
     }
 
-    const transporter = getTransporter();
-    const gmailUser = process.env.GMAIL_USER;
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER;
-    const isRealSmtp = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
-    const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه';
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER || '40gates.main@gmail.com';
 
     const items = order.items || [];
     const subtotal = order.subtotal || 0;
@@ -875,72 +910,37 @@ app.post('/api/email/order-created', async (req, res) => {
       </div>
     `;
 
-    let customerSent = false;
-    let adminSent = false;
-
     // 1. Send email to Customer
-    if (customerEmail && !customerEmail.includes('@40gates.ir')) {
-      try {
-        await transporter.sendMail({
-          from: sender,
-          to: customerEmail,
-          subject: `تایید سفارش #${order.id} - آکادمی ۴۰ دروازه`,
-          html: customerHtml,
-        });
-        customerSent = true;
-        emailLogs.unshift({
-          id: 'EML-' + Date.now(),
-          type: 'order-customer',
-          to: customerEmail,
-          subject: `تایید سفارش #${order.id}`,
-          timestamp: new Date().toLocaleTimeString('fa-IR'),
-          status: isRealSmtp ? 'sent' : 'simulated',
-        });
-      } catch (custErr) {
-        console.error('Failed to send customer order email:', custErr);
-      }
-    }
+    const customerResult = await sendMailSafely({
+      to: customerEmail.trim(),
+      subject: `تایید سفارش #${order.id} - آکادمی ۴۰ دروازه`,
+      html: customerHtml,
+    }, 'order-customer');
 
     // 2. Send email notification to Site Owner / Admin
-    if (adminEmail) {
-      const ownerHtml = `
-        <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 20px; color: #0f172a;">
-          <h2 style="color: #047857;">🔔 سفارش جدید در وبسایت ثبت شد!</h2>
-          <p><strong>شماره سفارش:</strong> ${order.id}</p>
-          <p><strong>نام مشتری:</strong> ${customerName || order.shippingAddress?.fullName || 'ثبت شده'}</p>
-          <p><strong>ایمیل مشتری:</strong> ${customerEmail}</p>
-          <p><strong>تلفن مشتری:</strong> ${order.shippingAddress?.phone || '-'}</p>
-          <p><strong>مبلغ کل:</strong> ${totalAmount.toLocaleString('fa-IR')} تومان</p>
-          <p><strong>روش پرداخت:</strong> ${order.paymentGateway || 'کارت به کارت'}</p>
-          <p><strong>آدرس ارسال:</strong> ${order.shippingAddress?.address || 'ارسال دیجیتال/آنلاین'}</p>
-          <hr/>
-          <h4>اقلام سفارش:</h4>
-          <ul>
-            ${items.map((i: any) => `<li>${i.title || 'محصول'} - ${i.quantity || 1} عدد (${(i.price || 0).toLocaleString('fa-IR')} تومان)</li>`).join('')}
-          </ul>
-        </div>
-      `;
+    const ownerHtml = `
+      <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 20px; color: #0f172a;">
+        <h2 style="color: #047857;">🔔 سفارش جدید در وبسایت ثبت شد!</h2>
+        <p><strong>شماره سفارش:</strong> ${order.id}</p>
+        <p><strong>نام مشتری:</strong> ${customerName || order.shippingAddress?.fullName || 'ثبت شده'}</p>
+        <p><strong>ایمیل مشتری:</strong> ${customerEmail}</p>
+        <p><strong>تلفن مشتری:</strong> ${order.shippingAddress?.phone || '-'}</p>
+        <p><strong>مبلغ کل:</strong> ${totalAmount.toLocaleString('fa-IR')} تومان</p>
+        <p><strong>روش پرداخت:</strong> ${order.paymentGateway || 'کارت به کارت'}</p>
+        <p><strong>آدرس ارسال:</strong> ${order.shippingAddress?.address || 'ارسال دیجیتال/آنلاین'}</p>
+        <hr/>
+        <h4>اقلام سفارش:</h4>
+        <ul>
+          ${items.map((i: any) => `<li>${i.title || 'محصول'} - ${i.quantity || 1} عدد (${(i.price || 0).toLocaleString('fa-IR')} تومان)</li>`).join('')}
+        </ul>
+      </div>
+    `;
 
-      try {
-        await transporter.sendMail({
-          from: sender,
-          to: adminEmail,
-          subject: `🔔 سفارش جدید ثبت شد #${order.id} - ${totalAmount.toLocaleString('fa-IR')} تومان`,
-          html: ownerHtml,
-        });
-        adminSent = true;
-        emailLogs.unshift({
-          id: 'EML-ADM-' + Date.now(),
-          type: 'order-admin',
-          to: adminEmail,
-          subject: `🔔 سفارش جدید ثبت شد #${order.id}`,
-          timestamp: new Date().toLocaleTimeString('fa-IR'),
-          status: isRealSmtp ? 'sent' : 'simulated',
-        });
-      } catch (adminErr) {
-        console.error('Failed to send admin order email:', adminErr);
-      }
-    }
+    const adminResult = await sendMailSafely({
+      to: adminEmail.trim(),
+      subject: `🔔 سفارش جدید ثبت شد #${order.id} - ${totalAmount.toLocaleString('fa-IR')} تومان`,
+      html: ownerHtml,
+    }, 'order-admin');
 
     // Store order in server memory store
     if (order && order.id) {
@@ -954,9 +954,9 @@ app.post('/api/email/order-created', async (req, res) => {
 
     return res.json({ 
       success: true, 
-      message: 'ایمیل سفارش پردازش گردید.',
-      customerSent,
-      adminSent
+      message: 'سفارش ثبت و پردازش گردید.',
+      customerStatus: customerResult.status,
+      adminStatus: adminResult.status
     });
   } catch (err: any) {
     console.error('Order email error:', err);
@@ -972,10 +972,12 @@ app.post('/api/email/order-status', async (req, res) => {
       return res.status(400).json({ success: false, error: 'پارامترهای تغییر وضعیت سفارش نامعتبر است' });
     }
 
-    const transporter = getTransporter();
-    const gmailUser = process.env.GMAIL_USER;
-    const isRealSmtp = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
-    const sender = gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه';
+    // Update in server store
+    const targetOrder = serverOrdersStore.find(o => o.id === orderId);
+    if (targetOrder) {
+      if (newStatus) targetOrder.status = newStatus;
+      if (trackingCode) targetOrder.trackingCode = trackingCode;
+    }
 
     const statusLabels: Record<string, string> = {
       pending: 'در انتظار پرداخت و تایید اولیه',
@@ -1024,23 +1026,17 @@ app.post('/api/email/order-status', async (req, res) => {
       </div>
     `;
 
-    await transporter.sendMail({
-      from: sender,
-      to: customerEmail,
+    const statusEmailResult = await sendMailSafely({
+      to: customerEmail.trim(),
       subject: `تغییر وضعیت سفارش #${orderId}: ${label} - آکادمی ۴۰ دروازه`,
       html: htmlContent,
-    });
+    }, 'order-status');
 
-    emailLogs.unshift({
-      id: 'EML-ST-' + Date.now(),
-      type: 'order-status',
-      to: customerEmail,
-      subject: `بروزرسانی وضعیت سفارش #${orderId}`,
-      timestamp: new Date().toLocaleTimeString('fa-IR'),
-      status: isRealSmtp ? 'sent' : 'simulated',
+    return res.json({ 
+      success: true, 
+      message: 'ایمیل بروزرسانی وضعیت سفارش پردازش شد.',
+      status: statusEmailResult.status
     });
-
-    return res.json({ success: true, message: 'ایمیل بروزرسانی وضعیت سفارش با موفقیت ارسال شد.' });
   } catch (err: any) {
     console.error('Status email error:', err);
     return res.status(500).json({ success: false, error: err?.message || 'خطا در ارسال ایمیل تغییر وضعیت' });

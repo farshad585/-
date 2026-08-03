@@ -105,6 +105,10 @@ export default function Admin() {
   const [contactMsgs, setContactMsgs] = useState<ContactMessage[]>([]);
   const [settingsInfo, setSettingsInfo] = useState<any>(null);
   const [serverUsers, setServerUsers] = useState<Array<{ id: string; fullName: string; email: string; phone?: string; registeredAt?: string; faDate?: string }>>([]);
+  const [emailSystemLogs, setEmailSystemLogs] = useState<Array<{ id: string; type: string; to: string; subject: string; timestamp: string; status: string; errorDetails?: string }>>([]);
+  const [testEmailAddress, setTestEmailAddress] = useState<string>('fmfarshad585@gmail.com');
+  const [testEmailLoading, setTestEmailLoading] = useState<boolean>(false);
+  const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Custom Discount Coupons state
   const [coupons, setCoupons] = useState([
@@ -181,6 +185,42 @@ export default function Admin() {
         if (data.success) setContactMsgs(data.messages || []);
       })
       .catch(err => console.warn('Messages error:', err));
+
+    // Email logs
+    fetch('/api/email/logs')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.logs)) setEmailSystemLogs(data.logs);
+      })
+      .catch(err => console.warn('Email logs error:', err));
+  };
+
+  const handleSendTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminToken) return;
+    setTestEmailLoading(true);
+    setTestEmailResult(null);
+
+    try {
+      const res = await fetch('/api/admin/test-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ testEmail: testEmailAddress })
+      });
+      const data = await res.json();
+      setTestEmailResult({
+        success: !!data.success,
+        message: data.message || (data.success ? 'ایمیل تست ارسال شد.' : 'خطا در ارسال ایمیل')
+      });
+      fetchAdminData();
+    } catch (err) {
+      setTestEmailResult({ success: false, message: 'خطا در ارتباط با سرور' });
+    } finally {
+      setTestEmailLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -1179,6 +1219,117 @@ export default function Admin() {
             {/* TAB 8: SETTINGS & SECURITY LOGS */}
             {activeTab === 'settings' && (
               <div className="space-y-6 text-right">
+                {/* Email System Test & Logs Section */}
+                <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-3 border-b border-slate-700">
+                    <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
+                      <Mail className="text-indigo-400" size={18} />
+                      <span>تست و عیب‌یابی سرویس ارسال ایمیل (Email Dispatch Diagnostics)</span>
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                        settingsInfo?.smtpConfigured 
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      }`}>
+                        {settingsInfo?.smtpConfigured ? '🟢 سرویس SMTP فعال است' : '🟡 حالت شبیه‌ساز (GMAIL_USER ست نشده)'}
+                      </span>
+                      <button
+                        onClick={fetchAdminData}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
+                      >
+                        <RefreshCw size={12} />
+                        <span>بروزرسانی</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Test Email Form */}
+                  <form onSubmit={handleSendTestEmail} className="bg-slate-900 border border-slate-700 rounded-xl p-3.5 space-y-3 text-xs">
+                    <span className="block font-bold text-slate-200">تست لحظه‌ای ارسال ایمیل به آدرس دلخواه:</span>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="email"
+                        placeholder="آدرس ایمیل گیرنده"
+                        value={testEmailAddress}
+                        onChange={e => setTestEmailAddress(e.target.value)}
+                        className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 flex-grow"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        disabled={testEmailLoading}
+                        className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
+                      >
+                        {testEmailLoading ? <RefreshCw className="animate-spin" size={14} /> : <Send size={14} />}
+                        <span>ارسال ایمیل آزمایشی</span>
+                      </button>
+                    </div>
+
+                    {testEmailResult && (
+                      <div className={`p-2.5 rounded-lg text-xs font-semibold ${
+                        testEmailResult.success 
+                          ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800' 
+                          : 'bg-rose-950/60 text-rose-300 border border-rose-800'
+                      }`}>
+                        {testEmailResult.message}
+                      </div>
+                    )}
+                  </form>
+
+                  {/* Email System Logs Table */}
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-bold text-slate-300">آخرین لاگ‌های ارسال ایمیل توسط سرور:</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-slate-300 text-right">
+                        <thead className="bg-slate-900 text-slate-400 text-[11px] border-b border-slate-700">
+                          <tr>
+                            <th className="p-2.5">زمان ارسال</th>
+                            <th className="p-2.5">نوع ایمیل</th>
+                            <th className="p-2.5">گیرنده</th>
+                            <th className="p-2.5">موضوع</th>
+                            <th className="p-2.5">وضعیت</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800 font-mono text-[11px]">
+                          {emailSystemLogs.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="p-4 text-center text-slate-500 font-sans">
+                                هنوز ایمیلی در این جلسه ثبت نشده است.
+                              </td>
+                            </tr>
+                          ) : (
+                            emailSystemLogs.map((log) => (
+                              <tr key={log.id} className="hover:bg-slate-800/40">
+                                <td className="p-2.5 text-slate-300">{log.timestamp}</td>
+                                <td className="p-2.5 font-sans text-indigo-300">{log.type}</td>
+                                <td className="p-2.5 text-slate-400">{log.to}</td>
+                                <td className="p-2.5 font-sans text-slate-200">{log.subject}</td>
+                                <td className="p-2.5 font-sans">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    log.status === 'sent' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                    log.status === 'simulated' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                    'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                  }`}>
+                                    {log.status === 'sent' && '✅ ارسال شد'}
+                                    {log.status === 'simulated' && '🟡 شبیه‌سازی'}
+                                    {log.status === 'failed' && '❌ ناموفق'}
+                                  </span>
+                                  {log.errorDetails && (
+                                    <span className="block text-[9px] text-rose-400 mt-0.5 font-sans dir-ltr text-left">
+                                      {log.errorDetails}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Admin Login Audit Logs */}
                 <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4">
                   <div className="flex justify-between items-center pb-3 border-b border-slate-700">

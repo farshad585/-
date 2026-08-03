@@ -1,0 +1,27 @@
+{
+  "name": "آکادمی ۴۰ دروازه | فرشاد میرشکاری",
+  "short_name": "۴۰ دروازه",
+  "description": "مرجع تخصصی آموزش رویابینی شفاف، پرواز روح و مراقبه آگاهانه",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "dir": "rtl",
+  "lang": "fa-IR",
+  "icons": [
+    {
+      "src": "/icon40fates.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon40fates.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "lifestyle", "health"]
+}

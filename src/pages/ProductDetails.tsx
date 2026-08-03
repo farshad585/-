@@ -500,8 +500,6 @@ export default function ProductDetails() {
                   const finalFormatLabel = `${selectedFormat}${vipLabel}`;
 
                   addToCart(customProduct, 1, finalFormatLabel);
-                  setNotification(`«${product.title} (${finalFormatLabel})» با موفقیت به سبد خرید شما اضافه شد.`);
-                  setTimeout(() => setNotification(null), 4000);
                 }}
                 className="flex-1 geom-button-primary hover:opacity-90 active:scale-98 transition-all text-white font-bold text-xs py-4 rounded-xl flex items-center justify-center gap-2 shadow-md"
               >
@@ -519,8 +517,6 @@ export default function ProductDetails() {
                 id="details-add-to-cart-btn-secondary"
                 onClick={() => {
                   addToCart(product, 1, selectedFormat);
-                  setNotification(`«${product.title}» به سبد خرید اضافه شد.`);
-                  setTimeout(() => setNotification(null), 4000);
                 }}
                 className="px-4 py-4 rounded-xl border border-indigo-200 hover:border-indigo-400 bg-indigo-50/50 text-indigo-950 font-bold text-xs flex items-center justify-center gap-2"
               >

@@ -22,6 +22,11 @@ interface AppContextType {
   updateCartQuantity: (productId: string, quantity: number, selectedFormat?: string) => void;
   clearCart: () => void;
   
+  isCartDrawerOpen: boolean;
+  setIsCartDrawerOpen: (open: boolean) => void;
+  lastAddedItem: { product: Product; quantity: number; selectedFormat?: string } | null;
+  closeCartDrawer: () => void;
+  
   wishlist: string[];
   toggleWishlist: (productId: string) => void;
   
@@ -63,6 +68,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Cart & Wishlist & Recently Viewed
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState<boolean>(false);
+  const [lastAddedItem, setLastAddedItem] = useState<{ product: Product; quantity: number; selectedFormat?: string } | null>(null);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([]);
 
@@ -265,9 +272,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [orders]);
 
   // Cart operations
+  const closeCartDrawer = () => {
+    setIsCartDrawerOpen(false);
+  };
+
   const addToCart = (product: Product, quantity = 1, selectedFormat?: string) => {
+    const format = selectedFormat || (product.type === 'pdf' ? 'کتاب الکترونیکی PDF' : product.type === 'audio' ? 'کتاب صوتی MP3' : 'نسخه چاپی');
+    
     setCart((prev) => {
-      const format = selectedFormat || (product.type === 'pdf' ? 'PDF' : product.type === 'audio' ? 'کتاب صوتی' : 'نسخه چاپی');
       const existingIndex = prev.findIndex(
         (item) => item.product.id === product.id && item.selectedFormat === format
       );
@@ -281,6 +293,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       return [...prev, { product, quantity, selectedFormat: format }];
     });
+
+    setLastAddedItem({ product, quantity, selectedFormat: format });
+    setIsCartDrawerOpen(true);
   };
 
   const removeFromCart = (productId: string, selectedFormat?: string) => {
@@ -509,6 +524,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         removeFromCart,
         updateCartQuantity,
         clearCart,
+        isCartDrawerOpen,
+        setIsCartDrawerOpen,
+        lastAddedItem,
+        closeCartDrawer,
         wishlist,
         toggleWishlist,
         recentlyViewed,
