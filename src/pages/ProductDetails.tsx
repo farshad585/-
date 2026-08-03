@@ -24,7 +24,8 @@ import {
   Sparkles,
   Info,
   Download,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -43,6 +44,16 @@ export default function ProductDetails() {
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [notification, setNotification] = useState<string | null>(null);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+
+  const handleAddToCartWithDelay = (customProd?: Product, formatLabel?: string) => {
+    if (isAddingToCart || !product) return;
+    setIsAddingToCart(true);
+    setTimeout(() => {
+      addToCart(customProd || product, 1, formatLabel || selectedFormat);
+      setIsAddingToCart(false);
+    }, 950);
+  };
   
   // Variations Selector State
   const [selectedFormat, setSelectedFormat] = useState<string>('');
@@ -486,6 +497,7 @@ export default function ProductDetails() {
             ) : product.stock > 0 ? (
               <button
                 id="details-add-to-cart-btn"
+                disabled={isAddingToCart}
                 onClick={() => {
                   const customProduct: typeof product = {
                     ...product,
@@ -498,13 +510,21 @@ export default function ProductDetails() {
                   if (selectedVipConsultation === '90days') vipLabel = ' + مشاوره ۹۰روزه VIP';
 
                   const finalFormatLabel = `${selectedFormat}${vipLabel}`;
-
-                  addToCart(customProduct, 1, finalFormatLabel);
+                  handleAddToCartWithDelay(customProduct, finalFormatLabel);
                 }}
-                className="flex-1 geom-button-primary hover:opacity-90 active:scale-98 transition-all text-white font-bold text-xs py-4 rounded-xl flex items-center justify-center gap-2 shadow-md"
+                className="flex-1 geom-button-primary hover:opacity-90 active:scale-98 transition-all text-white font-bold text-xs py-4 rounded-xl flex items-center justify-center gap-2 shadow-md disabled:opacity-80 cursor-pointer"
               >
-                <ShoppingCart size={16} />
-                <span>افزودن این محصول به سبد خرید</span>
+                {isAddingToCart ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin text-white" />
+                    <span>در حال افزودن به سبد...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart size={16} />
+                    <span>افزودن این محصول به سبد خرید</span>
+                  </>
+                )}
               </button>
             ) : (
               <button className="flex-1 bg-slate-100 text-slate-400 font-bold text-xs py-4 rounded-xl cursor-not-allowed">
@@ -515,12 +535,17 @@ export default function ProductDetails() {
             {product.downloadUrl && (
               <button
                 id="details-add-to-cart-btn-secondary"
+                disabled={isAddingToCart}
                 onClick={() => {
-                  addToCart(product, 1, selectedFormat);
+                  handleAddToCartWithDelay(product, selectedFormat);
                 }}
-                className="px-4 py-4 rounded-xl border border-indigo-200 hover:border-indigo-400 bg-indigo-50/50 text-indigo-950 font-bold text-xs flex items-center justify-center gap-2"
+                className="px-4 py-4 rounded-xl border border-indigo-200 hover:border-indigo-400 bg-indigo-50/50 text-indigo-950 font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-80 cursor-pointer"
               >
-                <ShoppingCart size={16} />
+                {isAddingToCart ? (
+                  <Loader2 size={16} className="animate-spin text-indigo-600" />
+                ) : (
+                  <ShoppingCart size={16} />
+                )}
                 <span>افزودن به سبد</span>
               </button>
             )}

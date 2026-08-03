@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Product } from '../types';
-import { Heart, ShoppingCart, Star, Eye } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Eye, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface ProductCardProps {
@@ -22,6 +22,8 @@ export default function ProductCard({ product }: ProductCardProps) {
     ? Math.round(((product.price - product.salePrice) / product.price) * 100) 
     : 0;
 
+  const [isAdding, setIsAdding] = useState(false);
+
   const formatPrice = (price: number) => {
     if (price === 0) return 'رایگان';
     return price.toLocaleString('fa-IR') + ' تومان';
@@ -29,7 +31,12 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
-    addToCart(product, 1);
+    if (isAdding) return;
+    setIsAdding(true);
+    setTimeout(() => {
+      addToCart(product, 1);
+      setIsAdding(false);
+    }, 850);
   };
 
   const handleWishlistClick = (e: React.MouseEvent) => {
@@ -188,10 +195,15 @@ export default function ProductCard({ product }: ProductCardProps) {
               {product.stock > 0 && (
                 <button
                   onClick={handleQuickAdd}
-                  className="p-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-600 hover:text-white rounded-lg transition-all"
+                  disabled={isAdding}
+                  className="p-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-600 hover:text-white rounded-lg transition-all disabled:opacity-80 cursor-pointer"
                   title="خرید"
                 >
-                  <ShoppingCart size={13} />
+                  {isAdding ? (
+                    <Loader2 size={13} className="animate-spin text-indigo-600" />
+                  ) : (
+                    <ShoppingCart size={13} />
+                  )}
                 </button>
               )}
             </div>

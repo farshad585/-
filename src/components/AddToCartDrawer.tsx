@@ -7,6 +7,8 @@ import {
   X, 
   ChevronLeft, 
   Plus, 
+  Minus,
+  Trash2,
   Check, 
   ShoppingBag, 
   Sparkles, 
@@ -22,6 +24,8 @@ export const AddToCartDrawer: React.FC = () => {
     lastAddedItem, 
     cart, 
     addToCart, 
+    removeFromCart,
+    updateCartQuantity,
     setCurrentPage,
     setSelectedProductId
   } = useApp();
@@ -87,10 +91,75 @@ export const AddToCartDrawer: React.FC = () => {
           >
             {/* Drawer Header (Digikala Style) */}
             <div className="p-4 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between shrink-0">
-              {/* Right: Added Indicator */}
+              {/* Right: Added Indicator with animated checkmark (20% smaller) */}
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0">
-                  <CheckCircle2 size={18} className="text-emerald-600" />
+                <div className="relative flex items-center justify-center">
+                  {/* Expanding Ring Ripple upon completion */}
+                  <motion.span
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: [0.8, 1.4, 1.5], opacity: [0, 0.7, 0] }}
+                    transition={{ duration: 0.65, delay: 0.85, ease: "easeOut" }}
+                    className="absolute inset-0 rounded-full bg-emerald-400/50 border border-emerald-300 pointer-events-none"
+                  />
+
+                  {/* Creative Sparkle Burst Dots on checkmark completion */}
+                  {[0, 90, 180, 270].map((angle, idx) => (
+                    <motion.span
+                      key={angle}
+                      initial={{ scale: 0, opacity: 0, x: 0, y: 0 }}
+                      animate={{ 
+                        scale: [0, 1, 0],
+                        opacity: [0, 1, 0],
+                        x: [0, Math.cos((angle * Math.PI) / 180) * 13],
+                        y: [0, Math.sin((angle * Math.PI) / 180) * 13],
+                      }}
+                      transition={{ duration: 0.55, delay: 0.82 + idx * 0.03, ease: "easeOut" }}
+                      className="absolute w-1 h-1 rounded-full bg-amber-300 shadow-xs shadow-amber-300 pointer-events-none z-20"
+                    />
+                  ))}
+
+                  {/* Main Emerald Badge Circle (20% smaller: w-6.5 h-6.5 / 26px) */}
+                  <motion.div 
+                    initial={{ scale: 0.85, opacity: 0 }}
+                    animate={{ 
+                      scale: [0.85, 1, 1.12, 1], 
+                      opacity: 1 
+                    }}
+                    transition={{ 
+                      scale: { times: [0, 0.2, 0.85, 1], duration: 0.95, delay: 0.15, ease: "easeInOut" },
+                      opacity: { duration: 0.2, delay: 0.15 }
+                    }}
+                    className="relative w-6.5 h-6.5 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-xs shadow-emerald-500/35 flex items-center justify-center shrink-0 border-2 border-white overflow-hidden"
+                  >
+                    {/* Light Shimmer sheen effect across badge */}
+                    <motion.div
+                      initial={{ x: "-100%", opacity: 0 }}
+                      animate={{ x: "180%", opacity: [0, 0.8, 0] }}
+                      transition={{ duration: 0.5, delay: 0.82, ease: "easeInOut" }}
+                      className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/70 to-transparent -skew-x-12 pointer-events-none"
+                    />
+
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="3.4" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      className="w-3.5 h-3.5 text-white drop-shadow-xs relative z-10"
+                    >
+                      <motion.path 
+                        d="M4 12l5 5L19 6"
+                        initial={{ pathLength: 0, opacity: 0 }}
+                        animate={{ pathLength: 1, opacity: 1 }}
+                        transition={{ 
+                          pathLength: { duration: 0.68, ease: [0.25, 1, 0.5, 1], delay: 0.25 },
+                          opacity: { duration: 0.08, delay: 0.25 }
+                        }}
+                      />
+                    </svg>
+                  </motion.div>
                 </div>
                 <span className="font-extrabold text-sm text-emerald-800">کالا اضافه شد!</span>
               </div>
@@ -118,37 +187,86 @@ export const AddToCartDrawer: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
               
               {/* Recently Added Product Box */}
-              {currentItem && (
-                <div className="bg-gradient-to-br from-indigo-50/60 to-purple-50/40 border border-indigo-100 rounded-2xl p-3.5 flex gap-3 shadow-2xs">
-                  <div className="w-20 h-24 rounded-xl overflow-hidden bg-slate-100 border border-indigo-100 shrink-0 shadow-2xs">
-                    <img 
-                      src={currentItem.images[0]} 
-                      alt={currentItem.title}
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  <div className="flex flex-col justify-between flex-grow py-0.5">
-                    <div>
-                      <h3 className="font-bold text-xs text-slate-900 leading-snug line-clamp-2">
-                        {currentItem.title}
-                      </h3>
-                      {itemFormat && (
-                        <p className="text-[10px] text-indigo-700 font-medium mt-1 bg-white/80 border border-indigo-100 px-2 py-0.5 rounded-md w-fit">
-                          {itemFormat}
-                        </p>
-                      )}
-                    </div>
+              {currentItem && (() => {
+                const mainCartItem = cart.find(i => i.product.id === currentItem.id && (!itemFormat || i.selectedFormat === itemFormat));
+                const mainQty = mainCartItem ? mainCartItem.quantity : itemQuantity;
+                const isCurrentDigital = currentItem.type === 'pdf' || currentItem.type === 'audio' || currentItem.type === 'course' || (itemFormat ? (itemFormat.includes('PDF') || itemFormat.includes('MP3') || itemFormat.includes('صوتی') || itemFormat.includes('الکترونیکی') || itemFormat.includes('دوره')) : false);
 
-                    <div className="flex items-center justify-between border-t border-indigo-100/60 pt-2 mt-2">
-                      <span className="text-[10px] text-slate-500 font-mono">تعداد: {itemQuantity.toLocaleString('fa-IR')}</span>
-                      <span className="text-xs font-black text-indigo-900 font-sans">
-                        {formatPrice(currentItem.salePrice || currentItem.price)}
-                      </span>
+                return (
+                  <div className="bg-gradient-to-br from-indigo-50/60 to-purple-50/40 border border-indigo-100 rounded-2xl p-3.5 flex gap-3 shadow-2xs">
+                    <div className="w-20 h-24 rounded-xl overflow-hidden bg-slate-100 border border-indigo-100 shrink-0 shadow-2xs">
+                      <img 
+                        src={currentItem.images[0]} 
+                        alt={currentItem.title}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="flex flex-col justify-between flex-grow py-0.5">
+                      <div>
+                        <h3 className="font-bold text-xs text-slate-900 leading-snug line-clamp-2">
+                          {currentItem.title}
+                        </h3>
+                        {itemFormat && (
+                          <p className="text-[10px] text-indigo-700 font-medium mt-1 bg-white/80 border border-indigo-100 px-2 py-0.5 rounded-md w-fit">
+                            {itemFormat}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-indigo-100/60 pt-2 mt-2">
+                        <span className="text-xs font-black text-indigo-900 font-sans">
+                          {formatPrice((currentItem.salePrice || currentItem.price) * mainQty)}
+                        </span>
+
+                        {/* Digikala/Snapp style quantity control pill widget */}
+                        <div 
+                          onClick={(e) => e.stopPropagation()}
+                          className="bg-white border border-rose-200/90 shadow-2xs rounded-xl px-2 py-0.5 flex items-center justify-between gap-2 text-rose-600 shrink-0 select-none"
+                        >
+                          <button
+                            type="button"
+                            disabled={isCurrentDigital && mainQty >= 1}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isCurrentDigital && mainQty >= 1) return;
+                              addToCart(currentItem, 1, itemFormat, false);
+                            }}
+                            className={`p-1 rounded-md transition-colors cursor-pointer active:scale-90 ${
+                              isCurrentDigital && mainQty >= 1 
+                                ? 'opacity-35 cursor-not-allowed text-slate-300' 
+                                : 'hover:bg-rose-50 text-rose-500 hover:text-rose-700'
+                            }`}
+                            title={isCurrentDigital && mainQty >= 1 ? "محصولات دیجیتال فقط ۱ نسخه قابل سفارش است" : "افزایش تعداد"}
+                          >
+                            <Plus size={13} />
+                          </button>
+
+                          <span className="font-extrabold text-xs text-rose-600 min-w-[12px] text-center font-sans">
+                            {mainQty.toLocaleString('fa-IR')}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (mainQty <= 1) {
+                                removeFromCart(currentItem.id, itemFormat);
+                              } else {
+                                updateCartQuantity(currentItem.id, mainQty - 1, itemFormat);
+                              }
+                            }}
+                            className="p-1 rounded-md hover:bg-rose-50 text-rose-500 hover:text-rose-700 transition-colors cursor-pointer active:scale-90"
+                            title={mainQty === 1 ? "حذف از سبد" : "کاهش تعداد"}
+                          >
+                            {mainQty === 1 ? <Trash2 size={13} /> : <Minus size={13} />}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* "خریدت رو کامل‌تر کن" Section Header */}
               <div className="space-y-3">
@@ -163,8 +281,10 @@ export const AddToCartDrawer: React.FC = () => {
                 {/* Recommended Products List */}
                 <div className="space-y-3">
                   {recommendations.map((rec) => {
-                    const isAdded = addedTempIds.includes(rec.id);
                     const price = rec.salePrice || rec.price;
+                    const cartItem = cart.find(item => item.product.id === rec.id);
+                    const qtyInCart = cartItem ? cartItem.quantity : 0;
+                    const isRecDigital = rec.type === 'pdf' || rec.type === 'audio' || rec.type === 'course' || (cartItem?.selectedFormat ? (cartItem.selectedFormat.includes('PDF') || cartItem.selectedFormat.includes('MP3') || cartItem.selectedFormat.includes('صوتی') || cartItem.selectedFormat.includes('الکترونیکی') || cartItem.selectedFormat.includes('دوره')) : false);
 
                     return (
                       <div 
@@ -203,19 +323,65 @@ export const AddToCartDrawer: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Plus Add Button */}
-                        <button
-                          type="button"
-                          onClick={(e) => handleQuickAddRecommendation(rec, e)}
-                          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer shadow-xs ${
-                            isAdded
-                              ? 'bg-emerald-600 text-white border border-emerald-600'
-                              : 'bg-white hover:bg-indigo-600 hover:text-white border border-slate-200 text-indigo-600 hover:border-indigo-600'
-                          }`}
-                          title="افزودن به سبد خرید"
-                        >
-                          {isAdded ? <Check size={16} /> : <Plus size={18} />}
-                        </button>
+                        {/* Plus Add Button or Digikala Quantity Control Widget */}
+                        {qtyInCart === 0 ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart(rec, 1, undefined, false);
+                            }}
+                            className="w-8 h-8 rounded-full bg-white hover:bg-rose-600 hover:text-white border border-rose-200/90 text-rose-600 flex items-center justify-center shrink-0 transition-all cursor-pointer shadow-2xs hover:border-rose-600 active:scale-95"
+                            title="افزودن به سبد خرید"
+                          >
+                            <Plus size={16} />
+                          </button>
+                        ) : (
+                          <div 
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white border border-rose-200/90 shadow-2xs rounded-xl px-2.5 py-1 flex items-center justify-between gap-2.5 text-rose-600 shrink-0 select-none"
+                          >
+                            <button
+                              type="button"
+                              disabled={isRecDigital && qtyInCart >= 1}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isRecDigital && qtyInCart >= 1) return;
+                                const format = cartItem?.selectedFormat;
+                                addToCart(rec, 1, format, false);
+                              }}
+                              className={`p-1 rounded-md transition-colors cursor-pointer active:scale-90 ${
+                                isRecDigital && qtyInCart >= 1 
+                                  ? 'opacity-35 cursor-not-allowed text-slate-300' 
+                                  : 'hover:bg-rose-50 text-rose-500 hover:text-rose-700'
+                              }`}
+                              title={isRecDigital && qtyInCart >= 1 ? "محصولات دیجیتال فقط ۱ نسخه قابل سفارش است" : "افزایش تعداد"}
+                            >
+                              <Plus size={14} />
+                            </button>
+
+                            <span className="font-extrabold text-xs text-rose-600 min-w-[14px] text-center font-sans">
+                              {qtyInCart.toLocaleString('fa-IR')}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!cartItem) return;
+                                if (cartItem.quantity <= 1) {
+                                  removeFromCart(rec.id, cartItem.selectedFormat);
+                                } else {
+                                  updateCartQuantity(rec.id, cartItem.quantity - 1, cartItem.selectedFormat);
+                                }
+                              }}
+                              className="p-1 rounded-md hover:bg-rose-50 text-rose-500 hover:text-rose-700 transition-colors cursor-pointer active:scale-90"
+                              title={qtyInCart === 1 ? "حذف از سبد" : "کاهش تعداد"}
+                            >
+                              {qtyInCart === 1 ? <Trash2 size={14} /> : <Minus size={14} />}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

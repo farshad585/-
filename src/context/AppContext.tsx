@@ -17,7 +17,7 @@ interface AppContextType {
   setSelectedArticleId: (id: string | null) => void;
   
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number, selectedFormat?: string) => void;
+  addToCart: (product: Product, quantity?: number, selectedFormat?: string, updateLastAdded?: boolean) => void;
   removeFromCart: (productId: string, selectedFormat?: string) => void;
   updateCartQuantity: (productId: string, quantity: number, selectedFormat?: string) => void;
   clearCart: () => void;
@@ -276,14 +276,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsCartDrawerOpen(false);
   };
 
-  const addToCart = (product: Product, quantity = 1, selectedFormat?: string) => {
+  const isDigitalProduct = (product: Product, format?: string) => {
+    if (product.type === 'pdf' || product.type === 'audio' || product.type === 'course') return true;
+    if (format) {
+      const f = format.toLowerCase();
+      if (f.includes('pdf') || f.includes('mp3') || f.includes('صوتی') || f.includes('الکترونیکی') || f.includes('دیجیتال') || f.includes('دوره')) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const addToCart = (product: Product, quantity = 1, selectedFormat?: string, updateLastAdded = true) => {
     const format = selectedFormat || (product.type === 'pdf' ? 'کتاب الکترونیکی PDF' : product.type === 'audio' ? 'کتاب صوتی MP3' : 'نسخه چاپی');
+    const isDigital = isDigitalProduct(product, format);
     
     setCart((prev) => {
       const existingIndex = prev.findIndex(
         (item) => item.product.id === product.id && item.selectedFormat === format
       );
       if (existingIndex > -1) {
+        if (isDigital) {
+          return prev; // Digital items are capped at 1 max
+        }
         const nextCart = [...prev];
         nextCart[existingIndex] = {
           ...nextCart[existingIndex],
@@ -291,10 +306,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
         return nextCart;
       }
-      return [...prev, { product, quantity, selectedFormat: format }];
+      return [...prev, { product, quantity: isDigital ? 1 : quantity, selectedFormat: format }];
     });
 
-    setLastAddedItem({ product, quantity, selectedFormat: format });
+    if (updateLastAdded) {
+      setLastAddedItem({ product, quantity: isDigital ? 1 : quantity, selectedFormat: format });
+    }
     setIsCartDrawerOpen(true);
   };
 
@@ -310,11 +327,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setCart((prev) =>
-      prev.map((item) =>
-        item.product.id === productId && item.selectedFormat === selectedFormat
-          ? { ...item, quantity }
-          : item
-      )
+      prev.map((item) => {
+        if (item.product.id === productId && item.selectedFormat === selectedFormat) {
+          const isDigital = isDigitalProduct(item.product, item.selectedFormat);
+          return { ...item, quantity: isDigital ? 1 : quantity };
+        }
+        return item;
+      })
     );
   };
 
