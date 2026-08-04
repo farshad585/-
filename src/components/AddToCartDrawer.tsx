@@ -80,15 +80,18 @@ export const AddToCartDrawer: React.FC = () => {
             className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 transition-opacity"
           />
 
-          {/* Slide-over Drawer Container (Left Side) */}
+          {/* Slide-up Bottom Sheet Drawer Container (Digikala Style) */}
           <motion.div
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            className="fixed inset-y-0 left-0 z-50 w-full max-w-sm sm:max-w-md bg-white border-r border-slate-200 shadow-2xl flex flex-col justify-between text-slate-800"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+            className="fixed bottom-0 inset-x-0 sm:left-4 sm:right-auto sm:bottom-4 z-50 w-full max-w-lg sm:max-w-md mx-auto bg-white rounded-t-[28px] sm:rounded-3xl border-t sm:border border-slate-200/90 shadow-2xl flex flex-col justify-between text-slate-800 max-h-[78vh] sm:max-h-[85vh] overflow-hidden"
             dir="rtl"
           >
+            {/* Top Drag Pill Handle (Digikala Mobile Style) */}
+            <div className="w-10 h-1 bg-slate-300/80 rounded-full mx-auto mt-2.5 mb-0.5 shrink-0" />
+
             {/* Drawer Header (Digikala Style) */}
             <div className="p-4 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between shrink-0">
               {/* Right: Added Indicator with animated checkmark (20% smaller) */}

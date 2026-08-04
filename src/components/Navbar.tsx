@@ -26,7 +26,9 @@ import {
   PhoneCall,
   Home as HomeIcon,
   ShoppingBag as ShopIcon,
-  Gamepad2
+  Gamepad2,
+  Smartphone,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -82,8 +84,17 @@ export default function Navbar() {
       {/* Top micro bar */}
       <div className="bg-indigo-50/90 border-b border-indigo-200/80 py-1.5 px-4 text-center text-[11px] text-indigo-900 font-medium tracking-wide flex justify-between items-center max-w-7xl mx-auto rounded-b-md z-50 relative">
         <span className="hidden sm:inline">🌟 مرجع تخصصی آموزش علمی رویابینی شفاف و ذهن‌آگاهی</span>
-        <div className="flex items-center gap-4 mx-auto sm:mx-0">
-          <span>کد تخفیف اولین خرید (۲۰٪): <strong className="font-mono text-xs border border-dashed border-indigo-400 px-1.5 py-0.5 rounded text-indigo-800 bg-white shadow-xs">DREAM20</strong></span>
+        <div className="flex items-center gap-3 mx-auto sm:mx-0">
+          <span>کد تخفیف (۲۰٪): <strong className="font-mono text-xs border border-dashed border-indigo-400 px-1.5 py-0.5 rounded text-indigo-800 bg-white shadow-xs">DREAM20</strong></span>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-pwa-prompt'))}
+            className="bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white font-extrabold px-2.5 py-0.5 rounded-full text-[10px] flex items-center gap-1 transition-all cursor-pointer shadow-xs active:scale-95"
+            title="نصب اپلیکیشن روی گوشی یا کامپیوتر"
+          >
+            <Smartphone size={12} />
+            <span>📲 نصب اپلیکیشن</span>
+          </button>
         </div>
       </div>
 
@@ -271,7 +282,7 @@ export default function Navbar() {
                 </form>
 
                 {/* Mobile Nav Links */}
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3">
                   {navLinks.map((link) => {
                     const IconComp = link.icon;
                     return (
@@ -292,6 +303,19 @@ export default function Navbar() {
                       </button>
                     );
                   })}
+
+                  {/* PWA Install Mobile Action */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      window.dispatchEvent(new CustomEvent('open-pwa-prompt'));
+                    }}
+                    className="flex items-center gap-3 py-3 px-3 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 shadow-md shadow-amber-500/10 mt-2 transition-all cursor-pointer"
+                  >
+                    <Smartphone size={18} className="text-amber-200" />
+                    <span>📲 نصب مستقیم اپلیکیشن (PWA)</span>
+                  </button>
                 </div>
               </div>
 

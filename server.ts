@@ -22,17 +22,24 @@ interface EmailLogItem {
 // Log of sent emails for debug / UI status
 const emailLogs: Array<EmailLogItem> = [];
 
+// Global Memory Stores and Settings
+const runtimeSmtpConfig = {
+  user: (process.env.GMAIL_USER || '').trim(),
+  pass: (process.env.GMAIL_APP_PASSWORD || '').trim(),
+  adminEmail: (process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim()
+};
+
 /**
  * Universal Safe Email Sending Helper Function
- * Checks process.env.GMAIL_USER and process.env.GMAIL_APP_PASSWORD.
+ * Checks process.env or runtimeSmtpConfig.
  * Handles timeouts, network glitches, and auth errors gracefully.
  */
 async function sendMailSafely(
   options: nodemailer.SendMailOptions,
   type: string = 'general'
 ): Promise<{ success: boolean; status: 'sent' | 'simulated' | 'failed'; error?: string; messageId?: string }> {
-  const gmailUser = (process.env.GMAIL_USER || '').trim();
-  const rawPass = (process.env.GMAIL_APP_PASSWORD || '').trim();
+  const gmailUser = (runtimeSmtpConfig.user || process.env.GMAIL_USER || '').trim();
+  const rawPass = (runtimeSmtpConfig.pass || process.env.GMAIL_APP_PASSWORD || '').trim();
   const gmailPass = rawPass.replace(/\s+/g, ''); // strip any accidental copy-paste spaces
 
   const to = Array.isArray(options.to) ? options.to.join(', ') : String(options.to || '');
@@ -42,14 +49,19 @@ async function sendMailSafely(
   if (gmailUser && gmailPass) {
     try {
       const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: {
           user: gmailUser,
           pass: gmailPass,
         },
-        connectionTimeout: 8000,
-        greetingTimeout: 5000,
-        socketTimeout: 10000,
+        tls: {
+          rejectUnauthorized: false
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
       });
 
       const info = await transporter.sendMail({
@@ -91,8 +103,8 @@ async function sendMailSafely(
     }
   }
 
-  // Fallback mode if GMAIL_USER or GMAIL_APP_PASSWORD are not set in env
-  console.log(`ℹ️ [EMAIL SIMULATED (GMAIL_USER or GMAIL_APP_PASSWORD pending in env)] To: ${to} | Subject: ${subject}`);
+  // Fallback mode if GMAIL_USER or GMAIL_APP_PASSWORD are not set in env or runtime config
+  console.log(`ℹ️ [EMAIL SIMULATED (GMAIL_USER or GMAIL_APP_PASSWORD pending in config)] To: ${to} | Subject: ${subject}`);
   emailLogs.unshift({
     id: 'EML-SIM-' + Date.now(),
     type,
@@ -287,6 +299,24 @@ app.post('/api/orders', (req, res) => {
       } else {
         serverOrdersStore.unshift(order);
       }
+
+      // Sync customer to registeredUsersStore
+      const custEmail = (order.shippingAddress?.email || order.userEmail || '').trim();
+      const custName = order.shippingAddress?.fullName;
+      const custPhone = order.shippingAddress?.phone;
+      if (custEmail) {
+        const existingUser = registeredUsersStore.find(u => u.email.toLowerCase() === custEmail.toLowerCase());
+        if (!existingUser) {
+          registeredUsersStore.unshift({
+            id: 'USR-' + Date.now(),
+            fullName: custName || 'خریدار آکادمی',
+            email: custEmail,
+            phone: custPhone || '',
+            registeredAt: new Date().toISOString(),
+            faDate: new Date().toLocaleDateString('fa-IR')
+          });
+        }
+      }
     }
     res.json({ success: true, orders: serverOrdersStore });
   } catch (e: any) {
@@ -324,14 +354,31 @@ app.post('/api/users/register', (req, res) => {
         if (fullName) existing.fullName = fullName;
         if (phone) existing.phone = phone;
       } else {
-        registeredUsersStore.unshift({
+        const newUser = {
           id: 'USR-' + Date.now(),
           fullName: fullName || 'هنرجوی رویابینی شفاف',
           email: email.trim(),
           phone: phone || '',
           registeredAt: new Date().toISOString(),
           faDate: new Date().toLocaleDateString('fa-IR')
-        });
+        };
+        registeredUsersStore.unshift(newUser);
+
+        // Notify site admin about new registration asynchronously
+        const adminEmail = runtimeSmtpConfig.adminEmail || process.env.ADMIN_EMAIL || process.env.GMAIL_USER || '40gates.main@gmail.com';
+        sendMailSafely({
+          to: adminEmail,
+          subject: `👤 ثبت‌نام کاربر جدید: ${newUser.fullName} (${newUser.email})`,
+          html: `
+            <div dir="rtl" style="font-family: Tahoma, sans-serif; padding: 20px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
+              <h3 style="color: #38bdf8;">👤 عضویت کاربر جدید در آکادمی ۴۰ دروازه</h3>
+              <p><strong>نام:</strong> ${newUser.fullName}</p>
+              <p><strong>ایمیل:</strong> ${newUser.email}</p>
+              <p><strong>شماره همراه:</strong> ${newUser.phone || '-'}</p>
+              <p><strong>تاریخ ثبت:</strong> ${newUser.faDate}</p>
+            </div>
+          `
+        }, 'user-register-admin-notify').catch(err => console.warn('Admin user register notify warning:', err));
       }
     }
     res.json({ success: true, users: registeredUsersStore });
@@ -554,19 +601,42 @@ app.get('/api/admin/logs', requireAdminAuth, (req, res) => {
 // Admin Settings Endpoint
 app.get('/api/admin/settings', requireAdminAuth, (req, res) => {
   const { adminEmail } = getAdminConfig();
-  const gmailUser = process.env.GMAIL_USER;
-  const isSmtpConfigured = !!(gmailUser && process.env.GMAIL_APP_PASSWORD);
+  const activeAdminEmail = runtimeSmtpConfig.adminEmail || adminEmail;
+  const gmailUser = runtimeSmtpConfig.user || process.env.GMAIL_USER;
+  const isSmtpConfigured = !!(gmailUser && (runtimeSmtpConfig.pass || process.env.GMAIL_APP_PASSWORD));
 
   res.json({
     success: true,
     settings: {
-      adminEmail,
+      adminEmail: activeAdminEmail,
       smtpConfigured: isSmtpConfigured,
       smtpUser: gmailUser || 'تنظیم نشده',
       activeSessionsCount: adminSecurityState.activeSessions.size,
       totalLogins: adminSecurityState.loginLogs.length
     }
   });
+});
+
+// Admin Update SMTP Credentials Endpoint
+app.post('/api/admin/smtp-config', requireAdminAuth, (req, res) => {
+  try {
+    const { gmailUser, gmailPass, adminEmail } = req.body;
+    if (gmailUser !== undefined && gmailUser !== '') runtimeSmtpConfig.user = gmailUser.trim();
+    if (gmailPass !== undefined && gmailPass !== '') runtimeSmtpConfig.pass = gmailPass.trim();
+    if (adminEmail !== undefined && adminEmail !== '') runtimeSmtpConfig.adminEmail = adminEmail.trim();
+
+    const isSmtpConfigured = !!(runtimeSmtpConfig.user && runtimeSmtpConfig.pass);
+
+    return res.json({
+      success: true,
+      message: 'تنظیمات SMTP ایمیل با موفقیت در سرور به‌روزرسانی شد.',
+      smtpConfigured: isSmtpConfigured,
+      smtpUser: runtimeSmtpConfig.user || 'تنظیم نشده',
+      adminEmail: runtimeSmtpConfig.adminEmail
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: 'خطا در ذخیره تنظیمات SMTP' });
+  }
 });
 
 // Public Contact Endpoint

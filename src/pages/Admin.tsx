@@ -67,7 +67,7 @@ interface ContactMessage {
 }
 
 export default function Admin() {
-  const { orders, updateOrderStatus, setCurrentPage } = useApp();
+  const { orders, updateOrderStatus, setCurrentPage, refreshOrdersAndUsers } = useApp();
 
   // Authentication State
   const [adminToken, setAdminToken] = useState<string | null>(() => {
@@ -110,6 +110,13 @@ export default function Admin() {
   const [testEmailLoading, setTestEmailLoading] = useState<boolean>(false);
   const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // SMTP Settings inputs
+  const [smtpUserInput, setSmtpUserInput] = useState<string>('');
+  const [smtpPassInput, setSmtpPassInput] = useState<string>('');
+  const [adminEmailConfigInput, setAdminEmailConfigInput] = useState<string>('fmfarshad585@gmail.com');
+  const [smtpSaving, setSmtpSaving] = useState<boolean>(false);
+  const [smtpSaveResult, setSmtpSaveResult] = useState<{ success: boolean; message: string } | null>(null);
+
   // Custom Discount Coupons state
   const [coupons, setCoupons] = useState([
     { code: 'DREAM20', discount: '۲۰٪', minSpend: '۱,۰۰۰,۰۰۰ تومان', description: 'تخفیف ویژه اولین خرید', active: true },
@@ -146,7 +153,10 @@ export default function Admin() {
 
   // Fetch admin logs, settings, contact messages, users, and orders
   const fetchAdminData = () => {
-    // Users (Public/Admin sync)
+    // 1. Sync orders
+    refreshOrdersAndUsers();
+
+    // 2. Users (Public/Admin sync)
     fetch('/api/users')
       .then(res => res.json())
       .then(data => {
@@ -156,7 +166,7 @@ export default function Admin() {
 
     if (!adminToken) return;
 
-    // Logs
+    // 3. Logs
     fetch('/api/admin/logs', {
       headers: { Authorization: `Bearer ${adminToken}` }
     })
@@ -166,17 +176,25 @@ export default function Admin() {
       })
       .catch(err => console.warn('Logs error:', err));
 
-    // Settings
+    // 4. Settings
     fetch('/api/admin/settings', {
       headers: { Authorization: `Bearer ${adminToken}` }
     })
       .then(res => res.json())
       .then(data => {
-        if (data.success) setSettingsInfo(data.settings);
+        if (data.success && data.settings) {
+          setSettingsInfo(data.settings);
+          if (data.settings.smtpUser && data.settings.smtpUser !== 'تنظیم نشده') {
+            setSmtpUserInput(prev => prev || data.settings.smtpUser);
+          }
+          if (data.settings.adminEmail) {
+            setAdminEmailConfigInput(prev => prev || data.settings.adminEmail);
+          }
+        }
       })
       .catch(err => console.warn('Settings error:', err));
 
-    // Messages
+    // 5. Messages
     fetch('/api/admin/contact-messages', {
       headers: { Authorization: `Bearer ${adminToken}` }
     })
@@ -186,13 +204,47 @@ export default function Admin() {
       })
       .catch(err => console.warn('Messages error:', err));
 
-    // Email logs
+    // 6. Email logs
     fetch('/api/email/logs')
       .then(res => res.json())
       .then(data => {
         if (data.success && Array.isArray(data.logs)) setEmailSystemLogs(data.logs);
       })
       .catch(err => console.warn('Email logs error:', err));
+  };
+
+  const handleSaveSmtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminToken) return;
+    setSmtpSaving(true);
+    setSmtpSaveResult(null);
+
+    try {
+      const res = await fetch('/api/admin/smtp-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          gmailUser: smtpUserInput,
+          gmailPass: smtpPassInput,
+          adminEmail: adminEmailConfigInput
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSmtpSaveResult({ success: true, message: data.message });
+        setSmtpPassInput('');
+        fetchAdminData();
+      } else {
+        setSmtpSaveResult({ success: false, message: data.error || 'خطا در ذخیره تنظیمات SMTP' });
+      }
+    } catch (err) {
+      setSmtpSaveResult({ success: false, message: 'خطا در ارتباط با سرور' });
+    } finally {
+      setSmtpSaving(false);
+    }
   };
 
   const handleSendTestEmail = async (e: React.FormEvent) => {
@@ -226,6 +278,10 @@ export default function Admin() {
   useEffect(() => {
     if (adminToken) {
       fetchAdminData();
+      const interval = setInterval(() => {
+        fetchAdminData();
+      }, 10000);
+      return () => clearInterval(interval);
     }
   }, [adminToken, activeTab]);
 
@@ -1219,6 +1275,86 @@ export default function Admin() {
             {/* TAB 8: SETTINGS & SECURITY LOGS */}
             {activeTab === 'settings' && (
               <div className="space-y-6 text-right">
+                {/* SMTP Credentials Configuration Card */}
+                <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4">
+                  <div className="flex justify-between items-center pb-3 border-b border-slate-700">
+                    <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
+                      <Settings className="text-amber-400" size={18} />
+                      <span>تنظیمات سرور ارسال ایمیل واقعی (Gmail SMTP Configuration)</span>
+                    </h2>
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                      settingsInfo?.smtpConfigured 
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    }`}>
+                      {settingsInfo?.smtpConfigured ? '🟢 SMTP فعال است' : '🟡 غیرفعال (شبیه‌سازی)'}
+                    </span>
+                  </div>
+
+                  <form onSubmit={handleSaveSmtp} className="bg-slate-900 border border-slate-700 rounded-xl p-4 space-y-4 text-xs">
+                    <p className="text-[11px] text-slate-300 leading-relaxed bg-indigo-950/40 p-3 rounded-lg border border-indigo-800/50">
+                      💡 برای فعال‌سازی ارسال ایمیل واقعی برای خریداران و مدیریت، آدرس جی‌میل و <strong>App Password (کلمه عبور اختصاصی برنامه)</strong> خود را وارد نمایید.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="block text-slate-300 font-bold">آدرس ایمیل ارسال‌کننده (Gmail User):</label>
+                        <input
+                          type="email"
+                          placeholder="مثلاً: 40gates.main@gmail.com"
+                          value={smtpUserInput}
+                          onChange={e => setSmtpUserInput(e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 dir-ltr text-left"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-slate-300 font-bold">ایمیل دریافت‌کننده مدیریت (Admin Email):</label>
+                        <input
+                          type="email"
+                          placeholder="مثلاً: fmfarshad585@gmail.com"
+                          value={adminEmailConfigInput}
+                          onChange={e => setAdminEmailConfigInput(e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 dir-ltr text-left"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1 md:col-span-2">
+                        <label className="block text-slate-300 font-bold">کلمه عبور برنامه (Gmail App Password - ۱۶ کاراکتر):</label>
+                        <input
+                          type="password"
+                          placeholder="مثلاً: abcd efgh ijkl mnop"
+                          value={smtpPassInput}
+                          onChange={e => setSmtpPassInput(e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 dir-ltr text-left"
+                        />
+                        <p className="text-[10px] text-slate-400 leading-normal">
+                          نکته: جهت دریافت App Password، وارد حساب گوگل خود شوید -&gt; امنیت (Security) -&gt; تایید دو مرحله‌ای -&gt; کلمه‌های عبور برنامه (App Passwords) و یک کد ۱۶ رقمی دریافت کنید.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2">
+                      <button
+                        type="submit"
+                        disabled={smtpSaving}
+                        className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold px-5 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-2"
+                      >
+                        {smtpSaving ? <RefreshCw className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
+                        <span>ذخیره و فعال‌سازی سرویس ایمیل</span>
+                      </button>
+
+                      {smtpSaveResult && (
+                        <span className={`text-xs font-bold ${smtpSaveResult.success ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {smtpSaveResult.message}
+                        </span>
+                      )}
+                    </div>
+                  </form>
+                </div>
+
                 {/* Email System Test & Logs Section */}
                 <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4">
                   <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-3 border-b border-slate-700">

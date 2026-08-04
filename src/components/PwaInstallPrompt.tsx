@@ -43,10 +43,18 @@ export const PwaInstallPrompt: React.FC = () => {
       }, 2500);
     };
 
+    // Listen for manual trigger from top header / menu button
+    const handleManualOpen = () => {
+      setShowPrompt(true);
+      sessionStorage.removeItem('pwa_prompt_dismissed');
+    };
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('open-pwa-prompt', handleManualOpen);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('open-pwa-prompt', handleManualOpen);
     };
   }, []);
 

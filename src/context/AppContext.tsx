@@ -44,6 +44,7 @@ interface AppContextType {
   orders: Order[];
   placeOrder: (gateway: 'card-to-card' | 'zarinpal' | 'idpay', shippingAddress: Order['shippingAddress']) => Order;
   updateOrderStatus: (orderId: string, status: Order['status'], trackingCode?: string) => void;
+  refreshOrdersAndUsers: () => Promise<void>;
   trackOrderId: string | null;
   setTrackOrderId: (id: string | null) => void;
   
@@ -207,6 +208,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  const refreshOrdersAndUsers = async () => {
+    try {
+      const res = await fetch('/api/orders');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.orders)) {
+        setOrders(data.orders);
+        localStorage.setItem('40gates_orders', JSON.stringify(data.orders));
+      }
+    } catch (err) {
+      console.warn('Failed to refresh orders:', err);
+    }
+  };
+
   // Hydrate states from localStorage on startup
   useEffect(() => {
     try {
@@ -225,26 +239,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const storedOrders = localStorage.getItem('40gates_orders');
       if (storedOrders) setOrders(JSON.parse(storedOrders));
 
-      // Fetch server orders and merge
-      fetch('/api/orders')
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && Array.isArray(data.orders)) {
-            setOrders(prev => {
-              const combined = [...prev];
-              data.orders.forEach((serverOrder: any) => {
-                const idx = combined.findIndex(o => o.id === serverOrder.id);
-                if (idx >= 0) {
-                  combined[idx] = { ...combined[idx], ...serverOrder };
-                } else {
-                  combined.push(serverOrder);
-                }
-              });
-              return combined;
-            });
-          }
-        })
-        .catch(err => console.warn('Failed to load server orders:', err));
+      // Fetch server orders and sync
+      refreshOrdersAndUsers();
     } catch (e) {
       console.error('Failed to load storage state', e);
     }
@@ -560,6 +556,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         orders,
         placeOrder,
         updateOrderStatus,
+        refreshOrdersAndUsers,
         trackOrderId,
         setTrackOrderId: (id) => {
           setTrackOrderId(id);
