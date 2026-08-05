@@ -126,6 +126,10 @@ export default function Admin() {
   const [newCouponCode, setNewCouponCode] = useState('');
   const [newCouponDiscount, setNewCouponDiscount] = useState('10');
 
+  // Refresh data loading and toast state
+  const [isDataRefreshing, setIsDataRefreshing] = useState<boolean>(false);
+  const [refreshNotification, setRefreshNotification] = useState<string | null>(null);
+
   // Verify Session on mount
   useEffect(() => {
     if (adminToken) {
@@ -152,65 +156,82 @@ export default function Admin() {
   }, [adminToken]);
 
   // Fetch admin logs, settings, contact messages, users, and orders
-  const fetchAdminData = () => {
-    // 1. Sync orders
-    refreshOrdersAndUsers();
+  const fetchAdminData = async () => {
+    setIsDataRefreshing(true);
+    setRefreshNotification(null);
+    try {
+      // 1. Sync orders
+      await refreshOrdersAndUsers();
 
-    // 2. Users (Public/Admin sync)
-    fetch('/api/users')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && Array.isArray(data.users)) setServerUsers(data.users);
-      })
-      .catch(err => console.warn('Users error:', err));
+      // 2. Users (Public/Admin sync)
+      const usersPromise = fetch('/api/users')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.users)) setServerUsers(data.users);
+        })
+        .catch(err => console.warn('Users error:', err));
 
-    if (!adminToken) return;
+      if (adminToken) {
+        // 3. Logs
+        const logsPromise = fetch('/api/admin/logs', {
+          headers: { Authorization: `Bearer ${adminToken}` }
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) setLoginLogs(data.logs || []);
+          })
+          .catch(err => console.warn('Logs error:', err));
 
-    // 3. Logs
-    fetch('/api/admin/logs', {
-      headers: { Authorization: `Bearer ${adminToken}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setLoginLogs(data.logs || []);
-      })
-      .catch(err => console.warn('Logs error:', err));
+        // 4. Settings
+        const settingsPromise = fetch('/api/admin/settings', {
+          headers: { Authorization: `Bearer ${adminToken}` }
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.settings) {
+              setSettingsInfo(data.settings);
+              if (data.settings.smtpUser && data.settings.smtpUser !== 'تنظیم نشده') {
+                setSmtpUserInput(prev => prev || data.settings.smtpUser);
+              }
+              if (data.settings.adminEmail) {
+                setAdminEmailConfigInput(prev => prev || data.settings.adminEmail);
+              }
+            }
+          })
+          .catch(err => console.warn('Settings error:', err));
 
-    // 4. Settings
-    fetch('/api/admin/settings', {
-      headers: { Authorization: `Bearer ${adminToken}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.settings) {
-          setSettingsInfo(data.settings);
-          if (data.settings.smtpUser && data.settings.smtpUser !== 'تنظیم نشده') {
-            setSmtpUserInput(prev => prev || data.settings.smtpUser);
-          }
-          if (data.settings.adminEmail) {
-            setAdminEmailConfigInput(prev => prev || data.settings.adminEmail);
-          }
-        }
-      })
-      .catch(err => console.warn('Settings error:', err));
+        // 5. Messages
+        const msgsPromise = fetch('/api/admin/contact-messages', {
+          headers: { Authorization: `Bearer ${adminToken}` }
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) setContactMsgs(data.messages || []);
+          })
+          .catch(err => console.warn('Messages error:', err));
 
-    // 5. Messages
-    fetch('/api/admin/contact-messages', {
-      headers: { Authorization: `Bearer ${adminToken}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setContactMsgs(data.messages || []);
-      })
-      .catch(err => console.warn('Messages error:', err));
+        // 6. Email logs
+        const emailLogsPromise = fetch('/api/email/logs')
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && Array.isArray(data.logs)) setEmailSystemLogs(data.logs);
+          })
+          .catch(err => console.warn('Email logs error:', err));
 
-    // 6. Email logs
-    fetch('/api/email/logs')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && Array.isArray(data.logs)) setEmailSystemLogs(data.logs);
-      })
-      .catch(err => console.warn('Email logs error:', err));
+        await Promise.all([usersPromise, logsPromise, settingsPromise, msgsPromise, emailLogsPromise]);
+      } else {
+        await usersPromise;
+      }
+
+      setRefreshNotification('داده‌های پنل مدیریت (سفارش‌ها، کاربران، پیام‌ها و لاگ‌ها) با موفقیت بروزرسانی شدند.');
+      setTimeout(() => setRefreshNotification(null), 4000);
+    } catch (err) {
+      console.warn('Error refreshing admin data:', err);
+      setRefreshNotification('خطایی در بروزرسانی اطلاعات رخ داد.');
+      setTimeout(() => setRefreshNotification(null), 4000);
+    } finally {
+      setIsDataRefreshing(false);
+    }
   };
 
   const handleSaveSmtp = async (e: React.FormEvent) => {
@@ -685,11 +706,12 @@ export default function Admin() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => fetchAdminData()}
-                className="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer font-bold"
-                title="بروزرسانی لیست سفارش‌ها و کاربران"
+                disabled={isDataRefreshing}
+                className="bg-indigo-600/20 hover:bg-indigo-600/30 disabled:opacity-50 text-indigo-300 border border-indigo-500/30 text-xs px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer font-bold"
+                title="بروزرسانی لیست سفارش‌ها، کاربران و پیام‌ها"
               >
-                <RefreshCw size={14} />
-                <span className="hidden sm:inline">بروزرسانی داده‌ها</span>
+                <RefreshCw size={14} className={isDataRefreshing ? "animate-spin text-amber-400" : ""} />
+                <span className="hidden sm:inline">{isDataRefreshing ? "در حال بروزرسانی..." : "بروزرسانی داده‌ها"}</span>
               </button>
 
               <button
@@ -709,6 +731,29 @@ export default function Admin() {
               </button>
             </div>
           </div>
+
+          {/* Toast Refresh Notification Banner */}
+          <AnimatePresence>
+            {refreshNotification && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mt-3 max-w-7xl mx-auto bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 p-3 rounded-xl text-xs flex items-center justify-between font-medium shadow-md"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                  <span>{refreshNotification}</span>
+                </div>
+                <button
+                  onClick={() => setRefreshNotification(null)}
+                  className="text-emerald-400 hover:text-emerald-200 text-xs font-bold px-2 py-0.5"
+                >
+                  ✕
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </header>
 
         {/* Overview Stats Bar */}
