@@ -123,7 +123,7 @@ export const PwaInstallPrompt: React.FC = () => {
                 </p>
                 <ol className="list-decimal list-inside space-y-2 text-[11px] leading-relaxed text-slate-200">
                   <li>در پایین مرورگر Safari روی آیکون اشتراک‌گذاری (<Share size={12} className="inline text-sky-400 mx-0.5" />) بزنید.</li>
-                  <li>صفحه را پایین بکشید و گزینه <strong>Add to Home Screen</strong> (<PlusSquare size={12} className="inline text-emerald-400 mx-0.5" />) را انتخاب کنید.</li>
+                  <li>صفحه را پایین بکشید و گزینه <strong>Add to Home Screen (افزودن به صفحه اصلی)</strong> را انتخاب کنید.</li>
                   <li>در بالای صفحه روی <strong>Add</strong> بزنید.</li>
                 </ol>
               </>
@@ -131,13 +131,18 @@ export const PwaInstallPrompt: React.FC = () => {
               <>
                 <p className="font-extrabold text-amber-400 flex items-center gap-1.5 text-xs">
                   <Monitor size={16} />
-                  <span>راهنمای نصب در اندروید و کامپیوتر:</span>
+                  <span>راهنمای نصب در کامپیوتر و اندروید:</span>
                 </p>
-                <ol className="list-decimal list-inside space-y-2 text-[11px] leading-relaxed text-slate-200">
-                  <li>روی منوی ۳ نقطه (<MoreVertical size={12} className="inline text-amber-400 mx-0.5" />) در بالای مرورگر (Chrome یا Edge) بزنید.</li>
-                  <li>گزینه <strong>«افزودن به صفحه اصلی»</strong> یا <strong>«Install app»</strong> را انتخاب کنید.</li>
-                  <li>روی دکمه <strong>Install / افزودن</strong> کلیک کنید.</li>
-                </ol>
+                <ul className="space-y-2.5 text-[11px] leading-relaxed text-slate-200">
+                  <li className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-700">
+                    <strong className="text-amber-300 block mb-1">🖥️ در مرورگر کامپیوتر (Chrome / Edge):</strong>
+                    مطابق تصویر بالا، دقیقاً در <strong>سمت راست نوار آدرس مرورگر</strong> (در بالاترین بخش مرورگر) روی آیکون نصب <span className="inline-flex items-center gap-1 bg-slate-800 text-amber-400 font-mono px-1.5 py-0.5 rounded border border-amber-500/30 text-[10px]"><Monitor size={11} /><Download size={11} /></span> کلیک نمایید.
+                  </li>
+                  <li className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-700">
+                    <strong className="text-sky-300 block mb-1">📱 در گوشی اندروید:</strong>
+                    روی منوی ۳ نقطه (<MoreVertical size={12} className="inline text-amber-400 mx-0.5" />) مرورگر زده و گزینه <strong>«افزودن به صفحه اصلی»</strong> یا <strong>«Install app»</strong> را انتخاب کنید.
+                  </li>
+                </ul>
               </>
             )}
             <button

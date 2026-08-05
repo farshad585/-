@@ -158,9 +158,20 @@ export default function Navbar() {
             ))}
           </nav>
 
-          {/* Left Section: Search, Wishlist, Cart, Profile */}
-          <div className="flex items-center gap-1 sm:gap-3">
+          {/* Left Section: Search, Install App Button, Wishlist, Cart, Profile */}
+          <div className="flex items-center gap-1 sm:gap-2.5">
             
+            {/* Install App Button */}
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-pwa-prompt'))}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-indigo-950 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-500 hover:to-amber-400 border border-amber-400/80 shadow-xs transition-all cursor-pointer active:scale-95 shrink-0"
+              title="نصب اپلیکیشن رو دستگاه"
+            >
+              <Download size={14} className="text-indigo-950 animate-bounce" />
+              <span>نصب اپلیکیشن</span>
+            </button>
+
             {/* Elegant Search bar (expandable) */}
             <form onSubmit={handleSearchSubmit} className="relative hidden md:block">
               <input
