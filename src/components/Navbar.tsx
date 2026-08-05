@@ -314,7 +314,7 @@ export default function Navbar() {
                     className="flex items-center gap-3 py-3 px-3 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 shadow-md shadow-amber-500/10 mt-2 transition-all cursor-pointer"
                   >
                     <Smartphone size={18} className="text-amber-200" />
-                    <span>📲 نصب مستقیم اپلیکیشن (PWA)</span>
+                    <span>📲 نصب مستقیم اپلیکیشن</span>
                   </button>
                 </div>
               </div>
