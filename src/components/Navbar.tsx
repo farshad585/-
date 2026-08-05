@@ -86,15 +86,6 @@ export default function Navbar() {
         <span className="hidden sm:inline">🌟 مرجع تخصصی آموزش علمی رویابینی شفاف و ذهن‌آگاهی</span>
         <div className="flex items-center gap-3 mx-auto sm:mx-0">
           <span>کد تخفیف (۲۰٪): <strong className="font-mono text-xs border border-dashed border-indigo-400 px-1.5 py-0.5 rounded text-indigo-800 bg-white shadow-xs">DREAM20</strong></span>
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-pwa-prompt'))}
-            className="bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white font-extrabold px-2.5 py-0.5 rounded-full text-[10px] flex items-center gap-1 transition-all cursor-pointer shadow-xs active:scale-95"
-            title="نصب اپلیکیشن روی گوشی یا کامپیوتر"
-          >
-            <Smartphone size={12} />
-            <span>📲 نصب اپلیکیشن</span>
-          </button>
         </div>
       </div>
 
@@ -158,19 +149,8 @@ export default function Navbar() {
             ))}
           </nav>
 
-          {/* Left Section: Search, Install App Button, Wishlist, Cart, Profile */}
+          {/* Left Section: Search, Wishlist, Cart, Profile */}
           <div className="flex items-center gap-1 sm:gap-2.5">
-            
-            {/* Install App Button */}
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('open-pwa-prompt'))}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-indigo-950 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-500 hover:to-amber-400 border border-amber-400/80 shadow-xs transition-all cursor-pointer active:scale-95 shrink-0"
-              title="نصب اپلیکیشن رو دستگاه"
-            >
-              <Download size={14} className="text-indigo-950 animate-bounce" />
-              <span>نصب اپلیکیشن</span>
-            </button>
 
             {/* Elegant Search bar (expandable) */}
             <form onSubmit={handleSearchSubmit} className="relative hidden md:block">
