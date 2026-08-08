@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import * as XLSX from 'xlsx';
 import { 
   ShieldCheck, 
   Lock, 
@@ -34,7 +35,12 @@ import {
   ArrowRight,
   Shield,
   Server,
-  FileText
+  FileText,
+  FileSpreadsheet,
+  Trash2,
+  Save,
+  X,
+  Check
 } from 'lucide-react';
 import SEO from '../components/SEO';
 import { useApp } from '../context/AppContext';
@@ -67,7 +73,19 @@ interface ContactMessage {
 }
 
 export default function Admin() {
-  const { orders, updateOrderStatus, setCurrentPage, refreshOrdersAndUsers } = useApp();
+  const { 
+    orders, 
+    updateOrderStatus, 
+    setCurrentPage, 
+    refreshOrdersAndUsers, 
+    products, 
+    updateProduct, 
+    addProduct, 
+    deleteProduct, 
+    resetProducts 
+  } = useApp();
+
+  const productsList = products || PRODUCTS;
 
   // Authentication State
   const [adminToken, setAdminToken] = useState<string | null>(() => {
@@ -92,8 +110,30 @@ export default function Admin() {
     'orders' | 'products' | 'inventory' | 'customers' | 'articles' | 'messages' | 'discounts' | 'settings'
   >('orders');
 
-  // Real-time editable states
-  const [productsList, setProductsList] = useState<Product[]>(PRODUCTS);
+  // Product Management & Modal States
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isAddingProduct, setIsAddingProduct] = useState<boolean>(false);
+  const [productSearchQuery, setProductSearchQuery] = useState<string>('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
+
+  const [newProductForm, setNewProductForm] = useState<Partial<Product>>({
+    title: '',
+    englishTitle: '',
+    price: 490000,
+    salePrice: 390000,
+    stock: 50,
+    type: 'printed',
+    category: 'books',
+    author: 'فرشاد میرشکاری',
+    format: 'قطع رقعی - کاغذ سوئدی',
+    shortDescription: '',
+    description: '',
+    featured: false,
+    bestSeller: false,
+    newArrival: true,
+    tags: ['کتاب', 'چهل دروازه به ماورا', 'فرشاد میرشکاری']
+  });
+
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
   
@@ -116,6 +156,89 @@ export default function Admin() {
   const [adminEmailConfigInput, setAdminEmailConfigInput] = useState<string>('fmfarshad585@gmail.com');
   const [smtpSaving, setSmtpSaving] = useState<boolean>(false);
   const [smtpSaveResult, setSmtpSaveResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Supabase Connection State
+  const [supabaseStatus, setSupabaseStatus] = useState<{
+    loading: boolean;
+    connected: boolean;
+    configured: boolean;
+    url: string | null;
+    hasAnonKey: boolean;
+    hasServiceKey: boolean;
+    message: string;
+  }>({
+    loading: false,
+    connected: false,
+    configured: false,
+    url: null,
+    hasAnonKey: false,
+    hasServiceKey: false,
+    message: ''
+  });
+
+  const [supabaseUrlInput, setSupabaseUrlInput] = useState<string>('');
+  const [supabaseAnonKeyInput, setSupabaseAnonKeyInput] = useState<string>('');
+  const [supabaseServiceKeyInput, setSupabaseServiceKeyInput] = useState<string>('');
+  const [supabaseSaving, setSupabaseSaving] = useState<boolean>(false);
+  const [supabaseSaveMsg, setSupabaseSaveMsg] = useState<{ success: boolean; message: string } | null>(null);
+
+  const checkSupabaseStatus = async () => {
+    setSupabaseStatus(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch('/api/supabase/status');
+      const data = await res.json();
+      setSupabaseStatus({
+        loading: false,
+        connected: Boolean(data.connected),
+        configured: Boolean(data.configured),
+        url: data.url || null,
+        hasAnonKey: Boolean(data.hasAnonKey),
+        hasServiceKey: Boolean(data.hasServiceKey),
+        message: data.message || ''
+      });
+      if (data.url && !supabaseUrlInput) {
+        setSupabaseUrlInput(data.url);
+      }
+    } catch (err) {
+      setSupabaseStatus({
+        loading: false,
+        connected: false,
+        configured: false,
+        url: null,
+        hasAnonKey: false,
+        hasServiceKey: false,
+        message: 'خطا در ارتباط با سرور هنگام بررسی وضعیت Supabase'
+      });
+    }
+  };
+
+  const handleSaveSupabaseConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSupabaseSaving(true);
+    setSupabaseSaveMsg(null);
+    try {
+      const res = await fetch('/api/supabase/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: supabaseUrlInput,
+          anonKey: supabaseAnonKeyInput,
+          serviceKey: supabaseServiceKeyInput
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSupabaseSaveMsg({ success: true, message: 'تنظیمات کلیدهای Supabase با موفقیت ثبت شدند.' });
+        await checkSupabaseStatus();
+      } else {
+        setSupabaseSaveMsg({ success: false, message: data.error || 'خطا در ذخیره کلیدها' });
+      }
+    } catch (err) {
+      setSupabaseSaveMsg({ success: false, message: 'خطا در شبکه هنگام ذخیره تنظیمات Supabase' });
+    } finally {
+      setSupabaseSaving(false);
+    }
+  };
 
   // Custom Discount Coupons state
   const [coupons, setCoupons] = useState([
@@ -217,6 +340,9 @@ export default function Admin() {
             if (data.success && Array.isArray(data.logs)) setEmailSystemLogs(data.logs);
           })
           .catch(err => console.warn('Email logs error:', err));
+
+        // 7. Supabase status
+        checkSupabaseStatus().catch(() => {});
 
         await Promise.all([usersPromise, logsPromise, settingsPromise, msgsPromise, emailLogsPromise]);
       } else {
@@ -422,24 +548,216 @@ export default function Admin() {
     }
   };
 
-  // Toggle product in-stock state
-  const handleToggleStock = (productId: string) => {
-    setProductsList(prev => prev.map(p => {
-      if (p.id === productId) {
-        return { ...p, inStock: !p.inStock };
-      }
-      return p;
+  // --- Excel Exporters ---
+  const exportOrdersToExcel = () => {
+    const data = orders.map((o) => ({
+      'شناسه سفارش': o.id,
+      'تاریخ ثبت': o.date,
+      'وضعیت سفارش':
+        o.status === 'completed' ? 'تکمیل / ارسال شده' :
+        o.status === 'processing' ? 'در حال پردازش' :
+        o.status === 'cancelled' ? 'لغو شده' : 'در انتظار',
+      'نام خریدار': o.shippingAddress?.fullName || 'کاربر ثبت‌نامی',
+      'شماره تماس': o.shippingAddress?.phone || '-',
+      'ایمیل خریدار': o.shippingAddress?.email || o.userEmail || '-',
+      'استان': o.shippingAddress?.province || '-',
+      'شهر': o.shippingAddress?.city || '-',
+      'آدرس پستی': o.shippingAddress?.address || 'تحویل فایل دیجیتال',
+      'کد پستی': o.shippingAddress?.postalCode || '-',
+      'مبلغ کل (تومان)': o.totalAmount || 0,
+      'درگاه پرداخت': o.paymentGateway || 'کارت به کارت',
+      'کد رهگیری پستی': o.trackingCode || 'ثبت نشده',
+      'کد تخفیف استفاده شده': o.couponUsed || 'ندارد',
+      'اقلام سفارش': o.items?.map(i => `${i.title} (${i.quantity} عدد)`).join(' | ') || ''
     }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'سفارشات');
+    XLSX.writeFile(wb, `Orders_List_40Gates_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    setRefreshNotification('خروجی اکسل لیست سفارشات با موفقیت دانلود شد.');
+    setTimeout(() => setRefreshNotification(null), 3000);
   };
 
-  // Quick price change
-  const handleUpdatePrice = (productId: string, newPrice: number) => {
-    setProductsList(prev => prev.map(p => {
-      if (p.id === productId) {
-        return { ...p, price: newPrice };
-      }
-      return p;
+  const exportProductsToExcel = () => {
+    const data = productsList.map((p) => ({
+      'شناسه محصول': p.id,
+      'عنوان محصول': p.title,
+      'عنوان انگلیسی': p.englishTitle || '',
+      'قیمت اصلی (تومان)': p.price,
+      'قیمت با تخفیف (تومان)': p.salePrice || p.price,
+      'میزان تخفیف (تومان)': p.salePrice ? (p.price - p.salePrice) : 0,
+      'درصد تخفیف': p.salePrice ? `${Math.round(((p.price - p.salePrice) / p.price) * 100)}٪` : '۰٪',
+      'موجودی انبار (تعداد)': p.stock,
+      'وضعیت موجودی': p.stock > 0 ? 'موجود' : 'ناموجود',
+      'دسته بندی': p.category === 'books' ? 'کتاب چاپی / PDF' : p.category === 'audiobooks' ? 'کتاب صوتی' : p.category === 'courses' ? 'دوره آموزشی' : 'ابزار',
+      'نوع اثر': p.type === 'printed' ? 'چاپی' : p.type === 'pdf' ? 'فایل PDF' : p.type === 'audio' ? 'صوتی MP3' : 'دوره ویدیویی',
+      'فرمت / صفحات': p.format || (p.pages ? `${p.pages} صفحه` : ''),
+      'مدت زمان': p.duration || '-',
+      'نویسنده / مدرس': p.author || 'فرشاد میرشکاری',
+      'امتیاز': p.rating || 5,
+      'تعداد دیدگاه‌ها': p.reviewsCount || 0,
+      'تگ‌ها': p.tags ? p.tags.join('، ') : '',
+      'توضیح کوتاه': p.shortDescription || '',
+      'لینک مستقیم دانلود': p.downloadUrl || '-'
     }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'کاتالوگ_محصولات');
+    XLSX.writeFile(wb, `Products_Catalog_40Gates_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    setRefreshNotification('خروجی اکسل کاتالوگ محصولات با موفقیت دانلود شد.');
+    setTimeout(() => setRefreshNotification(null), 3000);
+  };
+
+  const exportInventoryToExcel = () => {
+    const data = productsList.map((p) => ({
+      'شناسه': p.id,
+      'عنوان محصول': p.title,
+      'نوع محصول': p.type === 'printed' ? 'کتاب چاپی' : p.type === 'pdf' ? 'فایل PDF' : p.type === 'audio' ? 'کتاب صوتی' : 'دوره آموزشی',
+      'فرمت / مشخصات': p.format || '-',
+      'موجودی فعلی (تعداد)': p.stock,
+      'وضعیت انبار': p.stock === 0 ? 'پایان موجودی (ناموجود)' : p.stock <= 10 ? 'موجودی محدود (هشدار انبار)' : 'موجود / انبار پر',
+      'قیمت عرضه (تومان)': p.salePrice || p.price,
+      'نویسنده / ناشر': p.author || 'فرشاد میرشکاری'
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'موجودی_انبار');
+    XLSX.writeFile(wb, `Inventory_Report_40Gates_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    setRefreshNotification('خروجی اکسل موجودی انبار با موفقیت دانلود شد.');
+    setTimeout(() => setRefreshNotification(null), 3000);
+  };
+
+  const exportCustomersToExcel = () => {
+    const combinedEmails = Array.from(new Set([
+      ...serverUsers.map(u => u.email),
+      ...orders.map(o => o.shippingAddress?.email || o.userEmail).filter(Boolean) as string[]
+    ]));
+
+    const data = combinedEmails.map((custEmail) => {
+      const registeredUser = serverUsers.find(u => u.email?.toLowerCase() === custEmail.toLowerCase());
+      const userOrders = orders.filter(o => (o.shippingAddress?.email || o.userEmail)?.toLowerCase() === custEmail.toLowerCase());
+      const totalSpent = userOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+      const name = registeredUser?.fullName || userOrders[0]?.shippingAddress?.fullName || 'هنرجوی رویابینی شفاف';
+      const phone = registeredUser?.phone || userOrders[0]?.shippingAddress?.phone || '-';
+      const regDate = registeredUser?.faDate || 'عضو آکادمی';
+
+      return {
+        'نام و نام خانوادگی': name,
+        'آدرس ایمیل': custEmail,
+        'شماره تلفن': phone,
+        'تاریخ عضویت / ثبت': regDate,
+        'تعداد سفارشات': userOrders.length,
+        'مجموع خریدهای پرداختی (تومان)': totalSpent,
+        'استان': userOrders[0]?.shippingAddress?.province || '-',
+        'شهر': userOrders[0]?.shippingAddress?.city || '-'
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'مشتریان_و_کاربران');
+    XLSX.writeFile(wb, `Customers_List_40Gates_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    setRefreshNotification('خروجی اکسل مخاطبان و خریداران با موفقیت دانلود شد.');
+    setTimeout(() => setRefreshNotification(null), 3000);
+  };
+
+  const exportMessagesToExcel = () => {
+    const data = contactMsgs.map((m) => ({
+      'شناسه پیام': m.id,
+      'نام فرستنده': m.name,
+      'ایمیل فرستنده': m.email,
+      'موضوع': m.subject || 'پیام تماس با ما',
+      'تاریخ ارسال': m.faDate,
+      'زمان ارسال': m.faTime,
+      'متن کامل پیام': m.message,
+      'وضعیت بررسی': m.read ? 'پاسخ داده شده / خوانده شده' : 'جدید / خوانده نشده'
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'پیام‌های_دریافتی');
+    XLSX.writeFile(wb, `Contact_Messages_40Gates_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    setRefreshNotification('خروجی اکسل پیام‌های دریافت شده با موفقیت دانلود شد.');
+    setTimeout(() => setRefreshNotification(null), 3000);
+  };
+
+  // --- Product CRUD Operations ---
+  const handleToggleStock = (productId: string) => {
+    const target = productsList.find(p => p.id === productId);
+    if (target) {
+      const newStock = target.stock > 0 ? 0 : 99;
+      updateProduct(productId, { stock: newStock });
+    }
+  };
+
+  const handleUpdatePrice = (productId: string, newPrice: number) => {
+    updateProduct(productId, { price: newPrice });
+  };
+
+  const handleUpdateSalePrice = (productId: string, newSalePrice: number | undefined) => {
+    updateProduct(productId, { salePrice: newSalePrice && newSalePrice > 0 ? newSalePrice : undefined });
+  };
+
+  const handleUpdateStockCount = (productId: string, newStock: number) => {
+    updateProduct(productId, { stock: newStock });
+  };
+
+  const handleSaveEditedProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+
+    updateProduct(editingProduct.id, {
+      ...editingProduct,
+      price: Number(editingProduct.price) || 0,
+      salePrice: editingProduct.salePrice ? Number(editingProduct.salePrice) : undefined,
+      stock: Number(editingProduct.stock) || 0
+    });
+
+    setRefreshNotification(`محصول «${editingProduct.title}» با موفقیت بروزرسانی شد.`);
+    setEditingProduct(null);
+    setTimeout(() => setRefreshNotification(null), 3500);
+  };
+
+  const handleCreateProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProductForm.title) return;
+
+    const newProd: Product = {
+      id: `prod-${Date.now().toString().slice(-6)}`,
+      title: newProductForm.title || 'محصول جدید',
+      englishTitle: newProductForm.englishTitle || '',
+      price: Number(newProductForm.price) || 0,
+      salePrice: newProductForm.salePrice ? Number(newProductForm.salePrice) : undefined,
+      stock: Number(newProductForm.stock) || 0,
+      type: (newProductForm.type as any) || 'printed',
+      category: (newProductForm.category as any) || 'books',
+      description: newProductForm.description || newProductForm.shortDescription || 'توضیحات اثر جدید آکادمی ۴۰ دروازه.',
+      shortDescription: newProductForm.shortDescription || '',
+      author: newProductForm.author || 'فرشاد میرشکاری',
+      format: newProductForm.format || 'نسخه اختصاصی',
+      rating: 5.0,
+      reviewsCount: 0,
+      images: ['/assets/images/کتاب چاپی چهل دروازه به ماورا1.jpg'],
+      tags: typeof newProductForm.tags === 'string'
+        ? (newProductForm.tags as string).split('،').map((t: string) => t.trim())
+        : (newProductForm.tags || []),
+      downloadUrl: newProductForm.downloadUrl,
+      featured: !!newProductForm.featured,
+      bestSeller: !!newProductForm.bestSeller,
+      newArrival: !!newProductForm.newArrival
+    };
+
+    addProduct(newProd);
+    setIsAddingProduct(false);
+    setRefreshNotification(`محصول جدید «${newProd.title}» با موفقیت به کاتالوگ افزوده شد.`);
+    setTimeout(() => setRefreshNotification(null), 3500);
+  };
+
+  const handleDeleteProduct = (id: string, title: string) => {
+    if (window.confirm(`آیا از حذف محصول «${title}» اطمینان دارید؟`)) {
+      deleteProduct(id);
+      setRefreshNotification(`محصول «${title}» با موفقیت حذف گردید.`);
+      setTimeout(() => setRefreshNotification(null), 3500);
+    }
   };
 
   // Handle Order status update
@@ -912,10 +1230,20 @@ export default function Admin() {
             {activeTab === 'orders' && (
               <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4 text-right">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-700">
-                  <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
-                    <ShoppingBag className="text-indigo-400" size={18} />
-                    <span>مدیریت سفارش‌ها</span>
-                  </h2>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
+                      <ShoppingBag className="text-indigo-400" size={18} />
+                      <span>مدیریت سفارش‌ها ({orders.length} سفارش)</span>
+                    </h2>
+
+                    <button
+                      onClick={exportOrdersToExcel}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                    >
+                      <FileSpreadsheet size={15} />
+                      <span>خروجی اکسل</span>
+                    </button>
+                  </div>
 
                   {/* Filter tabs */}
                   <div className="flex flex-wrap gap-1 text-[11px]">
@@ -1031,54 +1359,199 @@ export default function Admin() {
 
             {/* TAB 2: PRODUCTS */}
             {activeTab === 'products' && (
-              <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4 text-right">
-                <div className="flex justify-between items-center pb-3 border-b border-slate-700">
-                  <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
-                    <Package className="text-indigo-400" size={18} />
-                    <span>مدیریت کاتالوگ محصولات (۶ دوره و کتاب)</span>
-                  </h2>
+              <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-5 text-right">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 pb-4 border-b border-slate-700">
+                  <div>
+                    <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+                      <Package className="text-indigo-400" size={20} />
+                      <span>مدیریت کاتالوگ محصولات ({productsList.length} اثر و دوره)</span>
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-1">
+                      تنظیم قیمت اصلی، قیمت تخفیف‌دار، موجودی انبار، عنوان و ویرایش کامل ویژگی‌ها
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <button
+                      onClick={exportProductsToExcel}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                    >
+                      <FileSpreadsheet size={16} />
+                      <span>خروجی اکسل محصولات</span>
+                    </button>
+
+                    <button
+                      onClick={() => setIsAddingProduct(true)}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                    >
+                      <Plus size={16} />
+                      <span>افزودن محصول جدید</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (confirm('آیا می‌خواهید کاتالوگ محصولات به حالت اولیه بازگردد؟')) {
+                          resetProducts();
+                          setRefreshNotification('کاتالوگ محصولات بازنشانی شد.');
+                          setTimeout(() => setRefreshNotification(null), 3000);
+                        }
+                      }}
+                      className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl transition-colors cursor-pointer"
+                      title="بازنشانی به کاتالوگ اولیه"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                  </div>
                 </div>
 
+                {/* Search and Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="relative md:col-span-2">
+                    <Search className="absolute right-3 top-2.5 text-slate-400" size={16} />
+                    <input
+                      type="text"
+                      placeholder="جستجو در عنوان، نویسنده، تگ‌ها..."
+                      value={productSearchQuery}
+                      onChange={e => setProductSearchQuery(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pr-9 pl-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <select
+                    value={productCategoryFilter}
+                    onChange={e => setProductCategoryFilter(e.target.value)}
+                    className="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="all">همه دسته‌بندی‌ها</option>
+                    <option value="books">کتاب‌های چاپی و PDF</option>
+                    <option value="audiobooks">کتاب‌های صوتی</option>
+                    <option value="courses">دوره‌های جامع و ویدیویی</option>
+                  </select>
+                </div>
+
+                {/* Products Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {productsList.map(product => (
-                    <div key={product.id} className="bg-slate-900 border border-slate-700/80 rounded-2xl p-4 flex gap-3">
-                      <img
-                        src={product.image}
-                        alt={product.title}
-                        className="w-20 h-24 object-cover rounded-xl border border-slate-700 shrink-0"
-                      />
-                      <div className="space-y-2 text-xs flex-grow">
-                        <div className="flex justify-between items-start gap-1">
-                          <h3 className="font-bold text-white text-xs leading-snug">{product.title}</h3>
-                          <span className={`px-2 py-0.5 rounded text-[10px] shrink-0 font-bold ${
-                            product.inStock ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
-                          }`}>
-                            {product.inStock ? 'موجود' : 'ناموجود'}
-                          </span>
-                        </div>
+                  {productsList
+                    .filter(p => {
+                      if (productCategoryFilter !== 'all' && p.category !== productCategoryFilter) return false;
+                      if (productSearchQuery.trim()) {
+                        const q = productSearchQuery.toLowerCase();
+                        return p.title.toLowerCase().includes(q) || (p.englishTitle && p.englishTitle.toLowerCase().includes(q));
+                      }
+                      return true;
+                    })
+                    .map(product => {
+                      const isStockAvailable = product.stock > 0;
+                      const discountPercent = product.salePrice && product.salePrice < product.price
+                        ? Math.round(((product.price - product.salePrice) / product.price) * 100)
+                        : 0;
 
-                        <div className="text-[11px] text-slate-400 space-y-1">
-                          <p>قیمت اصلی: {product.price.toLocaleString('fa-IR')} تومان</p>
-                          {product.salePrice && (
-                            <p className="text-amber-400 font-bold">قیمت با تخفیف: {product.salePrice.toLocaleString('fa-IR')} تومان</p>
-                          )}
-                        </div>
+                      return (
+                        <div key={product.id} className="bg-slate-900 border border-slate-700/80 rounded-2xl p-4 flex flex-col justify-between space-y-3 hover:border-indigo-500/50 transition-colors">
+                          <div className="flex gap-3">
+                            <img
+                              src={product.images?.[0] || product.image || '/assets/images/کتاب چاپی چهل دروازه به ماورا1.jpg'}
+                              alt={product.title}
+                              className="w-20 h-24 object-cover rounded-xl border border-slate-700/80 shrink-0 shadow-sm"
+                            />
+                            <div className="space-y-1.5 text-xs flex-grow">
+                              <div className="flex justify-between items-start gap-1">
+                                <h3 className="font-bold text-white text-xs leading-snug">{product.title}</h3>
+                                <span className={`px-2 py-0.5 rounded text-[10px] shrink-0 font-bold ${
+                                  isStockAvailable ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                }`}>
+                                  {isStockAvailable ? `${product.stock} موجود` : 'ناموجود'}
+                                </span>
+                              </div>
 
-                        <div className="pt-2 flex items-center gap-2">
-                          <button
-                            onClick={() => handleToggleStock(product.id)}
-                            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border cursor-pointer transition-colors ${
-                              product.inStock
-                                ? 'border-rose-500/40 text-rose-300 hover:bg-rose-500/10'
-                                : 'border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10'
-                            }`}
-                          >
-                            {product.inStock ? 'تغییر به ناموجود' : 'تغییر به موجود'}
-                          </button>
+                              <p className="text-[10px] text-indigo-300">{product.englishTitle || product.author}</p>
+
+                              <div className="flex flex-wrap gap-1 text-[9px] pt-1">
+                                <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
+                                  {product.type === 'printed' ? 'کتاب چاپی' : product.type === 'pdf' ? 'فایل PDF' : product.type === 'audio' ? 'کتاب صوتی' : 'دوره آنلاین'}
+                                </span>
+                                {discountPercent > 0 && (
+                                  <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-bold">
+                                    {discountPercent}٪ تخفیف
+                                  </span>
+                                )}
+                                {product.featured && <span className="bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">ویژه</span>}
+                                {product.bestSeller && <span className="bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded">پرفروش</span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Price & Stock Controls */}
+                          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80 space-y-2 text-[11px]">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-0.5">قیمت اصلی (تومان):</label>
+                                <input
+                                  type="number"
+                                  value={product.price}
+                                  onChange={e => handleUpdatePrice(product.id, Number(e.target.value))}
+                                  className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-0.5">قیمت با تخفیف (تومان):</label>
+                                <input
+                                  type="number"
+                                  placeholder="بدون تخفیف"
+                                  value={product.salePrice || ''}
+                                  onChange={e => handleUpdateSalePrice(product.id, Number(e.target.value))}
+                                  className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-amber-300 text-xs font-mono focus:outline-none focus:border-amber-500"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-1 border-t border-slate-800/80">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-slate-400">موجودی انبار:</span>
+                                <input
+                                  type="number"
+                                  value={product.stock}
+                                  onChange={e => handleUpdateStockCount(product.id, Number(e.target.value))}
+                                  className="w-16 bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-0.5 text-center text-white text-xs font-mono"
+                                />
+                              </div>
+
+                              <button
+                                onClick={() => handleToggleStock(product.id)}
+                                className={`text-[10px] font-bold px-2 py-1 rounded-lg border cursor-pointer transition-colors ${
+                                  isStockAvailable
+                                    ? 'border-rose-500/40 text-rose-300 hover:bg-rose-500/10'
+                                    : 'border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10'
+                                }`}
+                              >
+                                {isStockAvailable ? 'تغییر به ناموجود' : 'تغییر به موجود'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Buttons */}
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+                            <button
+                              onClick={() => setEditingProduct(product)}
+                              className="bg-indigo-600/80 hover:bg-indigo-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Edit3 size={13} />
+                              <span>ویرایش کامل و توضیحات</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteProduct(product.id, product.title)}
+                              className="bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                              title="حذف محصول"
+                            >
+                              <Trash2 size={13} />
+                              <span>حذف</span>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
               </div>
             )}
@@ -1086,19 +1559,29 @@ export default function Admin() {
             {/* TAB 3: INVENTORY */}
             {activeTab === 'inventory' && (
               <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4 text-right">
-                <h2 className="text-sm font-extrabold text-white flex items-center gap-2 pb-3 border-b border-slate-700">
-                  <Server className="text-indigo-400" size={18} />
-                  <span>مدیریت موجودی انبار کتب چاپی و فایل‌های دیجیتال</span>
-                </h2>
+                <div className="flex justify-between items-center pb-3 border-b border-slate-700">
+                  <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
+                    <Server className="text-indigo-400" size={18} />
+                    <span>مدیریت موجودی انبار کتب چاپی و فایل‌های دیجیتال</span>
+                  </h2>
+
+                  <button
+                    onClick={exportInventoryToExcel}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <FileSpreadsheet size={15} />
+                    <span>خروجی اکسل انبار</span>
+                  </button>
+                </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-slate-300 text-right">
                     <thead className="bg-slate-900 text-slate-400 text-[11px] border-b border-slate-700">
                       <tr>
                         <th className="p-3">عنوان محصول</th>
-                        <th className="p-3">فرمت</th>
-                        <th className="p-3">وضعیت انبار</th>
-                        <th className="p-3">حداقل آستانه هشدار</th>
+                        <th className="p-3">فرمت / نوع</th>
+                        <th className="p-3">تعداد موجودی انبار</th>
+                        <th className="p-3">وضعیت هشدار</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
@@ -1107,17 +1590,26 @@ export default function Admin() {
                           <td className="p-3 font-bold text-white">{p.title}</td>
                           <td className="p-3">
                             <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px]">
-                              {p.type === 'printed' ? 'کتاب چاپی' : p.type === 'pdf' ? 'فایل PDF' : 'دوره صوتی'}
+                              {p.type === 'printed' ? 'کتاب چاپی' : p.type === 'pdf' ? 'فایل PDF' : p.type === 'audio' ? 'کتاب صوتی' : 'دوره آنلاین'}
                             </span>
                           </td>
                           <td className="p-3">
-                            {p.inStock ? (
-                              <span className="text-emerald-400 font-bold">آماده تحویل / انبار پر</span>
-                            ) : (
+                            <input
+                              type="number"
+                              value={p.stock}
+                              onChange={e => handleUpdateStockCount(p.id, Number(e.target.value))}
+                              className="w-20 bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-center text-white text-xs font-mono"
+                            />
+                          </td>
+                          <td className="p-3">
+                            {p.stock === 0 ? (
                               <span className="text-rose-400 font-bold">پایان موجودی انبار</span>
+                            ) : p.stock <= 10 ? (
+                              <span className="text-amber-400 font-bold">موجودی محدود (هشدار)</span>
+                            ) : (
+                              <span className="text-emerald-400 font-bold">انبار پر / آماده ارسال</span>
                             )}
                           </td>
-                          <td className="p-3 text-slate-400">۱۰ نسخه چاپی</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1140,6 +1632,14 @@ export default function Admin() {
                       <Users className="text-indigo-400" size={18} />
                       <span>لیست کاربران ثبت‌نامی و خریداران آکادمی ({combinedEmails.length} کاربر)</span>
                     </h2>
+
+                    <button
+                      onClick={exportCustomersToExcel}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FileSpreadsheet size={15} />
+                      <span>خروجی اکسل مخاطبان</span>
+                    </button>
                   </div>
 
                   {combinedEmails.length === 0 ? (
@@ -1216,15 +1716,24 @@ export default function Admin() {
                 <div className="flex justify-between items-center pb-3 border-b border-slate-700">
                   <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
                     <MessageSquare className="text-indigo-400" size={18} />
-                    <span>پیام‌های دریافتی از فرم تماس</span>
+                    <span>پیام‌های دریافتی از فرم تماس ({contactMsgs.length} پیام)</span>
                   </h2>
-                  <button
-                    onClick={fetchAdminData}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
-                  >
-                    <RefreshCw size={12} />
-                    <span>بروزرسانی پیام‌ها</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={exportMessagesToExcel}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FileSpreadsheet size={14} />
+                      <span>خروجی اکسل</span>
+                    </button>
+                    <button
+                      onClick={fetchAdminData}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw size={12} />
+                      <span>بروزرسانی پیام‌ها</span>
+                    </button>
+                  </div>
                 </div>
 
                 {contactMsgs.length === 0 ? (
@@ -1320,6 +1829,132 @@ export default function Admin() {
             {/* TAB 8: SETTINGS & SECURITY LOGS */}
             {activeTab === 'settings' && (
               <div className="space-y-6 text-right">
+
+                {/* Supabase Database Connection Diagnostics & Configuration */}
+                <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-3 border-b border-slate-700">
+                    <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
+                      <Server className="text-indigo-400" size={18} />
+                      <span>وضعیت اتصال به دیتابیس Supabase (Supabase Integration Status)</span>
+                    </h2>
+
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                        supabaseStatus.connected
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          : supabaseStatus.configured
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                      }`}>
+                        {supabaseStatus.connected
+                          ? '🟢 اتصال به Supabase فعال است'
+                          : supabaseStatus.configured
+                          ? '🟡 کلیدها موجود است اما ارتباط متصل نشد'
+                          : '🔴 کلیدهای Supabase تنظیم نشده‌اند'}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={checkSupabaseStatus}
+                        disabled={supabaseStatus.loading}
+                        className="bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <RefreshCw className={supabaseStatus.loading ? 'animate-spin' : ''} size={13} />
+                        <span>تست مجدد اتصال</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 space-y-3 text-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-slate-300">
+                      <div>
+                        <span className="text-slate-400 block text-[11px]">آدرس URL پروژه:</span>
+                        <span className="font-mono text-white dir-ltr block truncate">
+                          {supabaseStatus.url || 'تنظیم نشده (مثلاً: https://xyz.supabase.co)'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[11px]">کلید عمومی (Anon Key):</span>
+                        <span className="font-bold">
+                          {supabaseStatus.hasAnonKey ? '✅ ثبت شده (VITE_SUPABASE_ANON_KEY)' : '❌ ست نشده'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[11px]">کلید مدیر (Service Role Key):</span>
+                        <span className="font-bold">
+                          {supabaseStatus.hasServiceKey ? '✅ ثبت شده (SUPABASE_SERVICE_ROLE_KEY)' : '❌ ست نشده'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {supabaseStatus.message && (
+                      <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                        supabaseStatus.connected
+                          ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
+                          : 'bg-amber-950/60 text-amber-300 border-amber-800'
+                      }`}>
+                        {supabaseStatus.message}
+                      </div>
+                    )}
+
+                    {/* Quick Config Form for Supabase Keys */}
+                    <form onSubmit={handleSaveSupabaseConfig} className="pt-3 border-t border-slate-800 space-y-3">
+                      <span className="block font-bold text-white text-xs">ویرایش یا وارد کردن کلیدهای Supabase به‌صورت زنده:</span>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1 md:col-span-2">
+                          <label className="block text-slate-300 text-[11px] font-bold">آدرس URL پروژه Supabase (VITE_SUPABASE_URL):</label>
+                          <input
+                            type="text"
+                            placeholder="https://your-project-id.supabase.co"
+                            value={supabaseUrlInput}
+                            onChange={e => setSupabaseUrlInput(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono focus:outline-none focus:border-indigo-500 dir-ltr text-left"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-slate-300 text-[11px] font-bold">کلید ناشناس/عمومی (VITE_SUPABASE_ANON_KEY):</label>
+                          <input
+                            type="password"
+                            placeholder="eyJhbGciOiJIUzI1NiIsInR5..."
+                            value={supabaseAnonKeyInput}
+                            onChange={e => setSupabaseAnonKeyInput(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono focus:outline-none focus:border-indigo-500 dir-ltr text-left"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-slate-300 text-[11px] font-bold">کلید سرویس مدیر (SUPABASE_SERVICE_ROLE_KEY):</label>
+                          <input
+                            type="password"
+                            placeholder="eyJhbGciOiJIUzI1NiIsInR5..."
+                            value={supabaseServiceKeyInput}
+                            onChange={e => setSupabaseServiceKeyInput(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono focus:outline-none focus:border-indigo-500 dir-ltr text-left"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center pt-2">
+                        <button
+                          type="submit"
+                          disabled={supabaseSaving}
+                          className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                        >
+                          {supabaseSaving ? <RefreshCw className="animate-spin" size={13} /> : <CheckCircle2 size={13} />}
+                          <span>ذخیره کلیدهای Supabase</span>
+                        </button>
+
+                        {supabaseSaveMsg && (
+                          <span className={`text-xs font-bold ${supabaseSaveMsg.success ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {supabaseSaveMsg.message}
+                          </span>
+                        )}
+                      </div>
+                    </form>
+                  </div>
+                </div>
                 {/* SMTP Credentials Configuration Card */}
                 <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4">
                   <div className="flex justify-between items-center pb-3 border-b border-slate-700">
@@ -1605,6 +2240,375 @@ export default function Admin() {
 
           </main>
         </div>
+
+        {/* MODAL: EDIT PRODUCT */}
+        <AnimatePresence>
+          {editingProduct && (
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto dir-rtl text-right">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-slate-900 border border-slate-700/80 rounded-3xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-5 shadow-2xl text-xs"
+              >
+                <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+                  <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                    <Edit3 className="text-indigo-400" size={18} />
+                    <span>ویرایش کامل محصول: {editingProduct.title}</span>
+                  </h3>
+                  <button
+                    onClick={() => setEditingProduct(null)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="block text-slate-300 font-bold">عنوان فارسی محصول:</label>
+                    <input
+                      type="text"
+                      value={editingProduct.title}
+                      onChange={e => setEditingProduct({ ...editingProduct, title: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-slate-300 font-bold">عنوان انگلیسی:</label>
+                    <input
+                      type="text"
+                      value={editingProduct.englishTitle || ''}
+                      onChange={e => setEditingProduct({ ...editingProduct, englishTitle: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 dir-ltr text-left font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-slate-300 font-bold">قیمت اصلی (تومان):</label>
+                    <input
+                      type="number"
+                      value={editingProduct.price}
+                      onChange={e => setEditingProduct({ ...editingProduct, price: Number(e.target.value) })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-slate-300 font-bold">قیمت فروش با تخفیف (تومان):</label>
+                    <input
+                      type="number"
+                      placeholder="اگر تخفیف ندارد خالی بگذارید"
+                      value={editingProduct.salePrice || ''}
+                      onChange={e => setEditingProduct({ ...editingProduct, salePrice: e.target.value ? Number(e.target.value) : undefined })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-amber-300 font-mono focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-slate-300 font-bold">تعداد موجودی انبار:</label>
+                    <input
+                      type="number"
+                      value={editingProduct.stock}
+                      onChange={e => {
+                        const stockVal = Number(e.target.value);
+                        setEditingProduct({
+                          ...editingProduct,
+                          stock: stockVal,
+                          inStock: stockVal > 0
+                        });
+                      }}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-slate-300 font-bold">دسته‌بندی اصلی:</label>
+                    <select
+                      value={editingProduct.category}
+                      onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value as any })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="books">کتاب‌ها (چاپی و PDF)</option>
+                      <option value="audiobooks">کتاب‌های صوتی</option>
+                      <option value="courses">دوره‌های آموزشی</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-slate-300 font-bold">نوع محصول / فرمت:</label>
+                    <select
+                      value={editingProduct.type}
+                      onChange={e => setEditingProduct({ ...editingProduct, type: e.target.value as any })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="printed">کتاب چاپی</option>
+                      <option value="pdf">نسخه الکترونیکی PDF</option>
+                      <option value="audio">فایل صوتی MP3</option>
+                      <option value="course">دوره ویدیویی/آنلاین</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-slate-300 font-bold">نویسنده / استاد:</label>
+                    <input
+                      type="text"
+                      value={editingProduct.author}
+                      onChange={e => setEditingProduct({ ...editingProduct, author: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="block text-slate-300 font-bold">آدرس تصویر محصول (Image URL):</label>
+                    <input
+                      type="text"
+                      value={editingProduct.image}
+                      onChange={e => setEditingProduct({ ...editingProduct, image: e.target.value, images: [e.target.value] })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 dir-ltr text-left"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="block text-slate-300 font-bold">توضیحات و خلاصه اثر:</label>
+                    <textarea
+                      rows={4}
+                      value={editingProduct.description}
+                      onChange={e => setEditingProduct({ ...editingProduct, description: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-6 md:col-span-2 pt-2 border-t border-slate-800">
+                    <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editingProduct.featured || false}
+                        onChange={e => setEditingProduct({ ...editingProduct, featured: e.target.checked })}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>نمایش در محصولات ویژه</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editingProduct.bestSeller || false}
+                        onChange={e => setEditingProduct({ ...editingProduct, bestSeller: e.target.checked })}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>برچسب پرفروش‌ترین</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct(null)}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                  >
+                    انصراف
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveEditedProduct}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2 rounded-xl transition-colors flex items-center gap-2 cursor-pointer shadow-lg"
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>ذخیره تغییرات</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* MODAL: ADD NEW PRODUCT */}
+        <AnimatePresence>
+          {isAddingProduct && (
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto dir-rtl text-right">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-slate-900 border border-slate-700/80 rounded-3xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-5 shadow-2xl text-xs"
+              >
+                <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+                  <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                    <Plus className="text-indigo-400" size={18} />
+                    <span>افزودن محصول / کتاب جدید به آکادمی</span>
+                  </h3>
+                  <button
+                    onClick={() => setIsAddingProduct(false)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateProduct} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="block text-slate-300 font-bold">عنوان فارسی محصول *:</label>
+                      <input
+                        type="text"
+                        required
+                        value={newProductForm.title}
+                        onChange={e => setNewProductForm({ ...newProductForm, title: e.target.value })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                        placeholder="مثلاً: جلد دوم کتاب رویابینی شفاف"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-slate-300 font-bold">عنوان انگلیسی:</label>
+                      <input
+                        type="text"
+                        value={newProductForm.englishTitle}
+                        onChange={e => setNewProductForm({ ...newProductForm, englishTitle: e.target.value })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 dir-ltr text-left font-mono"
+                        placeholder="e.g., Lucid Dreaming Vol 2"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-slate-300 font-bold">قیمت اصلی (تومان) *:</label>
+                      <input
+                        type="number"
+                        required
+                        value={newProductForm.price || ''}
+                        onChange={e => setNewProductForm({ ...newProductForm, price: Number(e.target.value) })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500"
+                        placeholder="۳۵۰۰۰۰"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-slate-300 font-bold">قیمت با تخفیف (تومان):</label>
+                      <input
+                        type="number"
+                        value={newProductForm.salePrice || ''}
+                        onChange={e => setNewProductForm({ ...newProductForm, salePrice: e.target.value ? Number(e.target.value) : undefined })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-amber-300 font-mono focus:outline-none focus:border-amber-500"
+                        placeholder="۲۹۰۰۰۰"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-slate-300 font-bold">موجودی انبار *:</label>
+                      <input
+                        type="number"
+                        required
+                        value={newProductForm.stock}
+                        onChange={e => setNewProductForm({ ...newProductForm, stock: Number(e.target.value) })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-slate-300 font-bold">دسته‌بندی اصلی:</label>
+                      <select
+                        value={newProductForm.category}
+                        onChange={e => setNewProductForm({ ...newProductForm, category: e.target.value as any })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="books">کتاب‌ها (چاپی و PDF)</option>
+                        <option value="audiobooks">کتاب‌های صوتی</option>
+                        <option value="courses">دوره‌های آموزشی</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-slate-300 font-bold">نوع / فرمت محصول:</label>
+                      <select
+                        value={newProductForm.type}
+                        onChange={e => setNewProductForm({ ...newProductForm, type: e.target.value as any })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="printed">کتاب چاپی</option>
+                        <option value="pdf">نسخه الکترونیکی PDF</option>
+                        <option value="audio">فایل صوتی MP3</option>
+                        <option value="course">دوره ویدیویی/آنلاین</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-slate-300 font-bold">نویسنده / مدرس:</label>
+                      <input
+                        type="text"
+                        value={newProductForm.author}
+                        onChange={e => setNewProductForm({ ...newProductForm, author: e.target.value })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="block text-slate-300 font-bold">آدرس تصویر کاور محصول (Image URL):</label>
+                      <input
+                        type="text"
+                        value={newProductForm.image}
+                        onChange={e => setNewProductForm({ ...newProductForm, image: e.target.value })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 dir-ltr text-left"
+                      />
+                    </div>
+
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="block text-slate-300 font-bold">توضیحات معرفی محصول:</label>
+                      <textarea
+                        rows={3}
+                        value={newProductForm.description}
+                        onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                        placeholder="توضیحات کوتاه یا کامل در مورد این اثر..."
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-6 md:col-span-2 pt-2 border-t border-slate-800">
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newProductForm.featured}
+                          onChange={e => setNewProductForm({ ...newProductForm, featured: e.target.checked })}
+                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>محصول ویژه (نمایش در هدر/صفحه اصلی)</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newProductForm.bestSeller}
+                          onChange={e => setNewProductForm({ ...newProductForm, bestSeller: e.target.checked })}
+                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>پرفروش‌ترین</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingProduct(false)}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                    >
+                      انصراف
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2 rounded-xl transition-colors flex items-center gap-2 cursor-pointer shadow-lg"
+                    >
+                      <Plus size={16} />
+                      <span>ثبت و انتشار محصول</span>
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </>
   );

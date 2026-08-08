@@ -36,7 +36,8 @@ export default function ProductDetails() {
     addToCart, 
     wishlist, 
     toggleWishlist,
-    addToRecentlyViewed
+    addToRecentlyViewed,
+    products
   } = useApp();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -72,7 +73,7 @@ export default function ProductDetails() {
   // Find product by selected ID
   useEffect(() => {
     if (selectedProductId) {
-      const found = PRODUCTS.find((p) => p.id === selectedProductId);
+      const found = (products || PRODUCTS).find((p) => p.id === selectedProductId);
       if (found) {
         setProduct(found);
         setSelectedImageIndex(0);
@@ -152,11 +153,11 @@ export default function ProductDetails() {
     if (selectedVipConsultation === '90days') vipFee = 19900000;
 
     if (product.id === '45363') { // 4-volume set
-      let baseOrig = 1999000;
-      let baseFinal = 1699150;
+      let baseOrig = 3599000;
+      let baseFinal = 3059150;
       if (selectedFormat.includes('تمام رنگی')) {
-        baseOrig = 2999000;
-        baseFinal = 2549150;
+        baseOrig = 3999000;
+        baseFinal = 3399150;
       }
       const totalOrig = baseOrig + vipFee;
       const totalFinal = baseFinal + vipFee;
@@ -166,19 +167,19 @@ export default function ProductDetails() {
 
     if (product.id === '45322') { // Farasouy Reality
       if (selectedFormat.includes('بالک سبک')) {
-        return { originalPrice: 439000, finalPrice: 395100, discountPercent: 10 };
+        return { originalPrice: 799000, finalPrice: 719100, discountPercent: 10 };
       }
       if (selectedFormat.includes('تمام رنگی')) {
-        return { originalPrice: 499000, finalPrice: 449100, discountPercent: 10 };
+        return { originalPrice: 999000, finalPrice: 899100, discountPercent: 10 };
       }
-      return { originalPrice: 399000, finalPrice: 359100, discountPercent: 10 };
+      return { originalPrice: 599000, finalPrice: 539100, discountPercent: 10 };
     }
 
     if (product.id === '45329') { // Creator of Dreams
       if (selectedFormat.includes('تمام رنگی')) {
-        return { originalPrice: 499000, finalPrice: 449100, discountPercent: 10 };
+        return { originalPrice: 899000, finalPrice: 809100, discountPercent: 10 };
       }
-      return { originalPrice: 399000, finalPrice: 359100, discountPercent: 10 };
+      return { originalPrice: 559000, finalPrice: 503100, discountPercent: 10 };
     }
 
     const orig = product.price;

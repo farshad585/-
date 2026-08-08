@@ -25,11 +25,12 @@ import {
 import { motion } from 'motion/react';
 
 export default function Home() {
-  const { setCurrentPage, setSelectedProductId } = useApp();
+  const { setCurrentPage, setSelectedProductId, products } = useApp();
 
-  const featuredProducts = PRODUCTS.filter(p => p.featured).slice(0, 4);
-  const bestSellers = PRODUCTS.filter(p => p.bestSeller).slice(0, 4);
-  const newArrivals = PRODUCTS.filter(p => p.newArrival).slice(0, 4);
+  const allProds = products || PRODUCTS;
+  const featuredProducts = allProds.filter(p => p.featured).slice(0, 4);
+  const bestSellers = allProds.filter(p => p.bestSeller).slice(0, 4);
+  const newArrivals = allProds.filter(p => p.newArrival).slice(0, 4);
 
   const categories = [
     {

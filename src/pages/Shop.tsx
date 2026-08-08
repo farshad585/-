@@ -25,7 +25,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Shop() {
-  const { searchQuery, setSearchQuery, setCurrentPage } = useApp();
+  const { searchQuery, setSearchQuery, setCurrentPage, products } = useApp();
 
   // Shop filter states
   const MAX_SHOP_PRICE = 50000000;
@@ -63,7 +63,7 @@ export default function Shop() {
 
   // Filter and Sort calculation
   const filteredProducts = useMemo(() => {
-    let result = [...PRODUCTS];
+    let result = [...(products || PRODUCTS)];
 
     // Filter by category
     if (selectedCategory !== 'all') {

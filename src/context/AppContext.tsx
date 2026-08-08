@@ -55,6 +55,12 @@ interface AppContextType {
   discountPercentage: number;
   applyCoupon: (code: string, currentSubtotal?: number) => { success: boolean; message: string };
   removeCoupon: () => void;
+
+  products: Product[];
+  updateProduct: (id: string, updatedFields: Partial<Product>) => void;
+  addProduct: (newProduct: Product) => void;
+  deleteProduct: (id: string) => void;
+  resetProducts: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -96,6 +102,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     recentlyViewed: []
   });
   const [orders, setOrders] = useState<Order[]>([]);
+
+  // Products Catalog State
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const saved = localStorage.getItem('40gates_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to load products from localStorage:', e);
+    }
+    return PRODUCTS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('40gates_products', JSON.stringify(products));
+    } catch (e) {
+      console.warn('Failed to save products to localStorage:', e);
+    }
+  }, [products]);
+
+  const updateProduct = (id: string, updatedFields: Partial<Product>) => {
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...updatedFields } : p)));
+  };
+
+  const addProduct = (newProduct: Product) => {
+    setProducts((prev) => [newProduct, ...prev]);
+  };
+
+  const deleteProduct = (id: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const resetProducts = () => {
+    setProducts(PRODUCTS);
+    localStorage.removeItem('40gates_products');
+  };
 
   const login = (email: string, password?: string): boolean => {
     setIsAuthenticated(true);
@@ -569,7 +614,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         couponCode,
         discountPercentage,
         applyCoupon,
-        removeCoupon
+        removeCoupon,
+        products,
+        updateProduct,
+        addProduct,
+        deleteProduct,
+        resetProducts
       }}
     >
       {children}

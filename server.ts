@@ -757,6 +757,94 @@ app.get('/api/admin/contact-messages', requireAdminAuth, (req, res) => {
   res.json({ success: true, messages: contactMessages });
 });
 
+// Supabase Runtime Config Store
+const runtimeSupabaseConfig = {
+  url: (process.env.VITE_SUPABASE_URL || '').trim(),
+  anonKey: (process.env.VITE_SUPABASE_ANON_KEY || '').trim(),
+  serviceKey: (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim(),
+};
+
+// GET /api/supabase/status - Test live connection to Supabase
+app.get('/api/supabase/status', async (req, res) => {
+  const url = (runtimeSupabaseConfig.url || process.env.VITE_SUPABASE_URL || '').trim();
+  const anonKey = (runtimeSupabaseConfig.anonKey || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
+  const serviceKey = (runtimeSupabaseConfig.serviceKey || process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+
+  const isConfigured = Boolean(url && (anonKey || serviceKey));
+
+  if (!isConfigured) {
+    return res.json({
+      connected: false,
+      configured: false,
+      url: url || null,
+      hasAnonKey: Boolean(anonKey),
+      hasServiceKey: Boolean(serviceKey),
+      message: 'کلیدهای اتصال VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY هنوز مقداردهی نشده‌اند.'
+    });
+  }
+
+  try {
+    const checkUrl = `${url.replace(/\/$/, '')}/rest/v1/`;
+    const response = await fetch(checkUrl, {
+      method: 'GET',
+      headers: {
+        'apikey': anonKey || serviceKey,
+        'Authorization': `Bearer ${anonKey || serviceKey}`
+      }
+    });
+
+    if (response.ok || response.status === 200 || response.status === 401 || response.status === 404) {
+      return res.json({
+        connected: true,
+        configured: true,
+        url,
+        hasAnonKey: Boolean(anonKey),
+        hasServiceKey: Boolean(serviceKey),
+        httpStatus: response.status,
+        message: 'اتصال به دیتابیس Supabase با موفقیت برقرار است.'
+      });
+    } else {
+      return res.json({
+        connected: false,
+        configured: true,
+        url,
+        hasAnonKey: Boolean(anonKey),
+        hasServiceKey: Boolean(serviceKey),
+        httpStatus: response.status,
+        message: `پاسخ ناخواسته از Supabase (کد ${response.status}). صحت کلیدها را بررسی کنید.`
+      });
+    }
+  } catch (err: any) {
+    return res.json({
+      connected: false,
+      configured: true,
+      url,
+      hasAnonKey: Boolean(anonKey),
+      hasServiceKey: Boolean(serviceKey),
+      error: err?.message || String(err),
+      message: 'خطا در شبکه هنگام برقراری ارتباط با Supabase. URL پروژه را چک کنید.'
+    });
+  }
+});
+
+// POST /api/supabase/config - Update Supabase keys at runtime
+app.post('/api/supabase/config', (req, res) => {
+  const { url, anonKey, serviceKey } = req.body;
+  if (url !== undefined) runtimeSupabaseConfig.url = String(url).trim();
+  if (anonKey !== undefined) runtimeSupabaseConfig.anonKey = String(anonKey).trim();
+  if (serviceKey !== undefined) runtimeSupabaseConfig.serviceKey = String(serviceKey).trim();
+
+  return res.json({
+    success: true,
+    message: 'تنظیمات کلیدهای Supabase به‌روزرسانی گردید.',
+    config: {
+      url: runtimeSupabaseConfig.url,
+      hasAnonKey: Boolean(runtimeSupabaseConfig.anonKey),
+      hasServiceKey: Boolean(runtimeSupabaseConfig.serviceKey)
+    }
+  });
+});
+
 app.patch('/api/admin/contact-messages/:id', requireAdminAuth, (req, res) => {
   const msg = contactMessages.find(m => m.id === req.params.id);
   if (msg) {
