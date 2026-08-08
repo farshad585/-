@@ -8,6 +8,14 @@ const PORT = 3000;
 
 app.use(express.json());
 
+// Vercel serverless helper: Ensure request paths start with /api if invoked via Vercel function
+app.use((req, res, next) => {
+  if (process.env.VERCEL && !req.url.startsWith('/api')) {
+    req.url = '/api' + req.url;
+  }
+  next();
+});
+
 // Email Log Model
 interface EmailLogItem {
   id: string;
@@ -1221,4 +1229,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
