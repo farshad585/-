@@ -425,10 +425,6 @@ export default function Admin() {
   useEffect(() => {
     if (adminToken) {
       fetchAdminData();
-      const interval = setInterval(() => {
-        fetchAdminData();
-      }, 10000);
-      return () => clearInterval(interval);
     }
   }, [adminToken, activeTab]);
 

@@ -124,12 +124,12 @@ export default function Contact() {
                 <div className="space-y-1">
                   <span className="block text-slate-900 font-bold">پشتیبانی و تلگرام:</span>
                   <a 
-                    href="https://t.me/Farshad_God" 
+                    href="https://t.me/OMEGA585" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-indigo-600 hover:underline font-mono font-bold block dir-ltr text-right"
                   >
-                    t.me/Farshad_God
+                    t.me/OMEGA585
                   </a>
                 </div>
               </li>

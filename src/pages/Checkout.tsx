@@ -19,7 +19,8 @@ import {
   Lock,
   Sparkles,
   Mail,
-  ShoppingBag
+  ShoppingBag,
+  Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -235,9 +236,20 @@ export default function Checkout() {
             <span>{copiedCard ? '✓ شماره کارت کپی شد' : 'کپی شماره کارت (۶۳۶۲۱۴۱۸۰۹۷۴۶۸۱۲)'}</span>
           </button>
 
-          <p className="text-[11px] text-slate-600 bg-white/60 p-3 rounded-xl border border-indigo-100 leading-relaxed text-center">
-            💡 لطفاً پس از واریز، تصویر فیش واریزی یا ۴ رقم آخر کارت را به همراه شماره سفارش برای پشتیبانی ارسال فرمایید.
-          </p>
+          <div className="bg-white/80 p-3.5 rounded-xl border border-indigo-100 text-center space-y-2">
+            <p className="text-xs text-slate-700 font-medium leading-relaxed">
+              💡 لطفاً تصویر فیش واریزی را به همراه شماره سفارش به تلگرام پشتیبانی ارسال فرمایید.
+            </p>
+            <a
+              href="https://t.me/OMEGA585"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 text-indigo-600 hover:text-indigo-800 font-bold font-mono text-sm underline decoration-indigo-300 underline-offset-4 transition-colors"
+            >
+              <span>t.me/OMEGA585</span>
+              <Send size={14} className="rotate-[-30deg]" />
+            </a>
+          </div>
         </div>
 
         {/* Breakdown invoice summary */}

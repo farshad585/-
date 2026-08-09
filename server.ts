@@ -1,20 +1,54 @@
 import express from 'express';
 import path from 'path';
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 import { createServer as createViteServer } from 'vite';
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Vercel serverless helper: Ensure request paths start with /api if invoked via Vercel function
+// Global CORS Middleware for Vercel and Cross-Origin requests
 app.use((req, res, next) => {
-  if (process.env.VERCEL && !req.url.startsWith('/api')) {
-    req.url = '/api' + req.url;
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-admin-token');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
   next();
 });
+
+// Vercel serverless helper: Ensure request paths start with /api if invoked via Vercel function
+app.use((req, res, next) => {
+  if (process.env.VERCEL) {
+    if (!req.url.startsWith('/api') && !req.url.startsWith('/index.html') && !req.url.startsWith('/assets')) {
+      req.url = '/api' + (req.url.startsWith('/') ? '' : '/') + req.url;
+    }
+  }
+  next();
+});
+
+// Runtime Supabase Config Store
+const runtimeSupabaseConfig = {
+  url: (process.env.VITE_SUPABASE_URL || '').trim(),
+  anonKey: (process.env.VITE_SUPABASE_ANON_KEY || '').trim(),
+  serviceKey: (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
+};
+
+function getSupabaseClient() {
+  const url = (process.env.VITE_SUPABASE_URL || runtimeSupabaseConfig.url || '').trim();
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || runtimeSupabaseConfig.serviceKey || process.env.VITE_SUPABASE_ANON_KEY || runtimeSupabaseConfig.anonKey || '').trim();
+  if (!url || !key || url.includes('placeholder')) return null;
+  try {
+    return createClient(url, key);
+  } catch {
+    return null;
+  }
+}
 
 // Email Log Model
 interface EmailLogItem {
@@ -38,8 +72,7 @@ const runtimeSmtpConfig = {
 };
 
 /**
- * Universal Safe Email Sending Helper Function
- * Checks process.env or runtimeSmtpConfig.
+ * Universal Fast & Safe Email Sending Helper Function
  * Handles timeouts, network glitches, and auth errors gracefully.
  */
 async function sendMailSafely(
@@ -56,39 +89,64 @@ async function sendMailSafely(
 
   if (gmailUser && gmailPass) {
     try {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: {
-          user: gmailUser,
-          pass: gmailPass,
-        },
-        tls: {
-          rejectUnauthorized: false
-        },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
+      const sendPromise = new Promise<{ success: boolean; status: 'sent'; messageId?: string }>(async (resolve, reject) => {
+        try {
+          const transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false, // STARTTLS for high compatibility
+            auth: {
+              user: gmailUser,
+              pass: gmailPass,
+            },
+            tls: {
+              rejectUnauthorized: false
+            },
+            connectionTimeout: 3000,
+            greetingTimeout: 3000,
+            socketTimeout: 3500,
+          });
+
+          const info = await transporter.sendMail({
+            ...options,
+            from: sender,
+          });
+          resolve({ success: true, status: 'sent', messageId: info.messageId });
+        } catch (err) {
+          reject(err);
+        }
       });
 
-      const info = await transporter.sendMail({
-        ...options,
-        from: sender,
+      const timeoutPromise = new Promise<{ success: false; status: 'failed'; error: string }>((resolve) => {
+        setTimeout(() => resolve({ success: false, status: 'failed', error: 'زمان پاسخ‌دهی سرور SMTP به پایان رسید (۳٫۵ ثانیه)' }), 3500);
       });
 
-      console.log(`✅ [EMAIL SENT SUCCESSFULLY] To: ${to} | Subject: ${subject}`);
+      const result = await Promise.race([sendPromise, timeoutPromise]);
 
-      emailLogs.unshift({
-        id: 'EML-' + Date.now(),
-        type,
-        to,
-        subject,
-        timestamp: new Date().toLocaleTimeString('fa-IR'),
-        status: 'sent',
-      });
-
-      return { success: true, status: 'sent', messageId: info.messageId };
+      if (result.success) {
+        console.log(`✅ [EMAIL SENT SUCCESSFULLY] To: ${to} | Subject: ${subject}`);
+        emailLogs.unshift({
+          id: 'EML-' + Date.now(),
+          type,
+          to,
+          subject,
+          timestamp: new Date().toLocaleTimeString('fa-IR'),
+          status: 'sent',
+        });
+        return result;
+      } else {
+        console.warn(`⚠️ [GMAIL SMTP TIMEOUT/WARN] To: ${to} | Error: ${result.error}`);
+        emailLogs.unshift({
+          id: 'EML-ERR-' + Date.now(),
+          type,
+          to,
+          subject: `[تاخیر/خطا] ${subject}`,
+          timestamp: new Date().toLocaleTimeString('fa-IR'),
+          status: 'failed',
+          errorDetails: result.error,
+        });
+        return result;
+      }
     } catch (err: any) {
       const errMsg = err?.message || String(err);
       console.error(`❌ [GMAIL SMTP ERROR] To: ${to} | Error:`, errMsg);
@@ -267,6 +325,39 @@ const serverOrdersStore: Array<any> = [
   }
 ];
 
+const ADMIN_SECRET = process.env.ADMIN_SECRET || process.env.ADMIN_PASSWORD || '40gates-master-key-2026';
+
+function generateAdminToken(email: string): string {
+  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+  const payload = `${email}:${expiresAt}`;
+  const hmac = crypto.createHmac('sha256', ADMIN_SECRET).update(payload).digest('hex');
+  const b64Email = Buffer.from(email).toString('base64');
+  return `adm_${expiresAt}_${hmac}_${b64Email}`;
+}
+
+function verifyAdminToken(token: string): { valid: boolean; email?: string } {
+  if (!token || typeof token !== 'string' || !token.startsWith('adm_')) return { valid: false };
+  try {
+    const parts = token.split('_');
+    if (parts.length < 4) return { valid: false };
+    const expiresAt = parseInt(parts[1], 10);
+    const signature = parts[2];
+    const email = Buffer.from(parts[3], 'base64').toString('utf-8');
+
+    if (isNaN(expiresAt) || Date.now() > expiresAt) return { valid: false };
+
+    const payload = `${email}:${expiresAt}`;
+    const expectedHmac = crypto.createHmac('sha256', ADMIN_SECRET).update(payload).digest('hex');
+
+    if (crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedHmac))) {
+      return { valid: true, email };
+    }
+  } catch (e) {
+    // fallback
+  }
+  return { valid: false };
+}
+
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -274,7 +365,20 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
   }
 
   const token = authHeader.split(' ')[1];
-  const session = adminSecurityState.activeSessions.get(token);
+  let session = adminSecurityState.activeSessions.get(token);
+
+  if (!session) {
+    const verified = verifyAdminToken(token);
+    if (verified.valid) {
+      session = {
+        token,
+        email: verified.email || '40gates.main@gmail.com',
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000
+      };
+      adminSecurityState.activeSessions.set(token, session);
+    }
+  }
 
   if (!session || Date.now() > session.expiresAt) {
     if (session) adminSecurityState.activeSessions.delete(token);
@@ -287,17 +391,111 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
   next();
 }
 
+async function syncOrdersFromSupabase(): Promise<any[]> {
+  const client = getSupabaseClient();
+  if (!client) return serverOrdersStore;
+  try {
+    const { data, error } = await client.from('orders').select('*').order('created_at', { ascending: false });
+    if (!error && Array.isArray(data) && data.length > 0) {
+      const dbOrders = data.map(item => item.data || item);
+      for (const order of dbOrders) {
+        if (order && order.id && !serverOrdersStore.some(o => o.id === order.id)) {
+          serverOrdersStore.push(order);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Supabase orders sync warn:', e);
+  }
+  return serverOrdersStore;
+}
+
+async function persistOrderToSupabase(order: any) {
+  const client = getSupabaseClient();
+  if (!client || !order || !order.id) return;
+  try {
+    await client.from('orders').upsert({
+      id: order.id,
+      data: order,
+      user_email: order.userEmail || order.shippingAddress?.email || '',
+      created_at: new Date().toISOString()
+    });
+  } catch (e) {
+    console.warn('Supabase save order warn:', e);
+  }
+}
+
 // API Endpoint 1: Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', serverTime: new Date().toISOString() });
 });
 
-// GET & POST Orders API
-app.get('/api/orders', (req, res) => {
-  res.json({ success: true, orders: serverOrdersStore });
+// Server Products Store & Supabase Sync
+let serverProductsStore: any[] = [];
+
+async function syncProductsFromSupabase(): Promise<any[]> {
+  const client = getSupabaseClient();
+  if (!client) return serverProductsStore;
+  try {
+    const { data, error } = await client.from('products').select('*');
+    if (!error && Array.isArray(data) && data.length > 0) {
+      serverProductsStore = data.map(item => item.data || item);
+    }
+  } catch (e) {
+    console.warn('Supabase products sync warn:', e);
+  }
+  return serverProductsStore;
+}
+
+async function persistProductsToSupabase(productsList: any[]) {
+  const client = getSupabaseClient();
+  if (!client || !Array.isArray(productsList) || productsList.length === 0) return;
+  try {
+    const rows = productsList.map(p => ({
+      id: p.id,
+      data: p,
+      stock: p.stock,
+      price: p.price,
+      updated_at: new Date().toISOString()
+    }));
+    await client.from('products').upsert(rows);
+  } catch (e) {
+    console.warn('Supabase save products warn:', e);
+  }
+}
+
+// GET & POST Products API
+app.get('/api/products', async (req, res) => {
+  let products = await syncProductsFromSupabase();
+  res.json({ success: true, products });
 });
 
-app.post('/api/orders', (req, res) => {
+app.post('/api/products', async (req, res) => {
+  try {
+    const { products: newProducts, product: singleProduct } = req.body;
+    if (Array.isArray(newProducts) && newProducts.length > 0) {
+      serverProductsStore = newProducts;
+      persistProductsToSupabase(newProducts).catch(e => console.warn('Products persist warn:', e));
+    } else if (singleProduct && singleProduct.id) {
+      const idx = serverProductsStore.findIndex(p => p.id === singleProduct.id);
+      if (idx >= 0) {
+        serverProductsStore[idx] = { ...serverProductsStore[idx], ...singleProduct };
+      } else {
+        serverProductsStore.unshift(singleProduct);
+      }
+      persistProductsToSupabase(serverProductsStore).catch(e => console.warn('Product persist warn:', e));
+    }
+    res.json({ success: true, products: serverProductsStore });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e?.message });
+  }
+});
+app.get('/api/orders', async (req, res) => {
+  const orders = await syncOrdersFromSupabase();
+  res.json({ success: true, orders });
+});
+
+app.post('/api/orders', async (req, res) => {
   try {
     const { order } = req.body;
     if (order && order.id) {
@@ -307,6 +505,9 @@ app.post('/api/orders', (req, res) => {
       } else {
         serverOrdersStore.unshift(order);
       }
+
+      // Persist to Supabase asynchronously
+      persistOrderToSupabase(order).catch(e => console.warn('Order persist warn:', e));
 
       // Sync customer to registeredUsersStore
       const custEmail = (order.shippingAddress?.email || order.userEmail || '').trim();
@@ -325,6 +526,21 @@ app.post('/api/orders', (req, res) => {
           });
         }
       }
+
+      // Send order notification email asynchronously in background
+      const adminEmail = runtimeSmtpConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
+      sendMailSafely({
+        to: custEmail || adminEmail,
+        subject: `🛒 ثبت سفارش جدید #${order.id} - آکادمی ۴۰ دروازه`,
+        html: `
+          <div dir="rtl" style="font-family: Tahoma, sans-serif; padding: 25px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
+            <h2 style="color: #fbbf24; margin-top: 0;">🛒 سفارش جدید با موفقیت ثبت شد</h2>
+            <p><strong>شماره سفارش:</strong> ${order.id}</p>
+            <p><strong>خریدار:</strong> ${custName || custEmail}</p>
+            <p><strong>مبلغ کل:</strong> ${(order.totalAmount || 0).toLocaleString('fa-IR')} تومان</p>
+          </div>
+        `
+      }, 'order-created').catch(err => console.warn('Order email warn:', err));
     }
     res.json({ success: true, orders: serverOrdersStore });
   } catch (e: any) {
@@ -413,17 +629,9 @@ app.post('/api/admin/login', async (req, res) => {
     const inputEmail = (email || '').trim().toLowerCase();
     const inputPass = (password || '').trim();
 
-    // Flexible credential validation
-    const isValidEmail = (inputEmail === adminEmail.toLowerCase()) || 
-                         (inputEmail === '40gates.main@gmail.com') || 
-                         (inputEmail === 'admin@40gates.ir') ||
-                         (inputEmail.includes('admin'));
-
-    const isValidPass = (inputPass === adminPassword) || 
-                        (inputPass === '40gates1403') || 
-                        (inputPass === '40gates') || 
-                        (inputPass === 'admin123') ||
-                        (inputPass === 'admin');
+    // Strict credential validation against ADMIN_EMAIL and ADMIN_PASSWORD
+    const isValidEmail = inputEmail === adminEmail.toLowerCase();
+    const isValidPass = inputPass === adminPassword;
 
     if (!isValidEmail || !isValidPass) {
       adminSecurityState.failedPasswordCount += 1;
@@ -518,10 +726,12 @@ app.post('/api/admin/verify-otp', async (req, res) => {
     const isRealSmtp = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
     const inputCode = (code || '').trim();
 
-    const matchesActiveOtp = adminSecurityState.activeOtp && inputCode === adminSecurityState.activeOtp.code;
-    const matchesFallbackOtp = !isRealSmtp && (inputCode === '123456' || (adminSecurityState.activeOtp && inputCode === adminSecurityState.activeOtp.code));
+    const matchesActiveOtp = adminSecurityState.activeOtp &&
+                             Date.now() < adminSecurityState.activeOtp.expiresAt &&
+                             inputCode === adminSecurityState.activeOtp.code;
+    const isValidOtpCode = !!matchesActiveOtp;
 
-    if (!matchesActiveOtp && !matchesFallbackOtp) {
+    if (!isValidOtpCode) {
       if (adminSecurityState.activeOtp) {
         adminSecurityState.activeOtp.failedOtpCount += 1;
       }
@@ -552,16 +762,16 @@ app.post('/api/admin/verify-otp', async (req, res) => {
       });
     }
 
-    // OTP Correct! Create session and log success
+    // OTP Correct! Create session token and log success
     adminSecurityState.activeOtp = null;
     adminSecurityState.failedPasswordCount = 0;
 
-    const token = 'adm_sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
+    const token = generateAdminToken(adminEmail);
     adminSecurityState.activeSessions.set(token, {
       token,
       email: adminEmail,
       createdAt: Date.now(),
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 Hours session
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 Days session
     });
 
     adminSecurityState.loginLogs.unshift({
@@ -764,13 +974,6 @@ app.post('/api/contact', async (req, res) => {
 app.get('/api/admin/contact-messages', requireAdminAuth, (req, res) => {
   res.json({ success: true, messages: contactMessages });
 });
-
-// Supabase Runtime Config Store
-const runtimeSupabaseConfig = {
-  url: (process.env.VITE_SUPABASE_URL || '').trim(),
-  anonKey: (process.env.VITE_SUPABASE_ANON_KEY || '').trim(),
-  serviceKey: (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim(),
-};
 
 // GET /api/supabase/status - Test live connection to Supabase
 app.get('/api/supabase/status', async (req, res) => {

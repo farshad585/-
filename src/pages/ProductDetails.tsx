@@ -87,7 +87,7 @@ export default function ProductDetails() {
         setSelectedVipConsultation('none');
       }
     }
-  }, [selectedProductId]);
+  }, [selectedProductId, products]);
 
   // Load reviews on product load
   useEffect(() => {
@@ -192,7 +192,7 @@ export default function ProductDetails() {
   const finalTomanPrice = finalPrice;
 
   // Related products
-  const relatedProducts = PRODUCTS.filter(
+  const relatedProducts = (products || PRODUCTS).filter(
     (p) => p.category === product.category && p.id !== product.id
   ).slice(0, 4);
 
@@ -327,28 +327,50 @@ export default function ProductDetails() {
             {product.shortDescription}
           </p>
 
-          {/* Pricing Box */}
-          <div className="flex items-center gap-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-indigo-100 rounded-2xl p-4 w-fit shadow-xs">
-            <div className="flex flex-col">
-              {originalPrice > finalPrice ? (
-                <>
-                  <span className="text-xs text-slate-400 line-through font-mono">
-                    {originalPrice === 0 ? 'رایگان' : originalPrice.toLocaleString('fa-IR') + ' تومان'}
-                  </span>
-                  <span className="text-lg font-black text-indigo-900 font-sans">
+          {/* Pricing & Stock Status Box */}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-indigo-100 rounded-2xl p-4 shadow-xs">
+              <div className="flex flex-col">
+                {originalPrice > finalPrice ? (
+                  <>
+                    <span className="text-xs text-slate-400 line-through font-mono">
+                      {originalPrice === 0 ? 'رایگان' : originalPrice.toLocaleString('fa-IR') + ' تومان'}
+                    </span>
+                    <span className="text-lg font-black text-indigo-900 font-sans">
+                      {finalPrice === 0 ? 'رایگان' : finalPrice.toLocaleString('fa-IR') + ' تومان'}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-lg font-black text-slate-900 font-sans">
                     {finalPrice === 0 ? 'رایگان' : finalPrice.toLocaleString('fa-IR') + ' تومان'}
                   </span>
-                </>
-              ) : (
-                <span className="text-lg font-black text-slate-900 font-sans">
-                  {finalPrice === 0 ? 'رایگان' : finalPrice.toLocaleString('fa-IR') + ' تومان'}
+                )}
+              </div>
+              {discountPercent > 0 && (
+                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-xs">
+                  {discountPercent.toLocaleString('fa-IR')}٪ تخفیف
                 </span>
               )}
             </div>
-            {discountPercent > 0 && (
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-xs">
-                {discountPercent.toLocaleString('fa-IR')}٪ تخفیف
-              </span>
+
+            {/* Inventory / Stock Status Badge */}
+            {product.stock > 0 ? (
+              <div className="flex items-center gap-2 bg-emerald-50/90 text-emerald-950 border border-emerald-200 px-3.5 py-3 rounded-2xl text-xs font-bold shadow-xs">
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span>وضعیت موجودی انبار:</span>
+                <span className="text-emerald-700 font-black">
+                  {product.stock.toLocaleString('fa-IR')} عدد موجود
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-rose-50 text-rose-950 border border-rose-200 px-3.5 py-3 rounded-2xl text-xs font-bold shadow-xs">
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-500 shrink-0"></span>
+                <span>وضعیت موجودی انبار:</span>
+                <span className="text-rose-600 font-black">ناموجود در انبار</span>
+              </div>
             )}
           </div>
 

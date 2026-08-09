@@ -63,7 +63,7 @@ export default function Footer() {
               <Instagram size={18} />
             </a>
             <a 
-              href="https://t.me/Farshad_God" 
+              href="https://t.me/OMEGA585" 
               target="_blank" 
               rel="noopener noreferrer" 
               className="p-2.5 bg-indigo-50 hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600 hover:text-white rounded-xl transition-all text-indigo-600 shadow-xs flex items-center gap-1.5"

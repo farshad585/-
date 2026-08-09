@@ -109,7 +109,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem('40gates_products');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map((p: any) => p.id));
+          const missing = PRODUCTS.filter((p) => !existingIds.has(p.id));
+          if (missing.length > 0) {
+            return PRODUCTS.map((p) => parsed.find((item: any) => item.id === p.id) || p);
+          }
+          return parsed;
+        }
       }
     } catch (e) {
       console.warn('Failed to load products from localStorage:', e);
@@ -117,9 +124,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return PRODUCTS;
   });
 
+  // Fetch products from server on mount
+  useEffect(() => {
+    fetch('/api/products')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+          const existingIds = new Set(data.products.map((p: any) => p.id));
+          const missing = PRODUCTS.filter((p) => !existingIds.has(p.id));
+          const merged = missing.length > 0
+            ? PRODUCTS.map((p) => data.products.find((item: any) => item.id === p.id) || p)
+            : data.products;
+          setProducts(merged);
+          localStorage.setItem('40gates_products', JSON.stringify(merged));
+        }
+      })
+      .catch((err) => console.warn('Failed to fetch products from server:', err));
+  }, []);
+
+  // Save products to localStorage & server whenever updated
   useEffect(() => {
     try {
       localStorage.setItem('40gates_products', JSON.stringify(products));
+      fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products })
+      }).catch((e) => console.warn('Failed to sync products with server:', e));
     } catch (e) {
       console.warn('Failed to save products to localStorage:', e);
     }
