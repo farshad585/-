@@ -33,6 +33,7 @@ export default function ProductDetails() {
   const { 
     selectedProductId, 
     setSelectedProductId, 
+    setCurrentPage,
     addToCart, 
     wishlist, 
     toggleWishlist,
@@ -147,10 +148,9 @@ export default function ProductDetails() {
 
   // Calculate dynamic price based on print quality or format selection
   const getQualityPricing = () => {
-    let vipFee = 0;
-    if (selectedVipConsultation === '30days') vipFee = 8900000;
-    if (selectedVipConsultation === '60days') vipFee = 14900000;
-    if (selectedVipConsultation === '90days') vipFee = 19900000;
+    if (product.stock === 0) {
+      return { originalPrice: 0, finalPrice: 0, discountPercent: 0 };
+    }
 
     if (product.id === '45363') { // 4-volume set
       let baseOrig = 3599000;
@@ -159,10 +159,15 @@ export default function ProductDetails() {
         baseOrig = 3999000;
         baseFinal = 3399150;
       }
-      const totalOrig = baseOrig + vipFee;
-      const totalFinal = baseFinal + vipFee;
-      const disc = Math.round(((totalOrig - totalFinal) / totalOrig) * 100);
-      return { originalPrice: totalOrig, finalPrice: totalFinal, discountPercent: disc };
+      const disc = Math.round(((baseOrig - baseFinal) / baseOrig) * 100);
+      return { originalPrice: baseOrig, finalPrice: baseFinal, discountPercent: disc };
+    }
+
+    if (product.id === '45398') { // Standalone VIP Consultation product
+      let vipFee = 8900000;
+      if (selectedVipConsultation === '60days') vipFee = 14900000;
+      if (selectedVipConsultation === '90days') vipFee = 19900000;
+      return { originalPrice: vipFee, finalPrice: vipFee, discountPercent: 0 };
     }
 
     if (product.id === '45322') { // Farasouy Reality
@@ -236,9 +241,9 @@ export default function ProductDetails() {
       {/* Breadcrumbs */}
       <section className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
-          <span className="cursor-pointer hover:text-slate-900" onClick={() => setSelectedProductId(null)}>خانه</span>
+          <button type="button" className="cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => setCurrentPage('home')}>خانه</button>
           <span>/</span>
-          <span className="cursor-pointer hover:text-slate-900" onClick={() => setSelectedProductId(null)}>فروشگاه آثار</span>
+          <button type="button" className="cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => setCurrentPage('shop')}>فروشگاه آثار</button>
           <span>/</span>
           <span className="text-indigo-600 font-bold">{product.title}</span>
         </div>
@@ -331,7 +336,11 @@ export default function ProductDetails() {
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-indigo-100 rounded-2xl p-4 shadow-xs">
               <div className="flex flex-col">
-                {originalPrice > finalPrice ? (
+                {product.stock === 0 ? (
+                  <span className="text-lg font-black text-slate-500 font-sans">
+                    ۰ تومان
+                  </span>
+                ) : originalPrice > finalPrice ? (
                   <>
                     <span className="text-xs text-slate-400 line-through font-mono">
                       {originalPrice === 0 ? 'رایگان' : originalPrice.toLocaleString('fa-IR') + ' تومان'}
@@ -346,7 +355,7 @@ export default function ProductDetails() {
                   </span>
                 )}
               </div>
-              {discountPercent > 0 && (
+              {product.stock > 0 && discountPercent > 0 && (
                 <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-xs">
                   {discountPercent.toLocaleString('fa-IR')}٪ تخفیف
                 </span>
@@ -375,105 +384,95 @@ export default function ProductDetails() {
           </div>
 
           {/* Product variations / Print Quality selector */}
-          <div className="space-y-3">
-            <span className="block text-xs font-bold text-slate-900">
-              {product.type === 'printed' ? 'انتخاب کیفیت چاپ:' : 'فرمت و نوع محصول:'}
-            </span>
-            <div className="flex flex-wrap gap-3">
-              {product.type === 'printed' ? (
-                <>
-                  {/* Quality 1: معمولی */}
-                  <button 
-                    type="button"
-                    onClick={() => setSelectedFormat('کیفیت معمولی')}
-                    className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
-                      selectedFormat.includes('معمولی')
-                        ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
-                    }`}
-                  >
-                    <span className="block font-bold">کیفیت معمولی</span>
-                    <span className="text-[10px] text-slate-500 mt-1 block">چاپ استاندارد کاغذ سوئدی</span>
+          {product.id !== '45398' && (
+            <div className="space-y-3">
+              <span className="block text-xs font-bold text-slate-900">
+                {product.type === 'printed' ? 'انتخاب کیفیت چاپ:' : 'فرمت و نوع محصول:'}
+              </span>
+              <div className="flex flex-wrap gap-3">
+                {product.type === 'printed' ? (
+                  <>
+                    {/* Quality 1: معمولی */}
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedFormat('کیفیت معمولی')}
+                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                        selectedFormat.includes('معمولی')
+                          ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                      }`}
+                    >
+                      <span className="block font-bold">کیفیت معمولی</span>
+                      <span className="text-[10px] text-slate-500 mt-1 block">چاپ استاندارد کاغذ سوئدی</span>
+                    </button>
+
+                    {/* Quality Bulk for 45322 */}
+                    {product.id === '45322' && (
+                      <button 
+                        type="button"
+                        onClick={() => setSelectedFormat('کیفیت بالک سبک')}
+                        className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                          selectedFormat.includes('بالک سبک')
+                            ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                        }`}
+                      >
+                        <span className="block font-bold">کیفیت بالک سبک</span>
+                        <span className="text-[10px] text-slate-500 mt-1 block">کاغذ بالک سبک درجه یک</span>
+                      </button>
+                    )}
+
+                    {/* Quality 2: تمام رنگی */}
+                    {product.id !== '45375' && (
+                      <button 
+                        type="button"
+                        onClick={() => setSelectedFormat('کیفیت تمام رنگی')}
+                        className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                          selectedFormat.includes('تمام رنگی')
+                            ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                        }`}
+                      >
+                        <span className="block font-bold">کیفیت تمام رنگی</span>
+                        <span className="text-[10px] text-slate-500 mt-1 block">چاپ رنگی ویژه</span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button className="px-4 py-3 rounded-2xl border border-indigo-200 bg-indigo-50/50 text-indigo-950 text-xs font-semibold w-full text-right cursor-default">
+                    <span className="block font-bold">{selectedFormat}</span>
+                    <span className="text-[10px] text-slate-500 mt-1 font-mono">غیرقابل تغییر (دسترسی دیجیتال آنی پس از ثبت)</span>
                   </button>
-
-                  {/* Quality Bulk for 45322 */}
-                  {product.id === '45322' && (
-                    <button 
-                      type="button"
-                      onClick={() => setSelectedFormat('کیفیت بالک سبک')}
-                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
-                        selectedFormat.includes('بالک سبک')
-                          ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
-                      }`}
-                    >
-                      <span className="block font-bold">کیفیت بالک سبک</span>
-                      <span className="text-[10px] text-slate-500 mt-1 block">کاغذ بالک سبک درجه یک</span>
-                    </button>
-                  )}
-
-                  {/* Quality 2: تمام رنگی (برای تمامی کتب چاپی به‌جز جلد اول چهل دروازه که فقط کیفیت معمولی دارد) */}
-                  {product.id !== '45375' && (
-                    <button 
-                      type="button"
-                      onClick={() => setSelectedFormat('کیفیت تمام رنگی')}
-                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
-                        selectedFormat.includes('تمام رنگی')
-                          ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
-                      }`}
-                    >
-                      <span className="block font-bold">کیفیت تمام رنگی</span>
-                      <span className="text-[10px] text-slate-500 mt-1 block">چاپ رنگی ویژه</span>
-                    </button>
-                  )}
-                </>
-              ) : (
-                <button className="px-4 py-3 rounded-2xl border border-indigo-200 bg-indigo-50/50 text-indigo-950 text-xs font-semibold w-full text-right cursor-default">
-                  <span className="block font-bold">{selectedFormat}</span>
-                  <span className="text-[10px] text-slate-500 mt-1 font-mono">غیرقابل تغییر (دسترسی دیجیتال آنی پس از ثبت)</span>
-                </button>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* VIP Consultation Options for product 45363 */}
-          {product.id === '45363' && (
-            <div className="space-y-3 p-4 rounded-2xl bg-amber-50/50 border border-amber-200/70">
+          {/* Standalone VIP Consultation Options for product 45398 */}
+          {product.id === '45398' && (
+            <div className="space-y-4 p-4.5 rounded-2xl bg-gradient-to-br from-amber-50 to-indigo-50 border border-amber-300 shadow-xs">
               <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-amber-600" />
-                <span className="block text-xs font-extrabold text-amber-950">
-                  انتخاب مشاوره VIP:
+                <Sparkles size={18} className="text-amber-600 shrink-0 animate-bounce" />
+                <span className="block text-xs font-black text-slate-900">
+                  انتخاب مدت زمان مشاوره VIP:
                 </span>
               </div>
-              <p className="text-[11px] text-amber-900/80 leading-relaxed">
-                مشاوره بصورت چت تلگرام بوده و نتایج تمرین و رویاهای شما هر روز توسط استاد تحلیل خواهد شد.
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                ارتباط مستقیم و روزانه با فرشاد میرشکاری در تلگرام جهت تحلیل رویاها و راهنمایی کامل گام‌به‌گام.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setSelectedVipConsultation('none')}
-                  className={`p-3 rounded-xl border text-xs transition-all text-right ${
-                    selectedVipConsultation === 'none'
-                      ? 'border-indigo-600 bg-white text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
-                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-300'
-                  }`}
-                >
-                  <span className="block font-bold text-slate-900">بدون مشاوره VIP</span>
-                  <span className="text-[10px] text-slate-500 mt-0.5 block">فقط مجموعه ۴ جلدی چهل دروازه</span>
-                </button>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <button
                   type="button"
                   onClick={() => setSelectedVipConsultation('30days')}
                   className={`p-3 rounded-xl border text-xs transition-all text-right ${
-                    selectedVipConsultation === '30days'
-                      ? 'border-indigo-600 bg-white text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
-                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-300'
+                    selectedVipConsultation === '30days' || selectedVipConsultation === 'none'
+                      ? 'border-indigo-600 bg-white text-indigo-950 font-extrabold shadow-sm ring-2 ring-indigo-500/30'
+                      : 'border-slate-200 bg-white/70 text-slate-700 hover:border-indigo-300'
                   }`}
                 >
-                  <span className="block font-bold text-slate-900">مشاوره ۳۰روزه VIP</span>
-                  <span className="text-[11px] text-amber-700 font-extrabold mt-0.5 block">۸,۹۰۰,۰۰۰ تومان</span>
+                  <span className="block font-bold">مشاوره ۳۰ روزه VIP</span>
+                  <span className="text-[11px] text-indigo-700 font-black mt-1 block">۸,۹۰۰,۰۰۰ تومان</span>
                 </button>
 
                 <button
@@ -481,12 +480,12 @@ export default function ProductDetails() {
                   onClick={() => setSelectedVipConsultation('60days')}
                   className={`p-3 rounded-xl border text-xs transition-all text-right ${
                     selectedVipConsultation === '60days'
-                      ? 'border-indigo-600 bg-white text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
-                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-300'
+                      ? 'border-indigo-600 bg-white text-indigo-950 font-extrabold shadow-sm ring-2 ring-indigo-500/30'
+                      : 'border-slate-200 bg-white/70 text-slate-700 hover:border-indigo-300'
                   }`}
                 >
-                  <span className="block font-bold text-slate-900">مشاوره ۶۰روزه VIP</span>
-                  <span className="text-[11px] text-amber-700 font-extrabold mt-0.5 block">۱۴,۹۰۰,۰۰۰ تومان</span>
+                  <span className="block font-bold">مشاوره ۶۰ روزه VIP</span>
+                  <span className="text-[11px] text-indigo-700 font-black mt-1 block">۱۴,۹۰۰,۰۰۰ تومان</span>
                 </button>
 
                 <button
@@ -494,12 +493,12 @@ export default function ProductDetails() {
                   onClick={() => setSelectedVipConsultation('90days')}
                   className={`p-3 rounded-xl border text-xs transition-all text-right ${
                     selectedVipConsultation === '90days'
-                      ? 'border-indigo-600 bg-white text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
-                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-300'
+                      ? 'border-indigo-600 bg-white text-indigo-950 font-extrabold shadow-sm ring-2 ring-indigo-500/30'
+                      : 'border-slate-200 bg-white/70 text-slate-700 hover:border-indigo-300'
                   }`}
                 >
-                  <span className="block font-bold text-slate-900">مشاوره ۹۰روزه VIP</span>
-                  <span className="text-[11px] text-amber-700 font-extrabold mt-0.5 block">۱۹,۹۰۰,۰۰۰ تومان</span>
+                  <span className="block font-bold">مشاوره ۹۰ روزه VIP</span>
+                  <span className="text-[11px] text-indigo-700 font-black mt-1 block">۱۹,۹۰۰,۰۰۰ تومان</span>
                 </button>
               </div>
             </div>
@@ -527,12 +526,14 @@ export default function ProductDetails() {
                     price: originalPrice,
                     salePrice: finalPrice
                   };
-                  let vipLabel = '';
-                  if (selectedVipConsultation === '30days') vipLabel = ' + مشاوره ۳۰روزه VIP';
-                  if (selectedVipConsultation === '60days') vipLabel = ' + مشاوره ۶۰روزه VIP';
-                  if (selectedVipConsultation === '90days') vipLabel = ' + مشاوره ۹۰روزه VIP';
 
-                  const finalFormatLabel = `${selectedFormat}${vipLabel}`;
+                  let finalFormatLabel = selectedFormat;
+
+                  if (product.id === '45398') {
+                    const durationStr = selectedVipConsultation === '60days' ? '۶۰روزه' : selectedVipConsultation === '90days' ? '۹۰روزه' : '۳۰روزه';
+                    finalFormatLabel = `مشاوره VIP با فرشاد میرشکاری (${durationStr} - چت تلگرام)`;
+                  }
+
                   handleAddToCartWithDelay(customProduct, finalFormatLabel);
                 }}
                 className="flex-1 geom-button-primary hover:opacity-90 active:scale-98 transition-all text-white font-bold text-xs py-4 rounded-xl flex items-center justify-center gap-2 shadow-md disabled:opacity-80 cursor-pointer"
@@ -669,7 +670,7 @@ export default function ProductDetails() {
               )}
               <div className="flex justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100">
                 <span className="text-slate-500">ناشر:</span>
-                <strong className="text-slate-900">گروه آموزشی و پژوهشی ۴۰ دروازه</strong>
+                <strong className="text-slate-900">گروه آموزشی و پژوهشی چهل دروازه</strong>
               </div>
               <div className="flex justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100">
                 <span className="text-slate-500">زبان اثر:</span>

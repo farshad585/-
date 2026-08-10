@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
@@ -79,74 +80,76 @@ async function sendMailSafely(
   options: nodemailer.SendMailOptions,
   type: string = 'general'
 ): Promise<{ success: boolean; status: 'sent' | 'simulated' | 'failed'; error?: string; messageId?: string }> {
-  const gmailUser = (runtimeSmtpConfig.user || process.env.GMAIL_USER || '').trim();
-  const rawPass = (runtimeSmtpConfig.pass || process.env.GMAIL_APP_PASSWORD || '').trim();
-  const gmailPass = rawPass.replace(/\s+/g, ''); // strip any accidental copy-paste spaces
+  let gmailUser = (runtimeSmtpConfig.user || process.env.GMAIL_USER || '').trim();
+  let rawPass = (runtimeSmtpConfig.pass || process.env.GMAIL_APP_PASSWORD || '').trim();
+  let gmailPass = rawPass.replace(/\s+/g, ''); // strip any accidental copy-paste spaces
+
+  // On Vercel / Serverless, if memory config is empty, attempt loading from Supabase DB site_settings
+  if ((!gmailUser || !gmailPass) && getSupabaseClient()) {
+    try {
+      const client = getSupabaseClient();
+      if (client) {
+        const { data } = await client.from('site_settings').select('value').eq('id', 'smtp_config').single();
+        if (data && data.value) {
+          if (!gmailUser && data.value.user) gmailUser = String(data.value.user).trim();
+          if (!gmailPass && data.value.pass) gmailPass = String(data.value.pass).trim().replace(/\s+/g, '');
+          if (data.value.adminEmail) runtimeSmtpConfig.adminEmail = String(data.value.adminEmail).trim();
+          runtimeSmtpConfig.user = gmailUser;
+          runtimeSmtpConfig.pass = gmailPass;
+        }
+      }
+    } catch (dbErr) {
+      console.warn('Could not fetch SMTP config from Supabase:', dbErr);
+    }
+  }
 
   const to = Array.isArray(options.to) ? options.to.join(', ') : String(options.to || '');
   const subject = String(options.subject || '');
   const sender = options.from || (gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه <40gates.main@gmail.com>');
 
   if (gmailUser && gmailPass) {
+    const trySendWithTransporter = async (port: number, secure: boolean) => {
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port,
+        secure,
+        auth: {
+          user: gmailUser,
+          pass: gmailPass,
+        },
+        tls: {
+          rejectUnauthorized: false
+        },
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 9000,
+      });
+
+      return await transporter.sendMail({
+        ...options,
+        from: sender,
+      });
+    };
+
     try {
-      const sendPromise = new Promise<{ success: boolean; status: 'sent'; messageId?: string }>(async (resolve, reject) => {
-        try {
-          const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false, // STARTTLS for high compatibility
-            auth: {
-              user: gmailUser,
-              pass: gmailPass,
-            },
-            tls: {
-              rejectUnauthorized: false
-            },
-            connectionTimeout: 3000,
-            greetingTimeout: 3000,
-            socketTimeout: 3500,
-          });
-
-          const info = await transporter.sendMail({
-            ...options,
-            from: sender,
-          });
-          resolve({ success: true, status: 'sent', messageId: info.messageId });
-        } catch (err) {
-          reject(err);
-        }
-      });
-
-      const timeoutPromise = new Promise<{ success: false; status: 'failed'; error: string }>((resolve) => {
-        setTimeout(() => resolve({ success: false, status: 'failed', error: 'زمان پاسخ‌دهی سرور SMTP به پایان رسید (۳٫۵ ثانیه)' }), 3500);
-      });
-
-      const result = await Promise.race([sendPromise, timeoutPromise]);
-
-      if (result.success) {
-        console.log(`✅ [EMAIL SENT SUCCESSFULLY] To: ${to} | Subject: ${subject}`);
-        emailLogs.unshift({
-          id: 'EML-' + Date.now(),
-          type,
-          to,
-          subject,
-          timestamp: new Date().toLocaleTimeString('fa-IR'),
-          status: 'sent',
-        });
-        return result;
-      } else {
-        console.warn(`⚠️ [GMAIL SMTP TIMEOUT/WARN] To: ${to} | Error: ${result.error}`);
-        emailLogs.unshift({
-          id: 'EML-ERR-' + Date.now(),
-          type,
-          to,
-          subject: `[تاخیر/خطا] ${subject}`,
-          timestamp: new Date().toLocaleTimeString('fa-IR'),
-          status: 'failed',
-          errorDetails: result.error,
-        });
-        return result;
+      let info;
+      try {
+        info = await trySendWithTransporter(465, true);
+      } catch (sslErr: any) {
+        console.warn(`⚠️ [SMTP SSL 465 failed, trying 587 STARTTLS...]`, sslErr?.message);
+        info = await trySendWithTransporter(587, false);
       }
+
+      console.log(`✅ [EMAIL SENT SUCCESSFULLY] To: ${to} | Subject: ${subject}`);
+      emailLogs.unshift({
+        id: 'EML-' + Date.now(),
+        type,
+        to,
+        subject,
+        timestamp: new Date().toLocaleTimeString('fa-IR'),
+        status: 'sent',
+      });
+      return { success: true, status: 'sent', messageId: info.messageId };
     } catch (err: any) {
       const errMsg = err?.message || String(err);
       console.error(`❌ [GMAIL SMTP ERROR] To: ${to} | Error:`, errMsg);
@@ -169,7 +172,6 @@ async function sendMailSafely(
     }
   }
 
-  // Fallback mode if GMAIL_USER or GMAIL_APP_PASSWORD are not set in env or runtime config
   console.log(`ℹ️ [EMAIL SIMULATED (GMAIL_USER or GMAIL_APP_PASSWORD pending in config)] To: ${to} | Subject: ${subject}`);
   emailLogs.unshift({
     id: 'EML-SIM-' + Date.now(),
@@ -428,6 +430,39 @@ async function persistOrderToSupabase(order: any) {
 // API Endpoint 1: Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', serverTime: new Date().toISOString() });
+});
+
+// Dynamic SEO Sitemap XML Endpoint
+app.get('/sitemap.xml', (req, res) => {
+  const publicSitemap = path.join(process.cwd(), 'public', 'sitemap.xml');
+  const distSitemap = path.join(process.cwd(), 'dist', 'sitemap.xml');
+  
+  if (fs.existsSync(publicSitemap)) {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    return res.sendFile(publicSitemap);
+  } else if (fs.existsSync(distSitemap)) {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    return res.sendFile(distSitemap);
+  }
+  
+  res.status(404).send('Sitemap file not found.');
+});
+
+// Dynamic Robots.txt Endpoint
+app.get('/robots.txt', (req, res) => {
+  const publicRobots = path.join(process.cwd(), 'public', 'robots.txt');
+  const distRobots = path.join(process.cwd(), 'dist', 'robots.txt');
+  
+  if (fs.existsSync(publicRobots)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.sendFile(publicRobots);
+  } else if (fs.existsSync(distRobots)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.sendFile(distRobots);
+  }
+  
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send("User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://40gates.ir/sitemap.xml\n");
 });
 
 // Server Products Store & Supabase Sync
@@ -836,7 +871,7 @@ app.get('/api/admin/settings', requireAdminAuth, (req, res) => {
 });
 
 // Admin Update SMTP Credentials Endpoint
-app.post('/api/admin/smtp-config', requireAdminAuth, (req, res) => {
+app.post('/api/admin/smtp-config', requireAdminAuth, async (req, res) => {
   try {
     const { gmailUser, gmailPass, adminEmail } = req.body;
     if (gmailUser !== undefined && gmailUser !== '') runtimeSmtpConfig.user = gmailUser.trim();
@@ -844,6 +879,26 @@ app.post('/api/admin/smtp-config', requireAdminAuth, (req, res) => {
     if (adminEmail !== undefined && adminEmail !== '') runtimeSmtpConfig.adminEmail = adminEmail.trim();
 
     const isSmtpConfigured = !!(runtimeSmtpConfig.user && runtimeSmtpConfig.pass);
+
+    // Save to Supabase DB so Vercel Serverless Functions can read it across stateless requests
+    if (getSupabaseClient()) {
+      try {
+        const client = getSupabaseClient();
+        if (client) {
+          await client.from('site_settings').upsert({
+            id: 'smtp_config',
+            value: {
+              user: runtimeSmtpConfig.user,
+              pass: runtimeSmtpConfig.pass,
+              adminEmail: runtimeSmtpConfig.adminEmail,
+              updatedAt: new Date().toISOString()
+            }
+          });
+        }
+      } catch (dbErr) {
+        console.warn('Could not persist SMTP config to Supabase:', dbErr);
+      }
+    }
 
     return res.json({
       success: true,

@@ -71,7 +71,7 @@ export default function Navbar() {
 
   const navLinks = [
     { id: 'home', label: 'صفحه اصلی', icon: HomeIcon },
-    { id: 'shop', label: 'فروشگاه کتاب', icon: ShopIcon },
+    { id: 'shop', label: 'فروشگاه', icon: ShopIcon },
     { id: 'dream-game', label: 'بازی کنترل رویا 🎮', icon: Gamepad2 },
     { id: 'blog', label: 'مجله آگاهی', icon: BookOpen },
     { id: 'faq', label: 'سوالات متداول', icon: HelpCircle },
@@ -112,13 +112,13 @@ export default function Navbar() {
               <div className="w-11 h-11 rounded-xl border border-indigo-300 overflow-hidden bg-white p-0.5 transition-transform group-hover:scale-105 flex items-center justify-center shadow-xs">
                 <img 
                   src={logoIcon} 
-                  alt="لوگو ۴۰ دروازه" 
+                  alt="لوگو چهل دروازه" 
                   className="w-full h-full object-cover rounded-lg"
                   referrerPolicy="no-referrer"
                 />
               </div>
               <div className="flex flex-col text-right">
-                <span className="text-xl font-bold tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">۴۰ دروازه</span>
+                <span className="text-xl font-bold tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">چهل دروازه</span>
                 <span className="text-[9px] font-mono tracking-widest text-indigo-600 uppercase font-semibold">Forty Gates</span>
               </div>
             </div>
@@ -244,12 +244,12 @@ export default function Navbar() {
                     <div className="w-10 h-10 rounded-xl border border-indigo-300 overflow-hidden bg-white p-0.5 flex items-center justify-center shadow-xs">
                       <img 
                         src={logoIcon} 
-                        alt="لوگو ۴۰ دروازه" 
+                        alt="لوگو چهل دروازه" 
                         className="w-full h-full object-cover rounded-lg"
                         referrerPolicy="no-referrer"
                       />
                     </div>
-                    <span className="text-sm font-black text-slate-900">آکادمی ۴۰ دروازه</span>
+                    <span className="text-sm font-black text-slate-900">آکادمی چهل دروازه</span>
                   </div>
                   <button 
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -298,8 +298,21 @@ export default function Navbar() {
                   {/* PWA Install Mobile Action */}
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       setIsMobileMenuOpen(false);
+                      const promptEvent = (window as any).deferredPwaPrompt;
+                      if (promptEvent) {
+                        try {
+                          await promptEvent.prompt();
+                          const choice = await promptEvent.userChoice;
+                          if (choice?.outcome === 'accepted') {
+                            (window as any).deferredPwaPrompt = null;
+                            return;
+                          }
+                        } catch (err) {
+                          console.warn('Direct PWA prompt error:', err);
+                        }
+                      }
                       window.dispatchEvent(new CustomEvent('open-pwa-prompt'));
                     }}
                     className="flex items-center gap-3 py-3 px-3 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 shadow-md shadow-amber-500/10 mt-2 transition-all cursor-pointer"

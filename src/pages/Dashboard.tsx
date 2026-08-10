@@ -221,7 +221,7 @@ export default function Dashboard() {
     <>
       <SEO 
         title="پنل کاربری و پشتیبانی سالک" 
-        description="ناحیه کاربری مربیان و سالکان آکادمی ۴۰ دروازه شامل دسترسی به خریدهای صوتی و متنی، دانلودهای الکترونیکی، ثبت درخواست و رهگیری پستی سفارشات."
+        description="ناحیه کاربری مربیان و سالکان آکادمی چهل دروازه شامل دسترسی به خریدهای صوتی و متنی، دانلودهای الکترونیکی، ثبت درخواست و رهگیری پستی سفارشات."
       />
 
       {/* Floating notification */}
@@ -522,7 +522,7 @@ export default function Dashboard() {
                     onClick={() => setCurrentPage('shop')}
                     className="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer bg-transparent"
                   >
-                    مشاهده فروشگاه کتاب‌ها
+                    مشاهده فروشگاه
                   </button>
                 </div>
               ) : (

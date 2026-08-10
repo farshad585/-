@@ -110,12 +110,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingIds = new Set(parsed.map((p: any) => p.id));
-          const missing = PRODUCTS.filter((p) => !existingIds.has(p.id));
-          if (missing.length > 0) {
-            return PRODUCTS.map((p) => parsed.find((item: any) => item.id === p.id) || p);
-          }
-          return parsed;
+          const merged = PRODUCTS.map((catalogItem) => {
+            const savedItem = parsed.find((item: any) => item.id === catalogItem.id);
+            if (savedItem) {
+              return {
+                ...savedItem,
+                title: catalogItem.title,
+                englishTitle: catalogItem.englishTitle,
+                description: catalogItem.description,
+                shortDescription: catalogItem.shortDescription,
+                images: catalogItem.images,
+                tags: catalogItem.tags,
+                duration: catalogItem.duration,
+                format: catalogItem.format,
+                author: catalogItem.author
+              };
+            }
+            return catalogItem;
+          }).concat(parsed.filter((item: any) => !PRODUCTS.some((p) => p.id === item.id)));
+
+          localStorage.setItem('40gates_products', JSON.stringify(merged));
+          return merged;
         }
       }
     } catch (e) {
@@ -130,11 +145,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.products) && data.products.length > 0) {
-          const existingIds = new Set(data.products.map((p: any) => p.id));
-          const missing = PRODUCTS.filter((p) => !existingIds.has(p.id));
-          const merged = missing.length > 0
-            ? PRODUCTS.map((p) => data.products.find((item: any) => item.id === p.id) || p)
-            : data.products;
+          const merged = PRODUCTS.map((catalogItem) => {
+            const serverItem = data.products.find((item: any) => item.id === catalogItem.id);
+            if (serverItem) {
+              return {
+                ...serverItem,
+                title: catalogItem.title,
+                englishTitle: catalogItem.englishTitle,
+                description: catalogItem.description,
+                shortDescription: catalogItem.shortDescription,
+                images: catalogItem.images,
+                tags: catalogItem.tags,
+                duration: catalogItem.duration,
+                format: catalogItem.format,
+                author: catalogItem.author
+              };
+            }
+            return catalogItem;
+          }).concat(data.products.filter((item: any) => !PRODUCTS.some((p) => p.id === item.id)));
+
           setProducts(merged);
           localStorage.setItem('40gates_products', JSON.stringify(merged));
         }
@@ -598,6 +627,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setSelectedProductId: (id) => {
           setSelectedProductId(id);
           if (id) {
+            setCurrentPageReal('product-details');
             window.location.hash = `product/${id}`;
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }
@@ -606,6 +636,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setSelectedArticleId: (id) => {
           setSelectedArticleId(id);
           if (id) {
+            setCurrentPageReal('blog-details');
             window.location.hash = `blog/${id}`;
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }

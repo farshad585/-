@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/icon40fates.png" />
+    <link rel="shortcut icon" type="image/png" href="/icon40fates.png" />
     <link rel="apple-touch-icon" href="/icon40fates.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#0f172a" />
@@ -17,6 +18,12 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      window.deferredPwaPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        window.deferredPwaPrompt = e;
+        window.dispatchEvent(new CustomEvent('pwa-prompt-ready'));
+      });
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')

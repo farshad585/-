@@ -62,7 +62,7 @@ export default function Home() {
   return (
     <>
       <SEO 
-        title="صفحه اصلی | ۴۰ دروازه آگاهی" 
+        title="صفحه اصلی | چهل دروازه آگاهی" 
         description="مرجع تخصصی آموزش علمی و معنوی رویابینی شفاف، کنترل رویا، غلبه بر فلج خواب و بیداری ناخودآگاه. خرید کتاب، فایل صوتی و دوره‌های تخصصی خواب شفاف."
       />
 
@@ -147,7 +147,7 @@ export default function Home() {
               onClick={() => setCurrentPage('shop')}
               className="w-full sm:w-auto geom-button-primary flex items-center justify-center gap-2.5 shadow-xl shadow-indigo-600/30 text-xs font-bold rounded-xl"
             >
-              <span>ورود به فروشگاه آگاهی</span>
+              <span>ورود به فروشگاه</span>
               <ArrowLeft size={16} />
             </button>
             <button
@@ -287,8 +287,7 @@ export default function Home() {
           <div className="space-y-5 text-right max-w-xl relative z-10">
             <span className="text-[10px] text-indigo-700 border border-indigo-300 rounded-full px-3 py-1 font-mono font-bold uppercase bg-white w-fit block shadow-xs">LIMITED PACKAGE</span>
             <h3 className="text-xl md:text-2xl font-extrabold text-slate-900 leading-normal">
-              مجموعه چهارجلدی چهل دروازه به ماورا: <br />
-              <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-700 bg-clip-text text-transparent font-display italic font-extrabold">به همراه مشاوره تخصصی VIP</span>
+              مجموعه چهارجلدی چهل دروازه به ماورا
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               اگر مصمم هستید تا مهارت رویابینی آگاهانه را زیر نظر مستقیم استاد فرا بگیرید، مجموعه کامل چهارجلدی چهل دروازه به ماورا همراه با مشاوره اختصاصی تلگرام بهترین گزینه است. رویاها و تمرینات روزانه شما تحلیل شده و نکات کلیدی به شما آموزش داده می‌شود.
@@ -305,7 +304,7 @@ export default function Home() {
               onClick={() => setSelectedProductId('45363')}
               className="w-full md:w-auto bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-extrabold text-xs px-8 py-4 rounded-xl transition-all shadow-md shadow-indigo-500/20"
             >
-              مشاهده پکیج چهارجلدی + مشاوره VIP
+              مشاهده مجموعه چهارجلدی
             </button>
           </div>
         </div>
@@ -354,7 +353,7 @@ export default function Home() {
             <span className="text-purple-600 text-xs font-bold tracking-wider font-mono">TESTIMONIALS</span>
             <span className="h-[1px] w-8 bg-purple-500"></span>
           </div>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">نظرات و نتایج هنرجویان ۴۰ دروازه</h2>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">نظرات و نتایج هنرجویان چهل دروازه</h2>
           <p className="text-xs text-slate-500">کسانی که توانستند دنیای رویاهایشان را فتح کنند</p>
         </div>
 

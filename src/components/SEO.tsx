@@ -24,7 +24,7 @@ export default function SEO({
 }: SEOProps) {
   useEffect(() => {
     // 1. Update Title
-    const fullTitle = `${title} | ۴۰ دروازه - آموزش رویابینی شفاف`;
+    const fullTitle = `${title} | چهل دروازه - آموزش رویابینی شفاف`;
     document.title = fullTitle;
 
     // 2. Update Description
@@ -62,7 +62,7 @@ export default function SEO({
       'og:type': ogType,
       'og:url': currentUrl,
       'og:image': ogImage,
-      'og:site_name': '۴۰ دروازه - رویابینی شفاف',
+      'og:site_name': 'چهل دروازه - رویابینی شفاف',
       'twitter:card': 'summary_large_image',
       'twitter:title': fullTitle,
       'twitter:description': description,
@@ -95,7 +95,7 @@ export default function SEO({
         {
           '@type': 'Organization',
           '@id': 'https://40gates.ir/#organization',
-          'name': '۴۰ دروازه',
+          'name': 'چهل دروازه',
           'url': 'https://40gates.ir',
           'logo': ogImage,
           'description': 'مرجع تخصصی آموزش علمی و معنوی رویابینی شفاف، برون‌فکنی اثیری و خودشناسی در ایران.',

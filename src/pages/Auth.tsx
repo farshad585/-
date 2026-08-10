@@ -96,7 +96,7 @@ export default function Auth() {
   return (
     <>
       <SEO 
-        title="ورود و عضویت در آکادمی ۴۰ دروازه" 
+        title="ورود و عضویت در آکادمی چهل دروازه" 
         description="صفحه ورود و ثبت‌نام سالکان و دانشجویان دوره رویابینی شفاف و ذهن‌آگاهی."
       />
 
@@ -115,7 +115,7 @@ export default function Auth() {
             <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center mx-auto text-indigo-600 shadow-xs">
               <User size={28} />
             </div>
-            <h1 className="text-lg font-extrabold text-slate-900">ورود و عضویت در ۴۰ دروازه</h1>
+            <h1 className="text-lg font-extrabold text-slate-900">ورود و عضویت در چهل دروازه</h1>
             <p className="text-xs text-slate-500 leading-relaxed">
               جهت دسترسی به پنل کاربری، فایل‌های خریداری شده و ویرایش اطلاعات
             </p>

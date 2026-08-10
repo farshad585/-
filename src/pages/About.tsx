@@ -34,7 +34,7 @@ export default function About() {
     <>
       <SEO 
         title="درباره من | فرشاد میرشکاری - مخترع، نویسنده و مدرس رویابینی آگاهانه" 
-        description="زندگینامه، دوران کودکی، معجزه شفای دست راست با اولین رویای شفاف، اختراعات و مسیر ۲۰ ساله پژوهش فرشاد میرشکاری در مجموعه ۴۰ دروازه."
+        description="زندگینامه، دوران کودکی، معجزه شفای دست راست با اولین رویای شفاف، اختراعات و مسیر ۲۰ ساله پژوهش فرشاد میرشکاری در مجموعه چهل دروازه."
       />
 
       {/* Hero Header */}
@@ -62,7 +62,7 @@ export default function About() {
         <div className="p-8 rounded-3xl bg-white border border-indigo-100 shadow-sm space-y-4 text-justify">
           <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3.5 py-1 text-indigo-900 text-xs font-semibold rounded-full">
             <Sparkles size={14} className="text-indigo-600" />
-            <span>خوش آمدید به پایگاه ۴۰ دروازه</span>
+            <span>خوش آمدید به پایگاه چهل دروازه</span>
           </div>
           <h2 className="text-lg md:text-xl font-bold text-slate-900">سلام به شما عزیزان</h2>
           <p className="text-xs md:text-sm text-slate-600 leading-relaxed">
@@ -79,7 +79,7 @@ export default function About() {
           <div className="aspect-[4/5] rounded-3xl overflow-hidden border-2 border-indigo-200 bg-white shadow-xl p-1.5 relative">
             <img 
               src={farshadImg} 
-              alt="فرشاد میرشکاری - نویسنده ۴۰ دروازه" 
+              alt="فرشاد میرشکاری - نویسنده چهل دروازه" 
               className="w-full h-full object-cover rounded-2xl"
             />
             <div className="absolute inset-x-6 bottom-6 p-4 bg-white/95 backdrop-blur-md border border-indigo-100 rounded-2xl text-right shadow-lg">
@@ -218,7 +218,7 @@ export default function About() {
               onClick={() => setCurrentPage('shop')}
               className="geom-button-primary text-white font-bold text-xs px-8 py-3.5 rounded-xl transition-all shadow-md"
             >
-              مشاهده فروشگاه کتاب‌های من
+              مشاهده فروشگاه
             </button>
             <button
               onClick={() => setCurrentPage('contact')}

@@ -18,13 +18,15 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { addToCart, wishlist, toggleWishlist, setSelectedProductId } = useApp();
 
   const isWishlisted = wishlist.includes(product.id);
-  const discountPercent = product.salePrice 
+  const isOutOfStock = product.stock === 0;
+  const discountPercent = (product.salePrice && !isOutOfStock)
     ? Math.round(((product.price - product.salePrice) / product.price) * 100) 
     : 0;
 
   const [isAdding, setIsAdding] = useState(false);
 
   const formatPrice = (price: number) => {
+    if (isOutOfStock) return '۰ تومان';
     if (price === 0) return 'رایگان';
     return price.toLocaleString('fa-IR') + ' تومان';
   };
@@ -162,7 +164,11 @@ export default function ProductCard({ product }: ProductCardProps) {
           <div className="border-t border-slate-100 pt-3 flex justify-between items-center mt-auto">
             {/* Prices */}
             <div className="flex flex-col">
-              {product.salePrice ? (
+              {isOutOfStock ? (
+                <span className="text-xs font-bold text-slate-500 font-sans">
+                  ۰ تومان
+                </span>
+              ) : product.salePrice ? (
                 <>
                   <span className="text-[10px] text-slate-400 line-through font-mono">
                     {formatPrice(product.price)}

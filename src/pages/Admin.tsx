@@ -726,7 +726,7 @@ export default function Admin() {
       stock: Number(newProductForm.stock) || 0,
       type: (newProductForm.type as any) || 'printed',
       category: (newProductForm.category as any) || 'books',
-      description: newProductForm.description || newProductForm.shortDescription || 'توضیحات اثر جدید آکادمی ۴۰ دروازه.',
+      description: newProductForm.description || newProductForm.shortDescription || 'توضیحات اثر جدید آکادمی چهل دروازه.',
       shortDescription: newProductForm.shortDescription || '',
       author: newProductForm.author || 'فرشاد میرشکاری',
       format: newProductForm.format || 'نسخه اختصاصی',
@@ -805,7 +805,7 @@ export default function Admin() {
   if (!adminToken) {
     return (
       <>
-        <SEO title="ورود مدیر آکادمی | ۴۰ دروازه" description="درگاه امن ورود مدیریت آکادمی ۴۰ دروازه به همراه احراز هویت دو مرحله‌ای" />
+        <SEO title="ورود مدیر آکادمی | چهل دروازه" description="درگاه امن ورود مدیریت آکادمی چهل دروازه به همراه احراز هویت دو مرحله‌ای" />
 
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-4 relative overflow-hidden">
           {/* Subtle geometric glowing background */}
@@ -824,7 +824,7 @@ export default function Admin() {
               <div className="w-16 h-16 bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-600 rounded-2xl mx-auto flex items-center justify-center text-white shadow-lg border border-amber-400/30">
                 <ShieldCheck size={32} />
               </div>
-              <h1 className="text-lg font-extrabold text-white">درگاه مدیریت آکادمی ۴۰ دروازه</h1>
+              <h1 className="text-lg font-extrabold text-white">درگاه مدیریت آکادمی چهل دروازه</h1>
               <p className="text-xs text-slate-400 leading-relaxed">
                 ورود ایمن با احراز هویت دو مرحله‌ای (OTP) و ثبت لاگ‌های امنیتی سرور
               </p>
@@ -996,7 +996,7 @@ export default function Admin() {
 
   return (
     <>
-      <SEO title="پنل مدیریت | ۴۰ دروازه" description="مدیریت سفارش‌ها، محصولات، موجودی، کاربران و تنظیمات آکادمی ۴۰ دروازه" />
+      <SEO title="پنل مدیریت | چهل دروازه" description="مدیریت سفارش‌ها، محصولات، موجودی، کاربران و تنظیمات آکادمی چهل دروازه" />
 
       <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
         {/* Top Admin Header Bar */}
@@ -1008,7 +1008,7 @@ export default function Admin() {
               </div>
               <div>
                 <h1 className="text-sm font-black text-white flex items-center gap-2">
-                  <span>پنل مدیریت آکادمی ۴۰ دروازه</span>
+                  <span>پنل مدیریت آکادمی چهل دروازه</span>
                   <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.5 rounded-full font-mono">
                     ADMIN
                   </span>

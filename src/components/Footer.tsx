@@ -42,12 +42,12 @@ export default function Footer() {
             <div className="w-10 h-10 rounded-xl border border-indigo-300 overflow-hidden p-0.5 bg-white shadow-xs">
               <img 
                 src={logoIcon} 
-                alt="لوگو ۴۰ دروازه" 
+                alt="لوگو چهل دروازه" 
                 className="w-full h-full object-cover rounded-lg"
                 referrerPolicy="no-referrer"
               />
             </div>
-            <span className="text-lg font-bold text-slate-900 tracking-wide">آکادمی ۴۰ دروازه</span>
+            <span className="text-lg font-bold text-slate-900 tracking-wide">آکادمی چهل دروازه</span>
           </div>
           <p className="text-xs leading-relaxed text-slate-600 font-light text-justify">
             شما هر شب موقع خواب به دنیای شخصی خویش قدم می‌گذارید و از این حق انتخاب برخوردار هستید که به شکل آدمی معمولی یا در قامت پادشاهی بی‌همتا ظاهر شوید. آری؛ انتخاب با خود شماست. البته به این شرط که صاحب گوهر خودآگاهی باشید. و من... با ارائه تازه‌ترین آموزش‌های علمی، شما را یاری خواهم کرد.
@@ -89,7 +89,7 @@ export default function Footer() {
               <button onClick={() => setCurrentPage('dream-game')} className="hover:text-indigo-600 transition-colors font-bold text-indigo-700">🎮 بازی شبیه‌ساز کنترل رویا</button>
             </li>
             <li>
-              <button onClick={() => setCurrentPage('shop')} className="hover:text-indigo-600 transition-colors">فروشگاه کتاب چاپی و PDF</button>
+              <button onClick={() => setCurrentPage('shop')} className="hover:text-indigo-600 transition-colors">فروشگاه</button>
             </li>
             <li>
               <button onClick={() => setCurrentPage('blog')} className="hover:text-indigo-600 transition-colors">مجله آموزشی رویابینی</button>
@@ -151,7 +151,7 @@ export default function Footer() {
         <div className="space-y-4">
           <h4 className="text-sm font-bold text-slate-900 border-r-4 border-indigo-600 pr-2">نمادها و تضمین خرید</h4>
           <p className="text-[11px] text-slate-500 leading-relaxed">
-            تمامی محصولات آکادمی ۴۰ دروازه شامل ضمانت کیفیت، پشتیبانی مستقیم و درگاه پرداخت امن الکترونیکی شبکه شتاب می‌باشند.
+            تمامی محصولات آکادمی چهل دروازه شامل ضمانت کیفیت، پشتیبانی مستقیم و درگاه پرداخت امن الکترونیکی شبکه شتاب می‌باشند.
           </p>
 
           {/* Secure / Payment Trust icons */}
@@ -176,7 +176,7 @@ export default function Footer() {
       {/* Bottom Bar */}
       <div className="border-t border-purple-200/80 py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 text-white text-[10px] font-bold uppercase tracking-widest relative z-10">
         <div className="max-w-7xl mx-auto px-6 sm:px-12 flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-right">
-          <p>© ۲۰۲۶ آکادمی ۴۰ دروازه (۴۰gates.ir) - استفاده و به اشتراک گذاری مطالب آموزشی رایگان این سایت برای مقاصد غیرتجاری با ذکر منبع باعث افتخار و خوشحالی است.</p>
+          <p>© ۲۰۲۶ آکادمی چهل دروازه (۴۰gates.ir) - استفاده و به اشتراک گذاری مطالب آموزشی رایگان این سایت برای مقاصد غیرتجاری با ذکر منبع باعث افتخار و خوشحالی است.</p>
           <div className="flex gap-8 shrink-0">
             <button onClick={() => setCurrentPage('terms')} className="hover:underline text-white">شرایط خدمات</button>
             <button onClick={() => setCurrentPage('privacy')} className="hover:underline text-white">حریم خصوصی</button>

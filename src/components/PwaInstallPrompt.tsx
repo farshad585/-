@@ -61,14 +61,16 @@ export const PwaInstallPrompt: React.FC = () => {
   }, []);
 
   const handleInstallClick = async () => {
-    if (deferredPrompt) {
+    const promptEvent = deferredPrompt || (window as any).deferredPwaPrompt;
+    if (promptEvent) {
       try {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
+        await promptEvent.prompt();
+        const { outcome } = await promptEvent.userChoice;
         if (outcome === 'accepted') {
           setShowPrompt(false);
         }
         setDeferredPrompt(null);
+        (window as any).deferredPwaPrompt = null;
         return;
       } catch (err) {
         console.warn('Install prompt error:', err);
@@ -100,7 +102,7 @@ export const PwaInstallPrompt: React.FC = () => {
             </div>
             <div>
               <h3 className="font-extrabold text-base text-white">نصب اپلیکیشن</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">آکادمی ۴۰ دروازه روی گوشی و کامپیوتر</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">آکادمی چهل دروازه روی گوشی و کامپیوتر</p>
             </div>
           </div>
           <button

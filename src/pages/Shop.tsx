@@ -114,7 +114,7 @@ export default function Shop() {
   }, [selectedCategory, selectedType, onlyInStock, priceRange, searchQuery, sortBy]);
 
   const categoryLabelMap: Record<string, string> = {
-    all: 'کل فروشگاه کتاب و آگاهی',
+    all: 'کل فروشگاه',
     books: 'کتاب‌های مرجع و چاپی',
     audiobooks: 'پادکست‌ها و کتاب‌های صوتی',
     courses: 'دوره‌های ویدیویی تخصصی',
@@ -135,9 +135,9 @@ export default function Shop() {
           <div className="flex justify-start sm:justify-center items-center gap-2 text-[10px] text-slate-500 font-mono">
             <span>صفحه اصلی</span>
             <span>/</span>
-            <span className="text-indigo-600 font-bold">فروشگاه آگاهی</span>
+            <span className="text-indigo-600 font-bold">فروشگاه</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">فروشگاه آثار آکادمی ۴۰ دروازه</h1>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">فروشگاه آثار آکادمی چهل دروازه</h1>
           <p className="text-xs text-slate-600 leading-relaxed">
             مجموعه کاملی از کتب تخصصی فیزیکی، کتابچه‌های دیجیتال PDF، فایل‌های صوتی فرکانسی و دوره‌های ویدیویی عمیق بیداری ذهن.
           </p>

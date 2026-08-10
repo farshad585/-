@@ -85,7 +85,7 @@ export default function Cart() {
   return (
     <>
       <SEO 
-        title="سبد خرید شما | آکادمی ۴۰ دروازه" 
+        title="سبد خرید شما | آکادمی چهل دروازه" 
         description="بازبینی و نهایی‌سازی سبد خرید محصولات آموزشی رویابینی شفاف، پادکست‌ها، دوره‌های جامع و اعمال کدهای تخفیف ویژه."
       />
 
@@ -123,7 +123,7 @@ export default function Cart() {
                 onClick={() => setCurrentPage('shop')}
                 className="geom-button-primary text-white font-bold text-xs px-8 py-3 rounded-xl transition-all shadow-sm"
               >
-                مشاهده فروشگاه کتاب و آثار
+                مشاهده فروشگاه
               </button>
             </div>
           ) : (

@@ -62,7 +62,7 @@ export default function Contact() {
     <>
       <SEO 
         title="تماس با من | فرشاد میرشکاری" 
-        description="پل‌های ارتباط مستقیم، ایمیل و پشتیبانی تلگرام فرشاد میرشکاری، نویسنده کتاب‌های رویابینی آگاهانه و استاد ۴۰ دروازه."
+        description="پل‌های ارتباط مستقیم، ایمیل و پشتیبانی تلگرام فرشاد میرشکاری، نویسنده کتاب‌های رویابینی آگاهانه و استاد چهل دروازه."
       />
 
       {/* Floating notification */}
@@ -240,7 +240,7 @@ export default function Contact() {
                 >
                   <option value="support">پشتیبانی سفارشات و فاکتورها</option>
                   <option value="technical">پشتیبانی دوره‌های ویدیویی و اسپات‌پلیر</option>
-                  <option value="dreaming">سوال فنی در خصوص تکنیک‌های رویابینی (WILD, MILD)</option>
+                  <option value="dreaming">سوال فنی در خصوص تکنیک‌های اختصاصی و دروازه‌های رویایی</option>
                   <option value="cooperation">همکاری فروش یا پیشنهاد تالیف آثار</option>
                 </select>
               </div>

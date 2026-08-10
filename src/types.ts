@@ -24,7 +24,7 @@ export interface Product {
   pages?: number;         // For books
   duration?: string;      // For audiobooks / courses
   format?: string;        // e.g. "PDF", "MP3", "Hardcover"
-  author: string;         // e.g. "Farshad" or "۴۰ دروازه"
+  author: string;         // e.g. "Farshad" or "چهل دروازه"
   downloadUrl?: string;    // Direct downloadable file URL
   tableOfContents?: string[]; // Table of contents
 }
