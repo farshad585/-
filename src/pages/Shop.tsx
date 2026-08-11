@@ -129,16 +129,16 @@ export default function Shop() {
       />
 
       {/* Header banner */}
-      <section className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-indigo-100 py-12 text-center max-w-7xl mx-auto rounded-b-3xl mb-8 shadow-xs">
+      <section className="bg-gradient-to-r from-[#EAF2FA] via-[#EEEAF9] to-[#F7F5FC] border-b border-[#EEEAF9] py-12 text-center max-w-7xl mx-auto rounded-b-3xl mb-8 shadow-xs">
         <div className="max-w-xl mx-auto px-4 space-y-3 text-right sm:text-center">
           {/* Breadcrumb */}
-          <div className="flex justify-start sm:justify-center items-center gap-2 text-[10px] text-slate-500 font-mono">
+          <div className="flex justify-start sm:justify-center items-center gap-2 text-[10px] text-[#6D6A7C] font-mono">
             <span>صفحه اصلی</span>
             <span>/</span>
-            <span className="text-indigo-600 font-bold">فروشگاه</span>
+            <span className="text-[#6557B8] font-bold">فروشگاه</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">فروشگاه آثار آکادمی چهل دروازه</h1>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <h1 className="text-2xl md:text-3xl font-extrabold text-[#25243A]">فروشگاه آثار آکادمی چهل دروازه</h1>
+          <p className="text-xs text-[#6D6A7C] leading-relaxed">
             مجموعه کاملی از کتب تخصصی فیزیکی، کتابچه‌های دیجیتال PDF، فایل‌های صوتی فرکانسی و دوره‌های ویدیویی عمیق بیداری ذهن.
           </p>
         </div>
@@ -146,34 +146,34 @@ export default function Shop() {
 
       {/* Philosophy Quote Section Transferred from Home */}
       <section className="max-w-7xl mx-auto px-4 mb-10">
-        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 text-white border border-indigo-500/30 rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-xl space-y-4">
-          <div className="flex items-center gap-3 border-b border-white/10 pb-3">
-            <Heart className="text-rose-400 fill-rose-400 animate-pulse shrink-0" size={20} />
+        <div className="bg-white border border-[#EEEAF9] text-[#25243A] rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-2xs space-y-4">
+          <div className="flex items-center gap-3 border-b border-[#EEEAF9] pb-3">
+            <Heart className="text-[#6557B8] fill-[#EEEAF9] shrink-0" size={20} />
             <div>
-              <h3 className="text-sm md:text-base font-extrabold text-amber-300 font-display">
+              <h3 className="text-sm md:text-base font-extrabold text-[#6557B8] font-display">
                 شاه‌کلید یادگیری در رویاهای شفاف
               </h3>
             </div>
           </div>
 
-          <div className="space-y-3 text-xs md:text-sm text-slate-200 leading-relaxed font-light text-justify">
+          <div className="space-y-3 text-xs md:text-sm text-[#25243A] leading-relaxed font-light text-justify">
             <p>
               من{' '}
               <button 
                 onClick={() => setCurrentPage('about')}
-                className="font-bold text-slate-200 hover:text-white no-underline transition-colors cursor-pointer"
+                className="font-bold text-[#6557B8] hover:text-[#5446a7] no-underline transition-colors cursor-pointer"
               >
                 فرشاد میرشکاری
               </button>
-              ، پس از هزاران سال مکاشفه در رویاهای شفاف، دانستم که شاه‌کلید یادگیری چیزی نیست جز: <strong className="font-bold">«عشق»</strong>. زمانی که با معشوقی صمیمی دیدار می‌کنیم؛ بلااستثنا می‌کوشیم تا از تک‌تک لحظات، نهایت لذت را ببریم و تا آنجا که می‌توانیم، این لحظات عاشقانه را بهتر و طولانی‌تر کنیم.
+              ، پس از هزاران سال مکاشفه در رویاهای شفاف، دانستم که شاه‌کلید یادگیری چیزی نیست جز: <strong className="font-bold text-[#6557B8]">«عشق»</strong>. زمانی که با معشوقی صمیمی دیدار می‌کنیم؛ بلااستثنا می‌کوشیم تا از تک‌تک لحظات، نهایت لذت را ببریم و تا آنجا که می‌توانیم، این لحظات عاشقانه را بهتر و طولانی‌تر کنیم.
             </p>
             <p>
               پس وقتی در کنار او می‌نشینیم، با نهایت احساس به طنین خوش‌آهنگ فراز و نشیب نفس‌هایش گوش فرا می‌دهیم؛ با نهایت تمرکز به زیبایی‌های بی‌مثال او خیره می‌شویم؛ با نهایت احساس، او را می‌بوییم؛ با نهایت لطافت، پوست ظریفش را لمس می‌کنیم؛ و برای چیدن بوسه از لب‌هایش، چشم‌ها را می‌بندیم تا نهایت شیرینیِ وجود او را بچشیم.
             </p>
-            <p className="pt-2 border-t border-white/10">
+            <p className="pt-2 border-t border-[#EEEAF9]">
               این‌چنین است که عشق میان ما و معشوق، محکم‌تر و عمیق‌تر می‌گردد؛ و خاطرات این لحظات، شفاف و رنگی، به صورت معجونی از هر پنج حس در حافظه به یادگار می‌ماند.
             </p>
-            <div className="text-left text-[11px] font-light text-slate-300 italic pt-1">
+            <div className="text-left text-[11px] font-light text-[#6D6A7C] italic pt-1">
               از کتاب «چهل دروازه به ماورا»
             </div>
           </div>

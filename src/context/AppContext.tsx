@@ -115,6 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (savedItem) {
               return {
                 ...savedItem,
+                stock: catalogItem.stock === 0 ? 0 : (savedItem.stock ?? catalogItem.stock),
                 title: catalogItem.title,
                 englishTitle: catalogItem.englishTitle,
                 description: catalogItem.description,
@@ -150,6 +151,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (serverItem) {
               return {
                 ...serverItem,
+                stock: catalogItem.stock === 0 ? 0 : (serverItem.stock ?? catalogItem.stock),
                 title: catalogItem.title,
                 englishTitle: catalogItem.englishTitle,
                 description: catalogItem.description,

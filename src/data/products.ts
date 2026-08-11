@@ -155,7 +155,7 @@ export const PRODUCTS: Product[] = [
     type: 'printed',
     category: 'courses',
     images: book40GatesRealImages,
-    stock: 10,
+    stock: 0,
     rating: 5.0,
     reviewsCount: 31,
     featured: true,

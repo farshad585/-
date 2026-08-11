@@ -1390,27 +1390,24 @@ export default function DreamGame() {
     <div className="max-w-6xl mx-auto px-4 py-6 font-sans">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 rounded-3xl p-6 md:p-10 text-white shadow-2xl relative overflow-hidden mb-8 border border-indigo-800/50">
-        <div className="absolute -right-10 -top-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute -left-10 -bottom-10 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
+      <div className="bg-gradient-to-r from-[#EAF2FA] via-[#EEEAF9] to-[#F7F5FC] rounded-3xl p-6 md:p-10 text-[#25243A] shadow-xs relative overflow-hidden mb-8 border border-[#EEEAF9]">
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-400/30 px-3.5 py-1.5 rounded-full text-indigo-300 text-xs font-semibold mb-3 backdrop-blur-md">
-              <Sparkles size={14} className="text-amber-400 animate-pulse" />
+            <div className="inline-flex items-center gap-2 bg-white border border-[#DCD5F3] px-3.5 py-1.5 rounded-full text-[#6557B8] text-xs font-semibold mb-3 shadow-2xs">
+              <Sparkles size={14} className="text-[#8175CC]" />
               بازی شبیه‌ساز تثبیت و کنترل رویا
             </div>
-            <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
+            <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-[#25243A] leading-tight">
               آزمایشگاه جادوی ساده و اصل انرژی صفر
             </h1>
-            <p className="text-indigo-200/90 text-sm md:text-base mt-2 max-w-2xl leading-relaxed">
+            <p className="text-[#6D6A7C] text-sm md:text-base mt-2 max-w-2xl leading-relaxed">
               آموزش عملی تکنیک‌های استاد فرشاد میرشکاری. یاد بگیرید چگونه بدون عجله، فقط با خونسردی و جادوی خمیر شدن دیوار به تثبیت ۱۰۰٪ رویا برسید.
             </p>
           </div>
 
           <button
             onClick={() => setCurrentPage('home')}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-2xl text-xs font-medium backdrop-blur-md border border-white/20 transition-all shadow-md self-start md:self-auto"
+            className="flex items-center gap-2 bg-white hover:bg-[#EEEAF9] text-[#25243A] px-4 py-2.5 rounded-2xl text-xs font-semibold border border-[#DCD5F3] transition-all shadow-2xs self-start md:self-auto cursor-pointer"
           >
             <ArrowLeft size={16} />
             بازگشت به سایت
@@ -1418,13 +1415,13 @@ export default function DreamGame() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex flex-wrap gap-2 mt-8 pt-6 border-t border-indigo-800/60">
+        <div className="flex flex-wrap gap-2 mt-8 pt-6 border-t border-[#DCD5F3]">
           <button
             onClick={() => setActiveTab('interactive')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'interactive'
-                ? 'bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/20 scale-105'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-[#6557B8] text-white shadow-md shadow-[#6557B8]/20 scale-102'
+                : 'bg-white text-[#6D6A7C] hover:text-[#6557B8] border border-[#EEEAF9]'
             }`}
           >
             <Hand size={16} />
@@ -1433,10 +1430,10 @@ export default function DreamGame() {
 
           <button
             onClick={() => setActiveTab('scenarios')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'scenarios'
-                ? 'bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/20 scale-105'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-[#6557B8] text-white shadow-md shadow-[#6557B8]/20 scale-102'
+                : 'bg-white text-[#6D6A7C] hover:text-[#6557B8] border border-[#EEEAF9]'
             }`}
           >
             <Compass size={16} />
@@ -1445,10 +1442,10 @@ export default function DreamGame() {
 
           <button
             onClick={() => setActiveTab('guide')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'guide'
-                ? 'bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/20 scale-105'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-[#6557B8] text-white shadow-md shadow-[#6557B8]/20 scale-102'
+                : 'bg-white text-[#6D6A7C] hover:text-[#6557B8] border border-[#EEEAF9]'
             }`}
           >
             <Info size={16} />

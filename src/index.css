@@ -6,18 +6,14 @@
   --font-display: "Playfair Display", serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  /* Dreamlike Palette: Sky Blue, Indigo, Purple, Violet & Amethyst */
-  --color-gold-50: #f0f3ff;
-  --color-gold-100: #e0e7ff;
-  --color-gold-200: #c7d2fe;
-  --color-gold-300: #a5b4fc;
-  --color-gold-400: #818cf8;
-  --color-gold-500: #6366f1;
-  --color-gold-600: #4f46e5;
-  --color-gold-700: #4338ca;
-  --color-gold-800: #3730a3;
-  --color-gold-900: #312e81;
-  --color-gold-950: #1e1b4b;
+  --color-brand-primary: #6557B8;
+  --color-brand-secondary: #8175CC;
+  --color-brand-light: #EEEAF9;
+  --color-brand-softblue: #EAF2FA;
+  --color-brand-bg: #F7F5FC;
+  --color-text-main: #25243A;
+  --color-text-muted: #6D6A7C;
+  --color-brand-gold: #D49B27;
 }
 
 @layer base {
@@ -25,135 +21,126 @@
     direction: rtl;
     font-family: var(--font-sans);
     scroll-behavior: smooth;
-    background-color: #f8fafc;
-    color: #0f172a;
+    background-color: #F7F5FC;
+    color: #25243A;
   }
 
   body {
-    background-color: #f8fafc;
-    color: #0f172a;
+    background-color: #F7F5FC;
+    color: #25243A;
     overflow-x: hidden;
   }
 
-  /* Custom scrollbar to match dreamlike blue & purple light theme */
+  /* Custom scrollbar matching soothing purple palette */
   ::-webkit-scrollbar {
     width: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #f1f5f9;
+    background: #EEEAF9;
   }
   ::-webkit-scrollbar-thumb {
-    background: #a855f7;
+    background: #8175CC;
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #7c3aed;
+    background: #6557B8;
   }
 }
 
-/* Light Dream Grid Background with subtle radial halos */
+/* Light Soothing Background */
 .geom-grid-bg {
-  background-color: #f8fafc;
+  background-color: #F7F5FC;
   background-image: 
-    radial-gradient(circle at 15% 20%, rgba(191, 219, 254, 0.45) 0%, transparent 45%),
-    radial-gradient(circle at 85% 75%, rgba(233, 213, 255, 0.5) 0%, transparent 50%),
-    radial-gradient(circle at 50% 40%, rgba(251, 207, 232, 0.35) 0%, transparent 45%),
-    linear-gradient(to right, rgba(99, 102, 241, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(168, 85, 247, 0.06) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    radial-gradient(circle at 15% 20%, rgba(234, 242, 250, 0.7) 0%, transparent 45%),
+    radial-gradient(circle at 85% 75%, rgba(238, 234, 249, 0.8) 0%, transparent 50%),
+    radial-gradient(circle at 50% 40%, rgba(247, 245, 252, 0.6) 0%, transparent 45%);
 }
 
 .geom-card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: 0px !important;
-  box-shadow: 0 4px 20px -2px rgba(124, 58, 237, 0.08);
+  background: #FFFFFF;
+  border: 1px solid #EEEAF9;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px -2px rgba(37, 36, 58, 0.04);
+  transition: all 0.25s ease-in-out;
 }
 
 .geom-card:hover {
-  border-color: rgba(147, 51, 234, 0.5);
-  box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.16);
+  border-color: #8175CC;
+  box-shadow: 0 8px 24px -4px rgba(101, 87, 184, 0.08);
 }
 
 .geom-button-primary {
-  background: linear-gradient(135deg, #2563eb 0%, #6366f1 40%, #7c3aed 70%, #d946ef 100%);
-  color: #ffffff;
+  background-color: #6557B8;
+  color: #FFFFFF;
   font-weight: 700;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
+  font-size: 0.875rem;
   padding: 0.75rem 1.5rem;
-  border-radius: 0px !important;
-  text-transform: uppercase;
+  border-radius: 12px;
   transition: all 0.2s ease-in-out;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 14px rgba(101, 87, 184, 0.25);
 }
 
 .geom-button-primary:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+  background-color: #5446a7;
+  box-shadow: 0 6px 20px rgba(101, 87, 184, 0.35);
 }
 
 .geom-button-secondary {
-  background-color: rgba(243, 244, 246, 0.9);
-  color: #1e1b4b;
+  background-color: #EEEAF9;
+  color: #6557B8;
   font-weight: 600;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   padding: 0.75rem 1.5rem;
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  border-radius: 0px !important;
+  border: 1px solid #DCD5F3;
+  border-radius: 12px;
   transition: all 0.2s ease-in-out;
 }
 
 .geom-button-secondary:hover {
-  background-color: #eef2ff;
-  border-color: rgba(124, 58, 237, 0.6);
-  color: #4338ca;
+  background-color: #E3DDF7;
+  border-color: #8175CC;
+  color: #5446a7;
 }
 
 .text-gold-gradient {
-  background: linear-gradient(135deg, #fef08a 0%, #f59e0b 50%, #d97706 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #D49B27;
 }
 
 .bg-gold-gradient {
-  background: linear-gradient(135deg, #fef08a 0%, #f59e0b 50%, #d97706 100%);
+  background-color: #D49B27;
 }
 
 .border-gold-glow {
-  border-color: rgba(245, 158, 11, 0.4);
-  box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+  border-color: #D49B27;
 }
 
 /* Glassmorphism light styles */
 .glass-premium-light {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(168, 85, 247, 0.2);
+  border: 1px solid #EEEAF9;
 }
 
 .glass-premium-dark {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid #EEEAF9;
 }
 
 @keyframes blink-lightbulb {
   0%, 100% {
     opacity: 1;
-    transform: scale(1.15);
-    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.9));
+    transform: scale(1.08);
   }
   50% {
-    opacity: 0.3;
+    opacity: 0.4;
     transform: scale(0.95);
-    filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.2));
   }
 }
 
 .animate-blink-lamp {
   display: inline-block;
-  animation: blink-lightbulb 1s infinite ease-in-out;
+  animation: blink-lightbulb 1.5s infinite ease-in-out;
 }
 
 

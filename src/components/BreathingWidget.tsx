@@ -175,10 +175,10 @@ export default function BreathingWidget() {
   }, [phaseIndex]);
 
   return (
-    <div className="w-full bg-slate-950 border-b border-indigo-500/20 text-white relative overflow-hidden shadow-md dir-rtl z-20">
+    <div className="w-full bg-[#EEEAF9] border-b border-[#DCD5F3] text-[#25243A] relative overflow-hidden shadow-2xs dir-rtl z-20">
       {/* Background Gradient */}
       <div
-        className={`absolute inset-0 bg-gradient-to-r ${currentPhase.bgGradient} transition-all duration-1000 ease-in-out opacity-85`}
+        className="absolute inset-0 bg-gradient-to-r from-[#EEEAF9] via-[#EAF2FA] to-[#F7F5FC] transition-all duration-1000 ease-in-out opacity-90"
       />
 
       <div className="max-w-7xl mx-auto px-4 py-2 relative z-10 flex flex-col sm:flex-row items-center justify-between gap-2">
@@ -187,10 +187,10 @@ export default function BreathingWidget() {
         <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1.5 rounded-lg bg-indigo-900/50 hover:bg-indigo-800/60 border border-indigo-500/30 text-indigo-200 transition-all text-xs flex items-center gap-1"
+            className="p-1.5 rounded-lg bg-white hover:bg-[#E3DDF7] border border-[#DCD5F3] text-[#6557B8] transition-all text-xs flex items-center gap-1 shadow-2xs"
             title={isCollapsed ? 'نمایش تمرین' : 'بستن تمرین'}
           >
-            <Wind className="w-4 h-4 text-cyan-400 animate-pulse" />
+            <Wind className="w-4 h-4 text-[#6557B8]" />
             {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
           </button>
 
@@ -199,13 +199,13 @@ export default function BreathingWidget() {
             onClick={toggleAudio}
             className={`p-1.5 rounded-lg border transition-all ${
               !isAudioMuted
-                ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.35)]'
-                : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200'
+                ? 'bg-[#6557B8] border-[#6557B8] text-white shadow-xs'
+                : 'bg-white border-[#DCD5F3] text-[#6D6A7C] hover:text-[#25243A]'
             }`}
             title={!isAudioMuted ? 'قطع صدای دریا' : 'پخش صدای دریا'}
           >
             {!isAudioMuted ? (
-              <Volume2 className="w-4 h-4 text-cyan-300 animate-pulse" />
+              <Volume2 className="w-4 h-4 text-white animate-pulse" />
             ) : (
               <VolumeX className="w-3.5 h-3.5" />
             )}
@@ -214,14 +214,14 @@ export default function BreathingWidget() {
 
         {/* Center Area: Water Ripple Concentric Rings & Smooth Fade Breathing Text */}
         {!isCollapsed && (
-          <div className="flex-1 flex items-center justify-center relative min-h-[85px] w-full py-1">
+          <div className="flex-1 flex items-center justify-center relative min-h-[75px] w-full py-1">
             
             {/* Concentric Water Ripple Rings */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
               {[0, 1, 2, 3].map((ringIndex) => (
                 <motion.div
                   key={ringIndex}
-                  className="absolute rounded-full border border-cyan-400/30 bg-cyan-400/5"
+                  className="absolute rounded-full border border-[#8175CC]/30 bg-[#8175CC]/5"
                   animate={{
                     scale: [0.5 + ringIndex * 0.3, 1.5 + ringIndex * 0.4],
                     opacity: [0.8, 0],
@@ -235,7 +235,6 @@ export default function BreathingWidget() {
                   style={{
                     width: `${110 + ringIndex * 35}px`,
                     height: `${110 + ringIndex * 35}px`,
-                    borderColor: currentPhase.color,
                   }}
                 />
               ))}
@@ -246,9 +245,9 @@ export default function BreathingWidget() {
               
               {/* Pulsing & Fading Text: آهسته و عمیق نفس بکشید */}
               <motion.p
-                className="text-xs sm:text-sm font-semibold tracking-wide text-cyan-100/90 drop-shadow"
+                className="text-xs sm:text-sm font-semibold tracking-wide text-[#6557B8] font-mono"
                 animate={{
-                  opacity: [0.25, 1, 0.25],
+                  opacity: [0.4, 1, 0.4],
                 }}
                 transition={{
                   duration: 3.5,
@@ -268,14 +267,13 @@ export default function BreathingWidget() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 1.05 }}
                     transition={{ duration: 0.5, ease: 'easeInOut' }}
-                    className="font-black text-sm sm:text-base drop-shadow-md"
-                    style={{ color: currentPhase.color }}
+                    className="font-extrabold text-sm sm:text-base text-[#25243A]"
                   >
                     {currentPhase.label}
                   </motion.span>
                 </AnimatePresence>
 
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900/90 border border-slate-700/80 text-cyan-300">
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white border border-[#DCD5F3] text-[#6557B8]">
                   {timeLeft} ثانیه
                 </span>
               </div>

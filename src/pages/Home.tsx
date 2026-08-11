@@ -67,67 +67,56 @@ export default function Home() {
       />
 
       {/* Hero Section */}
-      <section className="relative min-h-[80vh] flex items-center justify-center py-20 px-4 overflow-hidden max-w-7xl mx-auto rounded-3xl border border-indigo-200/80 mt-2 bg-slate-900 shadow-xl text-white">
-        {/* Geometric Corner Lines inside Hero */}
-        <div className="absolute inset-0 opacity-30 pointer-events-none z-10">
-          <div className="absolute top-0 right-0 w-48 h-48 border-r-2 border-t-2 border-indigo-400"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 border-l-2 border-b-2 border-purple-400"></div>
+      <section className="relative min-h-[75vh] flex items-center justify-center py-16 px-4 overflow-hidden max-w-7xl mx-auto rounded-3xl border border-[#EEEAF9] mt-3 bg-gradient-to-b from-white via-[#EEEAF9]/40 to-[#F7F5FC] shadow-sm text-[#25243A]">
+        {/* Soft Ambient Radial Background */}
+        <div className="absolute inset-0 pointer-events-none z-0">
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#EEEAF9] rounded-full blur-3xl opacity-70" />
+          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[#EAF2FA] rounded-full blur-3xl opacity-80" />
         </div>
         
-        {/* Background Image with darken gradient */}
-        <div className="absolute inset-0 z-0">
+        {/* Subtle Background Image with gentle overlay */}
+        <div className="absolute inset-0 z-0 opacity-15">
           <img 
             src="/src/assets/images/lucid_dream_hero_1784533457822.jpg" 
             alt="رویابینی شفاف" 
-            className="w-full h-full object-cover opacity-60"
+            className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-indigo-950/80 to-slate-900/60" />
-          <div className="absolute inset-0 bg-gradient-to-l from-slate-950/80 via-transparent to-purple-950/50" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#F7F5FC] via-transparent to-white" />
         </div>
 
         {/* Hero Content */}
-        <div className="relative z-10 max-w-4xl text-center px-4 space-y-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="inline-flex items-center gap-2 bg-slate-900/80 border border-indigo-400/40 px-4 py-2 rounded-full text-indigo-200 text-xs font-semibold tracking-wider backdrop-blur-md shadow-md"
-          >
-            <Sparkles size={14} className="text-purple-300 animate-pulse" />
-            <span>بزرگترین آکادمی تخصصی رویابینی شفاف ایران</span>
-          </motion.div>
-
-          <div className="space-y-4">
+        <div className="relative z-10 max-w-4xl text-center px-4 space-y-7 my-4">
+          <div className="space-y-3">
             <div className="flex items-center justify-center gap-3 mb-2">
-              <span className="h-[1px] w-8 bg-indigo-400"></span>
-              <span className="text-indigo-300 text-xs uppercase tracking-[0.25em] font-medium font-mono">مرجع تخصصی رویابینی آگاهانه</span>
-              <span className="h-[1px] w-8 bg-indigo-400"></span>
+              <span className="h-[1px] w-8 bg-[#8175CC]/40"></span>
+              <span className="text-[#6557B8] text-xs uppercase tracking-[0.2em] font-semibold font-mono">مرجع تخصصی رویابینی آگاهانه</span>
+              <span className="h-[1px] w-8 bg-[#8175CC]/40"></span>
             </div>
             <motion.h1
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.15 }}
-              className="text-[21px] xs:text-2xl sm:text-4xl md:text-6xl font-extrabold text-white leading-[1.4] sm:leading-[1.3] md:leading-[1.25] tracking-tight"
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-xl xs:text-2xl sm:text-4xl md:text-5xl font-extrabold text-[#25243A] leading-[1.4] sm:leading-[1.3] md:leading-[1.25] tracking-tight"
             >
               <span className="block whitespace-nowrap">تبدیل شدن به آفریدگار رویا،</span>
               <span className="block whitespace-nowrap">
-                <span className="text-amber-400 font-extrabold">دروازه چهلم</span> خودشناسی
+                <span className="text-[#3C2B93] font-extrabold">دروازه چهلم</span> خودشناسی
               </span>
             </motion.h1>
           </div>
 
           <motion.p
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-            className="text-xs md:text-sm text-indigo-100 leading-relaxed max-w-2xl mx-auto bg-slate-900/70 backdrop-blur-md p-4 rounded-2xl border border-indigo-400/30 shadow-inner"
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-xs md:text-sm text-[#6D6A7C] leading-relaxed max-w-2xl mx-auto bg-white/90 backdrop-blur-md p-5 rounded-2xl border border-[#EEEAF9] shadow-xs"
           >
-            <span className="font-bold text-amber-300 block mb-1">
+            <span className="font-bold text-[#6557B8] block mb-1">
               💬 گپ دوستانه من،{' '}
               <button 
                 onClick={() => setCurrentPage('about')}
-                className="no-underline text-amber-300 hover:text-amber-100 transition-colors font-extrabold cursor-pointer"
+                className="no-underline text-[#6557B8] hover:text-[#5446a7] transition-colors font-extrabold cursor-pointer"
               >
                 فرشاد میرشکاری
               </button>
@@ -137,15 +126,15 @@ export default function Home() {
           </motion.p>
 
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.45 }}
-            className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4"
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-2"
           >
             <button
               id="hero-shop-cta"
               onClick={() => setCurrentPage('shop')}
-              className="w-full sm:w-auto geom-button-primary flex items-center justify-center gap-2.5 shadow-xl shadow-indigo-600/30 text-xs font-bold rounded-xl"
+              className="w-full sm:w-auto bg-[#6557B8] hover:bg-[#5446a7] text-white flex items-center justify-center gap-2.5 shadow-md shadow-[#6557B8]/20 text-xs font-bold px-7 py-3.5 rounded-xl transition-all cursor-pointer"
             >
               <span>ورود به فروشگاه</span>
               <ArrowLeft size={16} />
@@ -153,9 +142,9 @@ export default function Home() {
             <button
               id="hero-about-cta"
               onClick={() => setCurrentPage('blog')}
-              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center gap-2.5 text-xs font-bold px-6 py-3 rounded-xl backdrop-blur-md transition-all"
+              className="w-full sm:w-auto bg-[#EEEAF9] hover:bg-[#E3DDF7] text-[#6557B8] border border-[#DCD5F3] flex items-center justify-center gap-2.5 text-xs font-bold px-7 py-3.5 rounded-xl transition-all cursor-pointer"
             >
-              <Compass size={16} className="text-purple-300" />
+              <Compass size={16} className="text-[#8175CC]" />
               <span>مطالعه مقالات آموزشی</span>
             </button>
           </motion.div>
@@ -164,24 +153,24 @@ export default function Home() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.7, duration: 1 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto pt-12 border-t border-white/15 text-right md:text-center"
+            transition={{ delay: 0.5, duration: 0.8 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto pt-8 border-t border-[#EEEAF9] text-right md:text-center"
           >
             <div className="space-y-1">
-              <span className="block text-xl md:text-2xl font-bold font-display text-indigo-300">+۵۰,۰۰۰</span>
-              <span className="text-[10px] text-slate-300 uppercase tracking-wider">هنرجوی خواب شفاف</span>
+              <span className="block text-xl md:text-2xl font-bold font-display text-[#6557B8]">+۵۰,۰۰۰</span>
+              <span className="text-[10px] text-[#6D6A7C] uppercase tracking-wider">هنرجوی خواب شفاف</span>
             </div>
             <div className="space-y-1">
-              <span className="block text-xl md:text-2xl font-bold font-display text-indigo-300">۲۰+</span>
-              <span className="text-[10px] text-slate-300 uppercase tracking-wider">کتاب، پادکست و پکیج</span>
+              <span className="block text-xl md:text-2xl font-bold font-display text-[#6557B8]">۲۰+</span>
+              <span className="text-[10px] text-[#6D6A7C] uppercase tracking-wider">کتاب، پادکست و پکیج</span>
             </div>
             <div className="space-y-1">
-              <span className="block text-xl md:text-2xl font-bold font-display text-indigo-300">۳</span>
-              <span className="text-[10px] text-slate-300 uppercase tracking-wider">ماه پشتیبانی اختصاصی</span>
+              <span className="block text-xl md:text-2xl font-bold font-display text-[#6557B8]">۳</span>
+              <span className="text-[10px] text-[#6D6A7C] uppercase tracking-wider">ماه پشتیبانی اختصاصی</span>
             </div>
             <div className="space-y-1">
-              <span className="block text-xl md:text-2xl font-bold font-display text-indigo-300">۱۰۰٪</span>
-              <span className="text-[10px] text-slate-300 uppercase tracking-wider">تضمین کارایی تکنیک‌ها</span>
+              <span className="block text-xl md:text-2xl font-bold font-display text-[#6557B8]">۱۰۰٪</span>
+              <span className="text-[10px] text-[#6D6A7C] uppercase tracking-wider">تضمین کارایی تکنیک‌ها</span>
             </div>
           </motion.div>
 
@@ -189,26 +178,26 @@ export default function Home() {
       </section>
 
       {/* Trust Badges Bar */}
-      <section className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-white border border-purple-100 shadow-xs hover:border-indigo-300 transition-all duration-300">
-          <ShieldCheck size={28} className="text-indigo-600 flex-shrink-0" />
+      <section className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        <div className="flex items-center gap-4 p-5 rounded-2xl bg-white border border-[#EEEAF9] shadow-xs hover:border-[#8175CC] transition-all duration-300">
+          <ShieldCheck size={28} className="text-[#6557B8] flex-shrink-0" />
           <div className="space-y-1">
-            <h4 className="text-xs font-bold text-slate-900">پرداخت امن و گواهی SSL</h4>
-            <p className="text-[10px] text-slate-500">پرداخت مطمئن بانکی با تمامی کارت‌های شتاب ایران.</p>
+            <h4 className="text-xs font-bold text-[#25243A]">پرداخت امن و گواهی SSL</h4>
+            <p className="text-[10px] text-[#6D6A7C]">پرداخت مطمئن بانکی با تمامی کارت‌های شتاب ایران.</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-white border border-purple-100 shadow-xs hover:border-indigo-300 transition-all duration-300">
-          <Zap size={28} className="text-purple-600 flex-shrink-0" />
+        <div className="flex items-center gap-4 p-5 rounded-2xl bg-white border border-[#EEEAF9] shadow-xs hover:border-[#8175CC] transition-all duration-300">
+          <Zap size={28} className="text-[#8175CC] flex-shrink-0" />
           <div className="space-y-1">
-            <h4 className="text-xs font-bold text-slate-900">دانلود آنی و ارسال پستی پیشتاز</h4>
-            <p className="text-[10px] text-slate-500">تحویل دیجیتالی بلافاصله پس از پرداخت و ارسال سریع فیزیکی.</p>
+            <h4 className="text-xs font-bold text-[#25243A]">دانلود آنی و ارسال پستی پیشتاز</h4>
+            <p className="text-[10px] text-[#6D6A7C]">تحویل دیجیتالی بلافاصله پس از پرداخت و ارسال سریع فیزیکی.</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-white border border-purple-100 shadow-xs hover:border-indigo-300 transition-all duration-300">
-          <RotateCcw size={28} className="text-violet-600 flex-shrink-0" />
+        <div className="flex items-center gap-4 p-5 rounded-2xl bg-white border border-[#EEEAF9] shadow-xs hover:border-[#8175CC] transition-all duration-300">
+          <RotateCcw size={28} className="text-[#6557B8] flex-shrink-0" />
           <div className="space-y-1">
-            <h4 className="text-xs font-bold text-slate-900">ضمانت رضایت هنرجویان</h4>
-            <p className="text-[10px] text-slate-500">پشتیبانی کامل در تلگرام برای پاسخگویی به روند تمرینات.</p>
+            <h4 className="text-xs font-bold text-[#25243A]">ضمانت رضایت هنرجویان</h4>
+            <p className="text-[10px] text-[#6D6A7C]">پشتیبانی کامل در تلگرام برای پاسخگویی به روند تمرینات.</p>
           </div>
         </div>
       </section>
@@ -217,12 +206,12 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 py-16 space-y-10">
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="h-[1px] w-8 bg-indigo-500"></span>
-            <span className="text-indigo-600 text-xs font-bold tracking-wider font-mono">PRODUCTS</span>
-            <span className="h-[1px] w-8 bg-indigo-500"></span>
+            <span className="h-[1px] w-8 bg-[#8175CC]"></span>
+            <span className="text-[#6557B8] text-xs font-bold tracking-wider font-mono">PRODUCTS</span>
+            <span className="h-[1px] w-8 bg-[#8175CC]"></span>
           </div>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">دسته‌بندی‌های اصلی محصولات آگاهی</h2>
-          <p className="text-xs text-slate-500">کلید مورد نیاز خود را برای بیداری ناخودآگاه انتخاب کنید</p>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-[#25243A]">دسته‌بندی‌های اصلی محصولات آگاهی</h2>
+          <p className="text-xs text-[#6D6A7C]">کلید مورد نیاز خود را برای بیداری ناخودآگاه انتخاب کنید</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -232,21 +221,21 @@ export default function Home() {
               <div
                 key={cat.id}
                 onClick={() => setCurrentPage('shop')}
-                className="p-8 rounded-2xl border border-indigo-100 bg-white group cursor-pointer hover:border-purple-300 hover:shadow-lg transition-all duration-300 flex flex-col justify-between min-h-[220px] relative overflow-hidden"
+                className="p-8 rounded-2xl border border-[#EEEAF9] bg-white group cursor-pointer hover:border-[#8175CC] hover:shadow-md transition-all duration-300 flex flex-col justify-between min-h-[220px] relative overflow-hidden"
               >
                 <div className="space-y-4">
-                  <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200 w-fit text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                  <div className="p-3 bg-[#EEEAF9] rounded-xl border border-[#DCD5F3] w-fit text-[#6557B8] group-hover:bg-[#6557B8] group-hover:text-white transition-colors">
                     <Icon size={24} />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 mb-2">{cat.title}</h3>
-                    <p className="text-xs text-slate-500 leading-relaxed">{cat.description}</p>
+                    <h3 className="text-base font-bold text-[#25243A] mb-2">{cat.title}</h3>
+                    <p className="text-xs text-[#6D6A7C] leading-relaxed">{cat.description}</p>
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-4 border-t border-slate-100 mt-4">
-                  <span className="text-[10px] font-mono font-bold text-indigo-600 tracking-wider uppercase">{cat.count}</span>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-700 group-hover:text-indigo-600 transition-colors font-medium">
+                <div className="flex justify-between items-center pt-4 border-t border-[#EEEAF9] mt-4">
+                  <span className="text-[10px] font-mono font-bold text-[#6557B8] tracking-wider uppercase">{cat.count}</span>
+                  <div className="flex items-center gap-1.5 text-xs text-[#25243A] group-hover:text-[#6557B8] transition-colors font-medium">
                     <span>ورود به بخش</span>
                     <ArrowLeft size={12} />
                   </div>
@@ -258,16 +247,16 @@ export default function Home() {
       </section>
 
       {/* Featured / Best Sellers Showcase */}
-      <section className="max-w-7xl mx-auto px-4 py-16 space-y-12 bg-white border-y border-purple-100 rounded-3xl shadow-xs">
-        <div className="flex flex-col sm:flex-row justify-between items-end gap-4 border-b border-slate-100 pb-6">
+      <section className="max-w-7xl mx-auto px-4 py-16 space-y-12 bg-white border-y border-[#EEEAF9] rounded-3xl shadow-2xs">
+        <div className="flex flex-col sm:flex-row justify-between items-end gap-4 border-b border-[#EEEAF9] pb-6">
           <div className="space-y-2 text-right">
-            <span className="text-[10px] text-indigo-600 font-mono tracking-widest uppercase font-bold">EXPLORE BEST SELLERS</span>
-            <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">پرفروش‌ترین آثار آکادمی</h2>
-            <p className="text-xs text-slate-500">محصولاتی که بیشترین اثربخشی را در رویابینی سریع هنرجویان داشته‌اند.</p>
+            <span className="text-[10px] text-[#6557B8] font-mono tracking-widest uppercase font-bold">EXPLORE BEST SELLERS</span>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-[#25243A]">پرفروش‌ترین آثار آکادمی</h2>
+            <p className="text-xs text-[#6D6A7C]">محصولاتی که بیشترین اثربخشی را در رویابینی سریع هنرجویان داشته‌اند.</p>
           </div>
           <button
             onClick={() => setCurrentPage('shop')}
-            className="text-xs text-indigo-600 hover:text-purple-700 transition-colors flex items-center gap-1.5 border-b border-indigo-300 pb-1 font-semibold"
+            className="text-xs text-[#6557B8] hover:text-[#5446a7] transition-colors flex items-center gap-1.5 border-b border-[#DCD5F3] pb-1 font-semibold cursor-pointer"
           >
             <span>مشاهده همه محصولات</span>
             <ArrowLeft size={12} />
@@ -283,18 +272,18 @@ export default function Home() {
 
       {/* Promotional Banner */}
       <section className="max-w-7xl mx-auto px-4 py-12">
-        <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border border-purple-200 rounded-3xl p-8 md:p-12 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 shadow-sm">
-          <div className="space-y-5 text-right max-w-xl relative z-10">
-            <span className="text-[10px] text-indigo-700 border border-indigo-300 rounded-full px-3 py-1 font-mono font-bold uppercase bg-white w-fit block shadow-xs">LIMITED PACKAGE</span>
-            <h3 className="text-xl md:text-2xl font-extrabold text-slate-900 leading-normal">
+        <div className="bg-gradient-to-r from-[#EAF2FA] via-[#EEEAF9] to-[#F7F5FC] border border-[#DCD5F3] rounded-3xl p-8 md:p-12 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 shadow-xs">
+          <div className="space-y-4 text-right max-w-xl relative z-10">
+            <span className="text-[10px] text-[#6557B8] border border-[#8175CC]/30 rounded-full px-3 py-1 font-mono font-bold uppercase bg-white w-fit block shadow-2xs">LIMITED PACKAGE</span>
+            <h3 className="text-xl md:text-2xl font-extrabold text-[#25243A] leading-normal">
               مجموعه چهارجلدی چهل دروازه به ماورا
             </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-[#6D6A7C] leading-relaxed">
               اگر مصمم هستید تا مهارت رویابینی آگاهانه را زیر نظر مستقیم استاد فرا بگیرید، مجموعه کامل چهارجلدی چهل دروازه به ماورا همراه با مشاوره اختصاصی تلگرام بهترین گزینه است. رویاها و تمرینات روزانه شما تحلیل شده و نکات کلیدی به شما آموزش داده می‌شود.
             </p>
             <div className="flex gap-4 items-center pt-2">
-              <span className="text-sm text-slate-400 line-through">۱,۹۹۹,۰۰۰ تومان</span>
-              <span className="text-lg font-bold text-indigo-700">۱,۶۹۹,۰۰۰ تومان</span>
+              <span className="text-sm text-[#6D6A7C] line-through">۱,۹۹۹,۰۰۰ تومان</span>
+              <span className="text-lg font-bold text-[#6557B8]">۱,۶۹۹,۰۰۰ تومان</span>
             </div>
           </div>
 
@@ -302,7 +291,7 @@ export default function Home() {
             <button
               id="promo-pack-cta"
               onClick={() => setSelectedProductId('45363')}
-              className="w-full md:w-auto bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-extrabold text-xs px-8 py-4 rounded-xl transition-all shadow-md shadow-indigo-500/20"
+              className="w-full md:w-auto bg-[#6557B8] hover:bg-[#5446a7] text-white font-extrabold text-xs px-8 py-4 rounded-xl transition-all shadow-md shadow-[#6557B8]/20 cursor-pointer"
             >
               مشاهده مجموعه چهارجلدی
             </button>
@@ -312,15 +301,15 @@ export default function Home() {
 
       {/* New Arrivals Showcase */}
       <section className="max-w-7xl mx-auto px-4 py-16 space-y-12">
-        <div className="flex flex-col sm:flex-row justify-between items-end gap-4 border-b border-slate-200 pb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-end gap-4 border-b border-[#EEEAF9] pb-6">
           <div className="space-y-2 text-right">
-            <span className="text-[10px] text-purple-600 font-mono tracking-widest uppercase font-bold">DISCOVER NEW ARRIVALS</span>
-            <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">جدیدترین محصولات آموزشی</h2>
-            <p className="text-xs text-slate-500">تازه‌ترین انتشارات، کتاب‌های صوتی و ابزارهای تکنولوژیک بیداری ذهن.</p>
+            <span className="text-[10px] text-[#6557B8] font-mono tracking-widest uppercase font-bold">DISCOVER NEW ARRIVALS</span>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-[#25243A]">جدیدترین محصولات آموزشی</h2>
+            <p className="text-xs text-[#6D6A7C]">تازه‌ترین انتشارات، کتاب‌های صوتی و ابزارهای تکنولوژیک بیداری ذهن.</p>
           </div>
           <button
             onClick={() => setCurrentPage('shop')}
-            className="text-xs text-indigo-600 hover:text-purple-700 transition-colors flex items-center gap-1.5 border-b border-indigo-300 pb-1 font-semibold"
+            className="text-xs text-[#6557B8] hover:text-[#5446a7] transition-colors flex items-center gap-1.5 border-b border-[#DCD5F3] pb-1 font-semibold cursor-pointer"
           >
             <span>مشاهده همه تازه ها</span>
             <ArrowLeft size={12} />
@@ -335,13 +324,13 @@ export default function Home() {
       </section>
 
       {/* Quote Section / Jung philosophical background */}
-      <section className="max-w-7xl mx-auto px-4 py-16 text-center bg-white border-y border-purple-100 rounded-3xl relative shadow-xs">
-        <Quote size={40} className="text-purple-200 mx-auto mb-6" />
-        <div className="max-w-3xl mx-auto space-y-6">
-          <p className="text-lg md:text-xl font-display font-bold text-slate-800 leading-relaxed italic">
+      <section className="max-w-7xl mx-auto px-4 py-16 text-center bg-white border border-[#EEEAF9] rounded-3xl relative shadow-2xs">
+        <Quote size={36} className="text-[#8175CC] mx-auto mb-5 opacity-80" />
+        <div className="max-w-3xl mx-auto space-y-5">
+          <p className="text-lg md:text-xl font-display font-bold text-[#25243A] leading-relaxed italic">
             «کسی که به بیرون نگاه می‌کند، خواب می‌بیند؛ کسی که به درون نگاه می‌کند، بیدار می‌شود.»
           </p>
-          <span className="block text-xs font-mono font-bold text-indigo-600 uppercase tracking-widest">کارل گوستاو یونگ</span>
+          <span className="block text-xs font-mono font-bold text-[#6557B8] uppercase tracking-widest">کارل گوستاو یونگ</span>
         </div>
       </section>
 
@@ -349,31 +338,31 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 py-20 space-y-12">
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="h-[1px] w-8 bg-purple-500"></span>
-            <span className="text-purple-600 text-xs font-bold tracking-wider font-mono">TESTIMONIALS</span>
-            <span className="h-[1px] w-8 bg-purple-500"></span>
+            <span className="h-[1px] w-8 bg-[#8175CC]"></span>
+            <span className="text-[#6557B8] text-xs font-bold tracking-wider font-mono">TESTIMONIALS</span>
+            <span className="h-[1px] w-8 bg-[#8175CC]"></span>
           </div>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">نظرات و نتایج هنرجویان چهل دروازه</h2>
-          <p className="text-xs text-slate-500">کسانی که توانستند دنیای رویاهایشان را فتح کنند</p>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-[#25243A]">نظرات و نتایج هنرجویان چهل دروازه</h2>
+          <p className="text-xs text-[#6D6A7C]">کسانی که توانستند دنیای رویاهایشان را فتح کنند</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {TESTIMONIALS.map((item) => (
-            <div key={item.id} className="p-6 rounded-2xl bg-white border border-purple-100 hover:border-indigo-300 transition-all duration-300 space-y-4 flex flex-col justify-between shadow-xs">
+            <div key={item.id} className="p-6 rounded-2xl bg-white border border-[#EEEAF9] hover:border-[#8175CC] transition-all duration-300 space-y-4 flex flex-col justify-between shadow-2xs hover:shadow-xs">
               <div className="space-y-3">
                 <div className="flex gap-1">
-                  {[...Array(5)].map((_, i) => <Star key={i} size={14} className="fill-amber-400 text-amber-400" />)}
+                  {[...Array(5)].map((_, i) => <Star key={i} size={14} className="fill-[#D49B27] text-[#D49B27]" />)}
                 </div>
-                <p className="text-xs leading-relaxed text-slate-700 whitespace-pre-line">
+                <p className="text-xs leading-relaxed text-[#25243A] whitespace-pre-line">
                   {item.text}
                 </p>
               </div>
-              <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
-                <div className={`w-9 h-9 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 ${item.avatarBg}`}>
+              <div className="flex items-center gap-3 pt-4 border-t border-[#EEEAF9]">
+                <div className={`w-9 h-9 rounded-full border border-[#DCD5F3] font-bold text-xs flex items-center justify-center shrink-0 bg-[#EEEAF9] text-[#6557B8]`}>
                   {item.avatarInitial}
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-xs font-bold text-slate-900 truncate">{item.name}</h4>
+                  <h4 className="text-xs font-bold text-[#25243A] truncate">{item.name}</h4>
                 </div>
               </div>
             </div>

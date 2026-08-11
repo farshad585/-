@@ -16,7 +16,8 @@ import {
   ShieldCheck, 
   CreditCard, 
   Award,
-  BookOpen
+  BookOpen,
+  MessageCircle
 } from 'lucide-react';
 
 export default function Footer() {
@@ -70,6 +71,15 @@ export default function Footer() {
               title="کانال و پشتیبانی تلگرام"
             >
               <Send size={18} className="-translate-x-0.5" />
+            </a>
+            <a 
+              href="https://ble.ir/40GATES" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="p-2.5 bg-indigo-50 hover:bg-gradient-to-r hover:from-emerald-600 hover:to-teal-600 hover:text-white rounded-xl transition-all text-indigo-600 shadow-xs flex items-center gap-1.5"
+              title="کانال و پیام‌رسان بله"
+            >
+              <MessageCircle size={18} />
             </a>
             <a 
               href="mailto:40gates.main@gmail.com" 
@@ -133,6 +143,17 @@ export default function Footer() {
                 className="hover:text-indigo-600 dir-ltr font-mono font-semibold transition-colors"
               >
                 t.me/Farshad_God
+              </a>
+            </li>
+            <li className="flex items-center gap-2.5">
+              <MessageCircle size={18} className="text-emerald-600 shrink-0" />
+              <a 
+                href="https://ble.ir/40GATES" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="hover:text-indigo-600 dir-ltr font-mono font-semibold transition-colors"
+              >
+                ble.ir/40GATES
               </a>
             </li>
             <li className="flex items-center gap-2.5">

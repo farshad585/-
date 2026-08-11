@@ -72,36 +72,33 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div className="relative group h-full">
-      {/* Outer offset frame */}
-      <div className="absolute -inset-1.5 border border-indigo-200 translate-x-1 translate-y-1 -z-10 group-hover:translate-x-2 group-hover:translate-y-2 transition-all duration-300 rounded-xl" />
-      
       <motion.div
         whileHover={{ y: -4 }}
         transition={{ duration: 0.2 }}
         onClick={handleCardClick}
-        className="bg-white rounded-xl overflow-hidden cursor-pointer border border-indigo-100 hover:border-purple-300 transition-all flex flex-col h-full relative shadow-xs hover:shadow-md"
+        className="bg-white rounded-2xl overflow-hidden cursor-pointer border border-[#EEEAF9] hover:border-[#8175CC] transition-all flex flex-col h-full relative shadow-xs hover:shadow-md"
       >
         {/* Discount Badge */}
         {discountPercent > 0 && (
-          <span className="absolute top-3 right-3 z-10 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full shadow-sm">
+          <span className="absolute top-3 right-3 z-10 bg-[#6557B8] text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full shadow-xs">
             {discountPercent.toLocaleString('fa-IR')}٪ تخفیف
           </span>
         )}
 
         {/* Stock warning */}
         {product.stock > 0 && product.stock <= 5 && (
-          <span className="absolute top-3 left-3 z-10 bg-red-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold shadow-xs">
+          <span className="absolute top-3 left-3 z-10 bg-amber-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold shadow-xs">
             فقط {product.stock.toLocaleString('fa-IR')} عدد باقی مانده!
           </span>
         )}
         {product.stock === 0 && (
-          <span className="absolute top-3 left-3 z-10 bg-slate-700 text-slate-200 text-[9px] px-2 py-0.5 rounded-full font-medium">
+          <span className="absolute top-3 left-3 z-10 bg-slate-600 text-slate-100 text-[9px] px-2 py-0.5 rounded-full font-medium">
             ناموجود
           </span>
         )}
 
         {/* Image Container with Hover zoom */}
-        <div className="relative aspect-3/4 overflow-hidden bg-slate-100 border-b border-slate-100">
+        <div className="relative aspect-3/4 overflow-hidden bg-[#F7F5FC] border-b border-[#EEEAF9]">
           <img
             src={product.images[0]}
             alt={product.title}
@@ -110,10 +107,10 @@ export default function ProductCard({ product }: ProductCardProps) {
             referrerPolicy="no-referrer"
           />
           {/* Hover action overlay */}
-          <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 backdrop-blur-xs">
+          <div className="absolute inset-0 bg-[#25243A]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 backdrop-blur-xs">
             <button
               onClick={(e) => { e.stopPropagation(); handleCardClick(); }}
-              className="p-2.5 bg-white hover:bg-indigo-600 hover:text-white rounded-full text-slate-800 transition-colors shadow-md"
+              className="p-2.5 bg-white hover:bg-[#6557B8] hover:text-white rounded-full text-[#25243A] transition-colors shadow-md"
               title="مشاهده جزئیات"
             >
               <Eye size={16} />
@@ -121,7 +118,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             {product.stock > 0 && (
               <button
                 onClick={handleQuickAdd}
-                className="p-2.5 bg-white hover:bg-indigo-600 hover:text-white rounded-full text-slate-800 transition-colors shadow-md"
+                className="p-2.5 bg-white hover:bg-[#6557B8] hover:text-white rounded-full text-[#25243A] transition-colors shadow-md"
                 title="افزودن سریع به سبد"
               >
                 <ShoppingCart size={16} />
@@ -139,46 +136,46 @@ export default function ProductCard({ product }: ProductCardProps) {
                 {getTypeLabel(product.type)}
               </span>
               <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                <span className="text-[10px] text-amber-900 font-mono font-bold">{product.rating.toLocaleString('fa-IR')}</span>
-                <Star size={10} className="fill-amber-400 text-amber-500" />
+                <span className="text-[10px] text-[#25243A] font-mono font-bold">{product.rating.toLocaleString('fa-IR')}</span>
+                <Star size={10} className="fill-[#D49B27] text-[#D49B27]" />
               </div>
             </div>
 
             {/* Title */}
-            <h3 className="text-xs font-bold text-slate-900 leading-relaxed line-clamp-2 group-hover:text-indigo-600 transition-colors mb-1">
+            <h3 className="text-xs font-bold text-[#25243A] leading-relaxed line-clamp-2 group-hover:text-[#6557B8] transition-colors mb-1">
               {product.title}
             </h3>
 
             {/* English Subtitle */}
-            <p className="text-[9px] font-mono text-slate-400 uppercase tracking-wider truncate mb-2">
+            <p className="text-[9px] font-mono text-[#6D6A7C] uppercase tracking-wider truncate mb-2">
               {product.englishTitle}
             </p>
 
             {/* Short description */}
-            <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">
+            <p className="text-[10px] text-[#6D6A7C] line-clamp-2 leading-relaxed">
               {product.shortDescription}
             </p>
           </div>
 
           {/* Pricing & Cart Action Row */}
-          <div className="border-t border-slate-100 pt-3 flex justify-between items-center mt-auto">
+          <div className="border-t border-[#EEEAF9] pt-3 flex justify-between items-center mt-auto">
             {/* Prices */}
             <div className="flex flex-col">
               {isOutOfStock ? (
-                <span className="text-xs font-bold text-slate-500 font-sans">
+                <span className="text-xs font-bold text-[#6D6A7C] font-sans">
                   ۰ تومان
                 </span>
               ) : product.salePrice ? (
                 <>
-                  <span className="text-[10px] text-slate-400 line-through font-mono">
+                  <span className="text-[10px] text-[#6D6A7C] line-through font-mono">
                     {formatPrice(product.price)}
                   </span>
-                  <span className="text-xs font-bold text-indigo-700 font-sans">
+                  <span className="text-xs font-bold text-[#6557B8] font-sans">
                     {formatPrice(product.salePrice)}
                   </span>
                 </>
               ) : (
-                <span className="text-xs font-bold text-slate-900 font-sans">
+                <span className="text-xs font-bold text-[#25243A] font-sans">
                   {formatPrice(product.price)}
                 </span>
               )}
@@ -190,23 +187,23 @@ export default function ProductCard({ product }: ProductCardProps) {
                 onClick={handleWishlistClick}
                 className={`p-1.5 rounded-lg transition-colors border ${
                   isWishlisted 
-                    ? 'bg-purple-100 text-purple-700 border-purple-300' 
-                    : 'bg-slate-100 text-slate-400 hover:text-indigo-600 border-transparent'
+                    ? 'bg-[#EEEAF9] text-[#6557B8] border-[#8175CC]' 
+                    : 'bg-[#F7F5FC] text-[#6D6A7C] hover:text-[#6557B8] border-transparent'
                 }`}
                 title={isWishlisted ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"}
               >
-                <Heart size={13} className={isWishlisted ? 'fill-purple-600 text-purple-600' : ''} />
+                <Heart size={13} className={isWishlisted ? 'fill-[#6557B8] text-[#6557B8]' : ''} />
               </button>
               
               {product.stock > 0 && (
                 <button
                   onClick={handleQuickAdd}
                   disabled={isAdding}
-                  className="p-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-600 hover:text-white rounded-lg transition-all disabled:opacity-80 cursor-pointer"
+                  className="p-1.5 bg-[#EEEAF9] text-[#6557B8] border border-[#DCD5F3] hover:bg-[#6557B8] hover:text-white rounded-lg transition-all disabled:opacity-80 cursor-pointer"
                   title="خرید"
                 >
                   {isAdding ? (
-                    <Loader2 size={13} className="animate-spin text-indigo-600" />
+                    <Loader2 size={13} className="animate-spin text-[#6557B8]" />
                   ) : (
                     <ShoppingCart size={13} />
                   )}

@@ -4,7 +4,8 @@ import fs from 'fs';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { createServer as createViteServer } from 'vite';
+import { generateSecret, generateURI, verifySync } from 'otplib';
+import QRCode from 'qrcode';
 
 const app = express();
 const PORT = 3000;
@@ -120,9 +121,9 @@ async function sendMailSafely(
         tls: {
           rejectUnauthorized: false
         },
-        connectionTimeout: 8000,
-        greetingTimeout: 8000,
-        socketTimeout: 9000,
+        connectionTimeout: 3500,
+        greetingTimeout: 3500,
+        socketTimeout: 4000,
       });
 
       return await transporter.sendMail({
@@ -134,10 +135,11 @@ async function sendMailSafely(
     try {
       let info;
       try {
-        info = await trySendWithTransporter(465, true);
-      } catch (sslErr: any) {
-        console.warn(`⚠️ [SMTP SSL 465 failed, trying 587 STARTTLS...]`, sslErr?.message);
+        // Try Port 587 with STARTTLS first (faster and standard for serverless)
         info = await trySendWithTransporter(587, false);
+      } catch (tlsErr: any) {
+        console.warn(`⚠️ [SMTP 587 STARTTLS failed, trying 465 SSL fallback...]`, tlsErr?.message);
+        info = await trySendWithTransporter(465, true);
       }
 
       console.log(`✅ [EMAIL SENT SUCCESSFULLY] To: ${to} | Subject: ${subject}`);
@@ -239,6 +241,77 @@ function getAdminConfig() {
   const adminEmail = (process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim();
   const adminPassword = (process.env.ADMIN_PASSWORD || '40gates1403').trim();
   return { adminEmail, adminPassword };
+}
+
+// Server-side TOTP Secret Management and Temp Token Helper Functions
+let runtimeTotpSecret = (process.env.ADMIN_TOTP_SECRET || '').trim();
+
+async function getStoredTotpSecret(): Promise<{ secret: string; isSetup: boolean }> {
+  if (runtimeTotpSecret) {
+    return { secret: runtimeTotpSecret, isSetup: true };
+  }
+
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      const { data } = await client.from('site_settings').select('value').eq('id', 'admin_totp_config').single();
+      if (data && data.value && data.value.secret) {
+        runtimeTotpSecret = String(data.value.secret).trim();
+        return { secret: runtimeTotpSecret, isSetup: data.value.isSetup !== false };
+      }
+    } catch (e) {
+      console.warn('Could not read admin_totp_config from Supabase:', e);
+    }
+  }
+
+  return { secret: '', isSetup: false };
+}
+
+async function saveTotpSecret(secret: string, isSetup: boolean = true) {
+  runtimeTotpSecret = secret;
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      await client.from('site_settings').upsert({
+        id: 'admin_totp_config',
+        value: {
+          secret,
+          isSetup,
+          updatedAt: new Date().toISOString()
+        }
+      });
+    } catch (e) {
+      console.warn('Could not save admin_totp_config to Supabase:', e);
+    }
+  }
+}
+
+function createTempTotpToken(email: string, tempSecret: string, requireSetup: boolean): string {
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+  const payloadStr = JSON.stringify({ email, tempSecret, requireSetup, expiresAt });
+  const b64Payload = Buffer.from(payloadStr).toString('base64url');
+  const hmac = crypto.createHmac('sha256', ADMIN_SECRET).update(b64Payload).digest('hex');
+  return `tmp_${b64Payload}_${hmac}`;
+}
+
+function verifyTempTotpToken(token: string): { valid: boolean; payload?: { email: string; tempSecret: string; requireSetup: boolean; expiresAt: number } } {
+  if (!token || typeof token !== 'string' || !token.startsWith('tmp_')) return { valid: false };
+  try {
+    const parts = token.split('_');
+    if (parts.length !== 3) return { valid: false };
+    const b64Payload = parts[1];
+    const signature = parts[2];
+    const expectedHmac = crypto.createHmac('sha256', ADMIN_SECRET).update(b64Payload).digest('hex');
+    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedHmac))) {
+      return { valid: false };
+    }
+    const payloadStr = Buffer.from(b64Payload, 'base64url').toString('utf-8');
+    const payload = JSON.parse(payloadStr);
+    if (Date.now() > payload.expiresAt) return { valid: false };
+    return { valid: true, payload };
+  } catch (e) {
+    return { valid: false };
+  }
 }
 
 // Global Memory Stores for Orders and Registered Users
@@ -562,9 +635,9 @@ app.post('/api/orders', async (req, res) => {
         }
       }
 
-      // Send order notification email asynchronously in background
+      // Send order notification email
       const adminEmail = runtimeSmtpConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
-      sendMailSafely({
+      await sendMailSafely({
         to: custEmail || adminEmail,
         subject: `🛒 ثبت سفارش جدید #${order.id} - آکادمی ۴۰ دروازه`,
         html: `
@@ -575,7 +648,7 @@ app.post('/api/orders', async (req, res) => {
             <p><strong>مبلغ کل:</strong> ${(order.totalAmount || 0).toLocaleString('fa-IR')} تومان</p>
           </div>
         `
-      }, 'order-created').catch(err => console.warn('Order email warn:', err));
+      }, 'order-created');
     }
     res.json({ success: true, orders: serverOrdersStore });
   } catch (e: any) {
@@ -604,7 +677,7 @@ app.get('/api/users', (req, res) => {
   res.json({ success: true, users: registeredUsersStore });
 });
 
-app.post('/api/users/register', (req, res) => {
+app.post('/api/users/register', async (req, res) => {
   try {
     const { fullName, email, phone } = req.body;
     if (email) {
@@ -623,9 +696,9 @@ app.post('/api/users/register', (req, res) => {
         };
         registeredUsersStore.unshift(newUser);
 
-        // Notify site admin about new registration asynchronously
+        // Notify site admin about new registration
         const adminEmail = runtimeSmtpConfig.adminEmail || process.env.ADMIN_EMAIL || process.env.GMAIL_USER || '40gates.main@gmail.com';
-        sendMailSafely({
+        await sendMailSafely({
           to: adminEmail,
           subject: `👤 ثبت‌نام کاربر جدید: ${newUser.fullName} (${newUser.email})`,
           html: `
@@ -637,7 +710,7 @@ app.post('/api/users/register', (req, res) => {
               <p><strong>تاریخ ثبت:</strong> ${newUser.faDate}</p>
             </div>
           `
-        }, 'user-register-admin-notify').catch(err => console.warn('Admin user register notify warning:', err));
+        }, 'user-register-admin-notify');
       }
     }
     res.json({ success: true, users: registeredUsersStore });
@@ -646,7 +719,7 @@ app.post('/api/users/register', (req, res) => {
   }
 });
 
-// Admin Auth Step 1: Login Check & OTP Dispatch
+// Admin Auth Step 1: Login Check & TOTP Initialization
 app.post('/api/admin/login', async (req, res) => {
   try {
     if (Date.now() < adminSecurityState.lockedUntil) {
@@ -696,55 +769,45 @@ app.post('/api/admin/login', async (req, res) => {
       });
     }
 
-    // Credentials match! Reset failed attempt counter and send 6-digit OTP
+    // Credentials match! Reset failed password attempt counter
     adminSecurityState.failedPasswordCount = 0;
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    adminSecurityState.activeOtp = {
-      code: otpCode,
-      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes validity
-      failedOtpCount: 0
-    };
 
-    const otpHtml = `
-      <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #0f172a; padding: 30px; color: #f8fafc;">
-        <div style="max-width: 500px; margin: 0 auto; background-color: #1e293b; border-radius: 16px; padding: 25px; border: 1px solid #334155; text-align: center;">
-          <h2 style="color: #fbbf24; margin-top: 0;">🔑 کد یک‌بار مصرف ورود مدیر</h2>
-          <p style="font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-            درخواست ورود به پنل مدیریت آکادمی ۴۰ دروازه ثبت شده است. کد تایید زیر را وارد کنید:
-          </p>
-          <div style="background-color: #0f172a; border: 2px dashed #6366f1; border-radius: 12px; padding: 15px; margin: 20px 0; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #818cf8;">
-            ${otpCode}
-          </div>
-          <p style="font-size: 11px; color: #94a3b8; margin-bottom: 0;">
-            ⏳ این کد فقط به مدت <strong>۱۰ دقیقه</strong> معتبر است.
-          </p>
-        </div>
-      </div>
-    `;
+    const { secret, isSetup } = await getStoredTotpSecret();
 
-    const otpEmailResult = await sendMailSafely({
-      to: adminEmail,
-      subject: `🔑 کد یک‌بار مصرف ورود به پنل مدیریت: ${otpCode}`,
-      html: otpHtml,
-    }, 'admin-otp');
+    if (isSetup && secret) {
+      // 2FA is already configured! Generate short-lived temporary token for step 2
+      const tempToken = createTempTotpToken(adminEmail, '', false);
+      return res.json({
+        success: true,
+        require2faSetup: false,
+        tempToken,
+        message: 'کد ۶ رقمی نرم‌افزار Google Authenticator یا Microsoft Authenticator خود را وارد نمایید.'
+      });
+    } else {
+      // First-time 2FA Setup Flow: Generate a unique secret and QR code
+      const newSecret = generateSecret();
+      const otpauthUrl = generateURI({ issuer: '40Gates Academy', label: adminEmail, secret: newSecret });
+      const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
+      const tempToken = createTempTotpToken(adminEmail, newSecret, true);
 
-    return res.json({
-      success: true,
-      message: otpEmailResult.status === 'sent'
-        ? `کد ۶ رقمی یک‌بار مصرف به ایمیل مدیر (${adminEmail}) ارسال گردید.`
-        : `کد ۶ رقمی یک‌بار مصرف صادر شد. (کد آزمایشی جهت ورود: ${otpCode})`,
-      emailSentTo: adminEmail,
-      debugOtp: otpEmailResult.status !== 'sent' ? otpCode : undefined
-    });
+      return res.json({
+        success: true,
+        require2faSetup: true,
+        tempToken,
+        qrCodeUrl,
+        secretKey: newSecret,
+        message: 'برای اولین ورود، تصویر QR کد زیر را با نرم‌افزار Google Authenticator یا Microsoft Authenticator اسکن کنید.'
+      });
+    }
 
   } catch (err: any) {
     console.error('Admin login error:', err);
-    return res.status(500).json({ success: false, error: 'خطا در ارسال کد تایید یک‌بار مصرف' });
+    return res.status(500).json({ success: false, error: 'خطا در فرآیند احراز هویت اولیه مدیر' });
   }
 });
 
-// Admin Auth Step 2: Verify OTP
-app.post('/api/admin/verify-otp', async (req, res) => {
+// Admin Auth Step 2: Verify TOTP Code (supports /api/admin/verify-totp and /api/admin/verify-otp)
+const handleVerifyTotpHandler = async (req: express.Request, res: express.Response) => {
   try {
     if (Date.now() < adminSecurityState.lockedUntil) {
       const remainingMinutes = Math.ceil((adminSecurityState.lockedUntil - Date.now()) / 60000);
@@ -754,23 +817,45 @@ app.post('/api/admin/verify-otp', async (req, res) => {
       });
     }
 
-    const { code } = req.body;
+    const { tempToken, code } = req.body;
     const { adminEmail } = getAdminConfig();
     const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || '127.0.0.1').split(',')[0].trim();
 
-    const isRealSmtp = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
-    const inputCode = (code || '').trim();
+    const verifiedTemp = verifyTempTotpToken(tempToken);
+    if (!verifiedTemp.valid || !verifiedTemp.payload) {
+      return res.status(401).json({
+        success: false,
+        error: 'نشست زمان‌دار ورود منقضی شده یا معتبر نیست. لطفاً مجدداً ایمیل و رمز عبور را وارد نمایید.'
+      });
+    }
 
-    const matchesActiveOtp = adminSecurityState.activeOtp &&
-                             Date.now() < adminSecurityState.activeOtp.expiresAt &&
-                             inputCode === adminSecurityState.activeOtp.code;
-    const isValidOtpCode = !!matchesActiveOtp;
+    const { tempSecret, requireSetup } = verifiedTemp.payload;
+    const inputCode = (code || '').toString().trim().replace(/\s+/g, '');
 
-    if (!isValidOtpCode) {
-      if (adminSecurityState.activeOtp) {
-        adminSecurityState.activeOtp.failedOtpCount += 1;
-      }
+    if (!inputCode || inputCode.length !== 6 || !/^\d{6}$/.test(inputCode)) {
+      return res.status(400).json({
+        success: false,
+        error: 'لطفاً کد ۶ رقمی را به طور کامل وارد کنید.'
+      });
+    }
 
+    let secretToVerify = tempSecret;
+    if (!requireSetup) {
+      const stored = await getStoredTotpSecret();
+      secretToVerify = stored.secret;
+    }
+
+    if (!secretToVerify) {
+      return res.status(400).json({
+        success: false,
+        error: 'کلید احراز هویت یافت نشد. لطفاً مجدداً تلاش کنید.'
+      });
+    }
+
+    const checkResult = verifySync({ token: inputCode, secret: secretToVerify, epochTolerance: 30 });
+    const isValidCode = checkResult && checkResult.valid === true;
+
+    if (!isValidCode) {
       adminSecurityState.loginLogs.unshift({
         id: 'LOG-' + Date.now(),
         timestamp: new Date().toISOString(),
@@ -782,23 +867,18 @@ app.post('/api/admin/verify-otp', async (req, res) => {
         userAgent: req.headers['user-agent']
       });
 
-      if (adminSecurityState.activeOtp && adminSecurityState.activeOtp.failedOtpCount >= 5) {
-        adminSecurityState.lockedUntil = Date.now() + 15 * 60 * 1000;
-        adminSecurityState.activeOtp = null;
-        return res.status(429).json({
-          success: false,
-          error: 'تعداد ۵ کد اشتباه وارد شد. ورود به پنل مدیریت به مدت ۱۵ دقیقه مسدود گردید.'
-        });
-      }
-
       return res.status(401).json({
         success: false,
-        error: 'کد تایید یک‌بار مصرف اشتباه است.'
+        error: 'کد ۶ رقمی نرم‌افزار Authenticator اشتباه است. لطفاً کد جدید نمایش داده شده در اپلیکیشن را وارد کنید.'
       });
     }
 
-    // OTP Correct! Create session token and log success
-    adminSecurityState.activeOtp = null;
+    // Code is VALID!
+    if (requireSetup) {
+      // Save secret permanently
+      await saveTotpSecret(tempSecret, true);
+    }
+
     adminSecurityState.failedPasswordCount = 0;
 
     const token = generateAdminToken(adminEmail);
@@ -824,12 +904,30 @@ app.post('/api/admin/verify-otp', async (req, res) => {
       success: true,
       token,
       admin: { email: adminEmail },
-      message: 'احراز هویت دومرحله‌ای با موفقیت تایید شد.'
+      message: requireSetup 
+        ? 'احراز هویت دو عاملی با موفقیت راه‌اندازی و وارد شدید.' 
+        : 'ورود به پنل مدیریت با موفقیت انجام شد.'
     });
 
   } catch (err: any) {
-    console.error('Verify OTP error:', err);
-    return res.status(500).json({ success: false, error: 'خطا در بررسی کد تایید' });
+    console.error('Verify TOTP error:', err);
+    return res.status(500).json({ success: false, error: 'خطا در بررسی کد احراز هویت دو عاملی' });
+  }
+};
+
+app.post('/api/admin/verify-totp', handleVerifyTotpHandler);
+app.post('/api/admin/verify-otp', handleVerifyTotpHandler);
+
+// Admin Auth: Reset TOTP 2FA secret
+app.post('/api/admin/reset-totp', requireAdminAuth, async (req, res) => {
+  try {
+    await saveTotpSecret('', false);
+    return res.json({
+      success: true,
+      message: 'تنظیمات احراز هویت دو عاملی (TOTP) بازنشانی گردید. در ورود بعدی می‌توانید QR کد جدیدی را اسکن کنید.'
+    });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: 'خطا در بازنشانی تنظیمات 2FA' });
   }
 });
 
@@ -937,7 +1035,7 @@ app.post('/api/contact', async (req, res) => {
     const siteEmail = process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
 
     // 1. Send notification email to site owner
-    sendMailSafely({
+    await sendMailSafely({
       to: siteEmail,
       subject: `💬 پیام جدید از فرم تماس: ${name.trim()} (${newMessage.id})`,
       html: `
@@ -964,7 +1062,7 @@ app.post('/api/contact', async (req, res) => {
           </div>
         </div>
       `
-    }, 'contact-admin-notify').catch(err => console.warn('Contact admin notify warning:', err));
+    }, 'contact-admin-notify');
 
     // 2. Send auto-reply confirmation email to the user
     const userHtml = `
@@ -1008,11 +1106,11 @@ app.post('/api/contact', async (req, res) => {
       </div>
     `;
 
-    sendMailSafely({
+    await sendMailSafely({
       to: email.trim(),
       subject: `✨ دریافت پیام شما در آکادمی ۴۰ دروازه (کد تیکت: ${newMessage.id})`,
       html: userHtml
-    }, 'contact-user-autoreply').catch(err => console.warn('Contact user autoreply warning:', err));
+    }, 'contact-user-autoreply');
 
     return res.json({ 
       success: true, 
@@ -1469,6 +1567,7 @@ app.post('/api/email/order-status', async (req, res) => {
 
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',

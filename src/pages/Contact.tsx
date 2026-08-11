@@ -13,6 +13,7 @@ import {
   Clock, 
   Send, 
   MessageSquare, 
+  MessageCircle,
   ChevronRight,
   Instagram,
   Youtube,
@@ -130,6 +131,21 @@ export default function Contact() {
                     className="text-indigo-600 hover:underline font-mono font-bold block dir-ltr text-right"
                   >
                     t.me/OMEGA585
+                  </a>
+                </div>
+              </li>
+
+              <li className="flex gap-3 items-start">
+                <MessageCircle size={20} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="block text-slate-900 font-bold">کانال رسمی در پیام‌رسان بله:</span>
+                  <a 
+                    href="https://ble.ir/40GATES" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-indigo-600 hover:underline font-mono font-bold block dir-ltr text-right"
+                  >
+                    ble.ir/40GATES
                   </a>
                 </div>
               </li>
