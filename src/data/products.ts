@@ -2,16 +2,16 @@ import { Product, Review } from '../types';
 import { ALL_REVIEWS } from './reviewsData';
 
 // Printed 40 Gates 1..10
-import book40GatesImg1 from '../assets/images/کتاب چاپی چهل دروازه به ماورا1.jpg';
-import book40GatesImg2 from '../assets/images/کتاب چاپی چهل دروازه به ماورا2.jpg';
-import book40GatesImg3 from '../assets/images/کتاب چاپی چهل دروازه به ماورا3.jpg';
-import book40GatesImg4 from '../assets/images/کتاب چاپی چهل دروازه به ماورا4.jpg';
-import book40GatesImg5 from '../assets/images/کتاب چاپی چهل دروازه به ماورا5.jpg';
-import book40GatesImg6 from '../assets/images/کتاب چاپی چهل دروازه به ماورا6.jpg';
-import book40GatesImg7 from '../assets/images/کتاب چاپی چهل دروازه به ماورا7.jpg';
-import book40GatesImg8 from '../assets/images/کتاب چاپی چهل دروازه به ماورا8.jpg';
-import book40GatesImg9 from '../assets/images/کتاب چاپی چهل دروازه به ماورا9.jpg';
-import book40GatesImg10 from '../assets/images/کتاب چاپی چهل دروازه به ماورا10.jpg';
+import book40GatesImg1 from '../assets/images/book_40gates_print_1.jpg';
+import book40GatesImg2 from '../assets/images/book_40gates_print_2.jpg';
+import book40GatesImg3 from '../assets/images/book_40gates_print_3.jpg';
+import book40GatesImg4 from '../assets/images/book_40gates_print_4.jpg';
+import book40GatesImg5 from '../assets/images/book_40gates_print_5.jpg';
+import book40GatesImg6 from '../assets/images/book_40gates_print_6.jpg';
+import book40GatesImg7 from '../assets/images/book_40gates_print_7.jpg';
+import book40GatesImg8 from '../assets/images/book_40gates_print_8.jpg';
+import book40GatesImg9 from '../assets/images/book_40gates_print_9.jpg';
+import book40GatesImg10 from '../assets/images/book_40gates_print_10.jpg';
 
 // PDF 01..04
 import pdf01 from '../assets/images/01.jpg';
@@ -20,37 +20,37 @@ import pdf03 from '../assets/images/03.jpg';
 import pdf04 from '../assets/images/04.jpg';
 
 // Daneshkhand
-import daneshkhand1 from '../assets/images/دانشخند1.jpg';
-import daneshkhand2 from '../assets/images/دانشخند2.jpg';
+import daneshkhand1 from '../assets/images/daneshkhand_1.jpg';
+import daneshkhand2 from '../assets/images/daneshkhand_2.jpg';
 
 // Farasou
-import farasou1 from '../assets/images/فراسو1.jpg';
-import farasou2 from '../assets/images/فراسو2.jpeg';
-import farasou3 from '../assets/images/فراسو3.jpg';
-import farasou4 from '../assets/images/فراسو4.jpg';
+import farasou1 from '../assets/images/farasou_1.jpg';
+import farasou2 from '../assets/images/farasou_2.jpeg';
+import farasou3 from '../assets/images/farasou_3.jpg';
+import farasou4 from '../assets/images/farasou_4.jpg';
 
 // Aferidegar
-import aferidegar1 from '../assets/images/آفریدگار1.jpg';
-import aferidegar2 from '../assets/images/آفریدگار2.jpg';
+import aferidegar1 from '../assets/images/aferidegar_1.jpg';
+import aferidegar2 from '../assets/images/aferidegar_2.jpg';
 
 // Asrar
-import asrar1 from '../assets/images/اسرار1.jpg';
-import asrar2 from '../assets/images/اسرار2.jpg';
+import asrar1 from '../assets/images/asrar_1.jpg';
+import asrar2 from '../assets/images/asrar_2.jpg';
 
 // Roman
-import roman1 from '../assets/images/رمان1.jpg';
-import roman2 from '../assets/images/رمان2.jpg';
-import roman3 from '../assets/images/رمان3.png';
-import roman4 from '../assets/images/رمان4.jpg';
-import roman5 from '../assets/images/رمان5.png';
+import roman1 from '../assets/images/roman_1.jpg';
+import roman2 from '../assets/images/roman_2.jpg';
+import roman3 from '../assets/images/roman_3.png';
+import roman4 from '../assets/images/roman_4.jpg';
+import roman5 from '../assets/images/roman_5.png';
 
 // Behesht
-import behesht1 from '../assets/images/بهشت1.jpg';
-import behesht2 from '../assets/images/بهشت2.jpg';
+import behesht1 from '../assets/images/behesht_1.jpg';
+import behesht2 from '../assets/images/behesht_2.jpg';
 
 // Cheshm
-import cheshm1 from '../assets/images/چشم1.jpeg';
-import cheshm2 from '../assets/images/چشم2.jpeg';
+import cheshm1 from '../assets/images/cheshm_1.jpeg';
+import cheshm2 from '../assets/images/cheshm_2.jpeg';
 
 // Generated Mystical Images
 import audioCourse3Img from '../assets/images/audio_forty_gates_3_1785042999228.jpg';

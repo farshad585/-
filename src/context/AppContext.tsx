@@ -271,21 +271,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setCurrentPage = (page: string) => {
     setCurrentPageReal(page);
     if (page === 'admin') {
-      window.history.pushState(null, '', '/admin');
-      window.location.hash = 'admin';
+      window.history.pushState(null, '', '/admin#admin');
     } else {
-      window.location.hash = page;
+      if (window.location.pathname === '/admin') {
+        window.history.pushState(null, '', '/' + (page === 'home' ? '' : '#' + page));
+      } else {
+        window.location.hash = page === 'home' ? '' : page;
+      }
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   useEffect(() => {
     const handleHashChange = () => {
-      if (window.location.pathname === '/admin' || window.location.hash === '#admin') {
+      const hash = window.location.hash.replace('#', '');
+      if (hash === 'admin' || (window.location.pathname === '/admin' && (!hash || hash === 'admin'))) {
         setCurrentPageReal('admin');
         return;
       }
-      const hash = window.location.hash.replace('#', '');
       if (hash) {
         // Parse simple sub-arguments
         if (hash.startsWith('product/')) {

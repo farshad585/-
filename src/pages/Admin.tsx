@@ -2283,9 +2283,9 @@ export default function Admin() {
                     </p>
 
                     <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-[11px] text-indigo-300 space-y-1 dir-ltr text-left">
-                      <p>ADMIN_EMAIL=fmfarshad585@gmail.com</p>
-                      <p>ADMIN_PASSWORD=Admin40Gates!2026</p>
-                      <p>GMAIL_USER=fmfarshad585@gmail.com</p>
+                      <p>ADMIN_EMAIL=your-email@example.com</p>
+                      <p>ADMIN_PASSWORD=••••••••••••••••</p>
+                      <p>GMAIL_USER=your-email@gmail.com</p>
                       <p>GMAIL_APP_PASSWORD=••••••••••••••••</p>
                     </div>
 

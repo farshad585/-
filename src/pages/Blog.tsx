@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext';
 import { BLOG_ARTICLES } from '../data/blog';
 import { BlogArticle } from '../types';
 import SEO from '../components/SEO';
+import ArticleContentRenderer from '../components/ArticleContentRenderer';
 import { 
   BookOpen, 
   Clock, 
@@ -219,31 +220,10 @@ export default function Blog() {
           </h1>
 
           {/* Content Body formatted elegantly */}
-          <div className="prose prose-slate max-w-none text-xs md:text-sm leading-relaxed text-slate-700 space-y-6 text-justify">
-            {activeArticle.content.split('\n\n').map((paragraph, index) => {
-              if (paragraph.startsWith('###')) {
-                return (
-                  <h3 key={index} className="text-sm font-extrabold text-slate-900 mt-8 mb-4 border-r-4 border-indigo-600 pr-3">
-                    {paragraph.replace('###', '').trim()}
-                  </h3>
-                );
-              }
-              if (paragraph.startsWith('1.') || paragraph.startsWith('**')) {
-                return (
-                  <div key={index} className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 my-4">
-                    <p className="text-xs leading-normal text-indigo-950 font-medium">
-                      {renderFormattedText(paragraph, setSelectedArticleId)}
-                    </p>
-                  </div>
-                );
-              }
-              return (
-                <p key={index} className="leading-relaxed">
-                  {renderFormattedText(paragraph, setSelectedArticleId)}
-                </p>
-              );
-            })}
-          </div>
+          <ArticleContentRenderer 
+            content={activeArticle.content} 
+            onSelectArticle={setSelectedArticleId} 
+          />
 
           {/* Social share & bookmark panel */}
           <div className="flex justify-between items-center pt-8 border-t border-slate-200">

@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import SEO from '../components/SEO';
-import meImg from '../assets/images/من.jpg';
+import meImg from '../assets/images/me_author.jpg';
 import { 
   Mail, 
   Phone, 

@@ -6,29 +6,44 @@
   --font-display: "Playfair Display", serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  --color-brand-primary: #6557B8;
-  --color-brand-secondary: #8175CC;
+  --color-brand-primary: #5243B2;
+  --color-brand-secondary: #7062C4;
   --color-brand-light: #EEEAF9;
   --color-brand-softblue: #EAF2FA;
   --color-brand-bg: #F7F5FC;
-  --color-text-main: #25243A;
-  --color-text-muted: #6D6A7C;
-  --color-brand-gold: #D49B27;
+  --color-text-main: #1E1B4B;
+  --color-text-muted: #475569;
+  --color-brand-gold: #B47818;
 }
 
 @layer base {
   html {
     direction: rtl;
     font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
     scroll-behavior: smooth;
     background-color: #F7F5FC;
-    color: #25243A;
+    color: #1E1B4B;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
     background-color: #F7F5FC;
-    color: #25243A;
+    color: #1E1B4B;
     overflow-x: hidden;
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+
+  /* High contrast focus ring for keyboard navigation & WCAG AA */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid #5243B2 !important;
+    outline-offset: 2px !important;
   }
 
   /* Custom scrollbar matching soothing purple palette */
@@ -39,11 +54,11 @@
     background: #EEEAF9;
   }
   ::-webkit-scrollbar-thumb {
-    background: #8175CC;
+    background: #7062C4;
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #6557B8;
+    background: #5243B2;
   }
 }
 
@@ -60,69 +75,77 @@
   background: #FFFFFF;
   border: 1px solid #EEEAF9;
   border-radius: 16px;
-  box-shadow: 0 4px 16px -2px rgba(37, 36, 58, 0.04);
+  box-shadow: 0 4px 16px -2px rgba(30, 27, 75, 0.05);
   transition: all 0.25s ease-in-out;
 }
 
 .geom-card:hover {
-  border-color: #8175CC;
-  box-shadow: 0 8px 24px -4px rgba(101, 87, 184, 0.08);
+  border-color: #7062C4;
+  box-shadow: 0 8px 24px -4px rgba(82, 67, 178, 0.12);
 }
 
 .geom-button-primary {
-  background-color: #6557B8;
+  background-color: #5243B2;
   color: #FFFFFF;
   font-weight: 700;
-  font-size: 0.875rem;
-  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  padding: 0.85rem 1.65rem;
   border-radius: 12px;
   transition: all 0.2s ease-in-out;
-  box-shadow: 0 4px 14px rgba(101, 87, 184, 0.25);
+  box-shadow: 0 4px 14px rgba(82, 67, 178, 0.28);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .geom-button-primary:hover {
-  background-color: #5446a7;
-  box-shadow: 0 6px 20px rgba(101, 87, 184, 0.35);
+  background-color: #42349A;
+  box-shadow: 0 6px 20px rgba(82, 67, 178, 0.38);
 }
 
 .geom-button-secondary {
   background-color: #EEEAF9;
-  color: #6557B8;
-  font-weight: 600;
-  font-size: 0.875rem;
-  padding: 0.75rem 1.5rem;
-  border: 1px solid #DCD5F3;
+  color: #42349A;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.85rem 1.65rem;
+  border: 1px solid #D1C7F0;
   border-radius: 12px;
   transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .geom-button-secondary:hover {
   background-color: #E3DDF7;
-  border-color: #8175CC;
-  color: #5446a7;
+  border-color: #7062C4;
+  color: #322580;
 }
 
 .text-gold-gradient {
-  color: #D49B27;
+  color: #B47818;
 }
 
 .bg-gold-gradient {
-  background-color: #D49B27;
+  background-color: #B47818;
 }
 
 .border-gold-glow {
-  border-color: #D49B27;
+  border-color: #B47818;
 }
 
 /* Glassmorphism light styles */
 .glass-premium-light {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
   border: 1px solid #EEEAF9;
 }
 
 .glass-premium-dark {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
   border: 1px solid #EEEAF9;
 }
@@ -142,6 +165,7 @@
   display: inline-block;
   animation: blink-lightbulb 1.5s infinite ease-in-out;
 }
+
 
 
 

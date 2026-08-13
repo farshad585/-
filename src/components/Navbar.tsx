@@ -94,11 +94,11 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 h-20 flex justify-between items-center">
           
           {/* Right Section: Mobile Menu Trigger + Brand Logo */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button 
               id="mobile-menu-toggle"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden p-2 text-indigo-600 hover:text-purple-700 transition-colors"
+              className="lg:hidden p-1.5 sm:p-2 text-indigo-600 hover:text-purple-700 transition-colors"
               aria-label="منوی موبایل"
             >
               <Menu size={24} />
@@ -107,9 +107,9 @@ export default function Navbar() {
             {/* Brand Logo & Name */}
             <div 
               onClick={() => setCurrentPage('home')} 
-              className="flex items-center gap-3 cursor-pointer group"
+              className="flex items-center gap-2 sm:gap-3 cursor-pointer group shrink-0"
             >
-              <div className="w-11 h-11 rounded-xl border border-indigo-300 overflow-hidden bg-white p-0.5 transition-transform group-hover:scale-105 flex items-center justify-center shadow-xs">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl border border-indigo-300 overflow-hidden bg-white p-0.5 transition-transform group-hover:scale-105 flex items-center justify-center shadow-xs shrink-0">
                 <img 
                   src={logoIcon} 
                   alt="لوگو چهل دروازه" 
@@ -117,9 +117,9 @@ export default function Navbar() {
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <div className="flex flex-col text-right">
-                <span className="text-xl font-bold tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">چهل دروازه</span>
-                <span className="text-[9px] font-mono tracking-widest text-indigo-600 uppercase font-semibold">Forty Gates</span>
+              <div className="flex flex-col text-right min-w-0">
+                <span className="text-base sm:text-xl font-bold tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors whitespace-nowrap">چهل دروازه</span>
+                <span className="text-[8px] sm:text-[9px] font-mono tracking-widest text-indigo-600 uppercase font-semibold whitespace-nowrap">Forty Gates</span>
               </div>
             </div>
           </div>
