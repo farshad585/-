@@ -34,9 +34,9 @@ import asrar2 from '../assets/images/asrar_2.jpg';
 // Roman
 import roman1 from '../assets/images/roman_1.jpg';
 import roman2 from '../assets/images/roman_2.jpg';
-import roman3 from '../assets/images/roman_3.png';
+import roman3 from '../assets/images/roman_3.jpg';
 import roman4 from '../assets/images/roman_4.jpg';
-import roman5 from '../assets/images/roman_5.png';
+import roman5 from '../assets/images/roman_5.jpg';
 
 // Behesht
 import behesht1 from '../assets/images/behesht_1.jpg';
