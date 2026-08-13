@@ -13,12 +13,6 @@ import book40GatesImg8 from '../assets/images/book_40gates_print_8.jpg';
 import book40GatesImg9 from '../assets/images/book_40gates_print_9.jpg';
 import book40GatesImg10 from '../assets/images/book_40gates_print_10.jpg';
 
-// PDF 01..04
-import pdf01 from '../assets/images/01.jpg';
-import pdf02 from '../assets/images/02.jpg';
-import pdf03 from '../assets/images/03.jpg';
-import pdf04 from '../assets/images/04.jpg';
-
 // Daneshkhand
 import daneshkhand1 from '../assets/images/daneshkhand_1.jpg';
 import daneshkhand2 from '../assets/images/daneshkhand_2.jpg';
@@ -52,7 +46,13 @@ import behesht2 from '../assets/images/behesht_2.jpg';
 import cheshm1 from '../assets/images/cheshm_1.jpeg';
 import cheshm2 from '../assets/images/cheshm_2.jpeg';
 
-// Generated Mystical Images
+// PDF 01..04
+import pdf01 from '../assets/images/01.jpg';
+import pdf02 from '../assets/images/02.jpg';
+import pdf03 from '../assets/images/03.jpg';
+import pdf04 from '../assets/images/04.jpg';
+
+// Audio & Course Images
 import audioCourse3Img from '../assets/images/audio_forty_gates_3_1785042999228.jpg';
 import audioCourse2Img from '../assets/images/audio_forty_gates_2_1785043012034.jpg';
 import audioCourse1Img from '../assets/images/audio_forty_gates_1_1785043024507.jpg';
@@ -222,7 +222,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 809100,
     type: 'printed',
     category: 'books',
-    images: [book40GatesImg6, book40GatesImg5],
+    images: [book40GatesImg1, book40GatesImg6, book40GatesImg5],
     stock: 69,
     rating: 4.9,
     reviewsCount: 88,
@@ -377,7 +377,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 1799100,
     type: 'printed',
     category: 'books',
-    images: [roman1, roman2, roman3, roman4, roman5],
+    images: [roman2, roman3, roman4, roman5],
     stock: 93,
     rating: 5.0,
     reviewsCount: 38,
@@ -422,7 +422,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 38000000,
     type: 'course',
     category: 'courses',
-    images: [masterGoldenCourseImg, book40GatesImg1, book40GatesImg6],
+    images: [masterGoldenCourseImg, book40GatesImg1],
     stock: 25,
     rating: 5.0,
     reviewsCount: 112,
@@ -489,7 +489,7 @@ export const PRODUCTS: Product[] = [
     price: 0,
     type: 'pdf',
     category: 'books',
-    images: [pdf01, book40GatesImg7],
+    images: [pdf01, book40GatesImg1],
     stock: 9999,
     rating: 4.9,
     reviewsCount: 189,
@@ -511,7 +511,7 @@ export const PRODUCTS: Product[] = [
     price: 0,
     type: 'pdf',
     category: 'books',
-    images: [pdf02, book40GatesImg8],
+    images: [pdf02, book40GatesImg2],
     stock: 9999,
     rating: 4.9,
     reviewsCount: 142,
@@ -532,7 +532,7 @@ export const PRODUCTS: Product[] = [
     price: 0,
     type: 'pdf',
     category: 'books',
-    images: [pdf03, book40GatesImg9],
+    images: [pdf03, book40GatesImg3],
     stock: 9999,
     rating: 4.9,
     reviewsCount: 118,
@@ -553,7 +553,7 @@ export const PRODUCTS: Product[] = [
     price: 0,
     type: 'pdf',
     category: 'books',
-    images: [pdf04, book40GatesImg10],
+    images: [pdf04, book40GatesImg4],
     stock: 9999,
     rating: 5.0,
     reviewsCount: 135,

@@ -22,6 +22,9 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
+import desktopHeroImg from '../assets/images/desktop_opt.webp';
+import phoneHeroImg from '../assets/images/phone1_opt.webp';
+
 export default function Home() {
   const { setCurrentPage, setSelectedProductId, products } = useApp();
 
@@ -64,116 +67,234 @@ export default function Home() {
       />
 
       {/* Hero Section */}
-      <section className="relative min-h-[75vh] flex items-center justify-center py-16 px-4 overflow-hidden max-w-7xl mx-auto rounded-3xl border border-[#EEEAF9] mt-3 bg-gradient-to-b from-white via-[#EEEAF9]/40 to-[#F7F5FC] shadow-sm text-slate-900">
+      <section className="relative min-h-[70vh] md:min-h-[75vh] flex flex-col justify-center py-6 md:py-16 px-3 sm:px-4 overflow-hidden max-w-7xl mx-auto rounded-3xl border border-[#EEEAF9] mt-3 bg-gradient-to-b from-white via-[#EEEAF9]/30 to-[#F7F5FC] shadow-sm text-slate-900">
         {/* Soft Ambient Radial Background */}
         <div className="absolute inset-0 pointer-events-none z-0">
           <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#EEEAF9] rounded-full blur-3xl opacity-70" />
           <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[#EAF2FA] rounded-full blur-3xl opacity-80" />
         </div>
         
-        {/* Subtle Background Image with gentle overlay */}
-        <div className="absolute inset-0 z-0 opacity-15">
-          <img 
-            src="/src/assets/images/lucid_dream_hero_1784533457822.jpg" 
-            alt="رویابینی شفاف و کنترل رویا" 
-            className="w-full h-full object-cover"
-            loading="eager"
-            width={1200}
-            height={600}
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#F7F5FC] via-transparent to-white" />
-        </div>
-
-        {/* Hero Content */}
-        <div className="relative z-10 max-w-4xl text-center px-4 space-y-7 my-4">
-          <div className="space-y-3">
-            <div className="flex items-center justify-center gap-3 mb-2">
-              <span className="h-[1px] w-8 bg-[#7062C4]/40"></span>
-              <span className="text-[#5243B2] text-xs uppercase tracking-[0.2em] font-semibold font-mono">مرجع تخصصی رویابینی آگاهانه</span>
-              <span className="h-[1px] w-8 bg-[#7062C4]/40"></span>
-            </div>
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight sm:leading-snug tracking-tight"
-            >
-              <span className="block mb-2">تبدیل شدن به آفریدگار رویا،</span>
-              <span className="block">
-                <span className="text-[#5243B2] font-black">دروازه چهلم</span> خودشناسی
-              </span>
-            </motion.h1>
+        {/* ==================== DESKTOP HERO LAYOUT ==================== */}
+        <div className="hidden md:block relative z-10">
+          {/* Desktop Raw Hero Layer (Gates on Left and Right, Bright Center) */}
+          <div className="absolute inset-0 -m-16 z-0 overflow-hidden pointer-events-none">
+            <img 
+              src={desktopHeroImg} 
+              alt="چهل دروازه آگاهی - نسخه دسکتاپ" 
+              className="w-full h-full object-cover object-center opacity-90"
+              loading="eager"
+              width={1672}
+              height={941}
+            />
+            {/* Gentle soft gradient overlays for center light contrast */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#F7F5FC]/90 via-white/30 to-white/80" />
+            <div className="absolute inset-0 bg-gradient-to-r from-white/30 via-white/50 to-white/30" />
           </div>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
+          {/* Hero Content Desktop */}
+          <div className="relative z-10 max-w-4xl mx-auto text-center px-4 space-y-7 my-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <span className="h-[1px] w-8 bg-[#7062C4]/40"></span>
+                <span className="text-[#5243B2] text-xs uppercase tracking-[0.2em] font-semibold font-mono">مرجع تخصصی رویابینی آگاهانه</span>
+                <span className="h-[1px] w-8 bg-[#7062C4]/40"></span>
+              </div>
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight"
+              >
+                <span className="block mb-2">تبدیل شدن به آفریدگار رویا،</span>
+                <span className="block">
+                  <span className="text-[#5243B2] font-black">دروازه چهلم</span> خودشناسی
+                </span>
+              </motion.h1>
+            </div>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-base text-slate-700 leading-relaxed max-w-2xl mx-auto bg-white/95 backdrop-blur-md p-5 rounded-2xl border border-[#EEEAF9] shadow-xs text-center"
+            >
+              <span className="font-bold text-[#5243B2] block mb-1 text-sm">
+                💬 گپ دوستانه من،{' '}
+                <button 
+                  onClick={() => setCurrentPage('about')}
+                  className="no-underline text-[#5243B2] hover:text-[#42349A] transition-colors font-extrabold cursor-pointer underline underline-offset-4"
+                >
+                  فرشاد میرشکاری
+                </button>
+                {' '}با شما همراهان عزیز:
+              </span>
+              حقیقت اینه که ما هر شب رویا می‌بینیم؛ چه دلمون بخواد، چه نخواد... پس چه بهتر که به جای سرگردان بودن در خواب‌های خسته‌کننده، آستین همت رو بالا بزنیم و از دنیای رویاهامون به بهترین شکل استفاده کنیم! 💖
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="flex justify-center items-center gap-4 pt-2"
+            >
+              <button
+                id="hero-shop-cta"
+                onClick={() => setCurrentPage('shop')}
+                className="bg-[#5243B2] hover:bg-[#42349A] text-white flex items-center justify-center gap-2.5 shadow-md shadow-[#5243B2]/20 text-sm font-bold px-8 py-3.5 rounded-xl transition-all cursor-pointer"
+              >
+                <span>ورود به فروشگاه محصولات</span>
+                <ArrowLeft size={18} />
+              </button>
+              <button
+                id="hero-about-cta"
+                onClick={() => setCurrentPage('blog')}
+                className="bg-[#EEEAF9] hover:bg-[#E3DDF7] text-[#42349A] border border-[#D1C7F0] flex items-center justify-center gap-2.5 text-sm font-bold px-8 py-3.5 rounded-xl transition-all cursor-pointer"
+              >
+                <Compass size={18} className="text-[#7062C4]" />
+                <span>مطالعه مقالات آموزشی</span>
+              </button>
+            </motion.div>
+
+            {/* Quick Stats Grid */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5, duration: 0.8 }}
+              className="grid grid-cols-4 gap-4 max-w-3xl mx-auto pt-8 border-t border-[#EEEAF9] text-center"
+            >
+              <div className="space-y-1 p-2 rounded-xl bg-white/70 backdrop-blur-xs">
+                <span className="block text-2xl font-bold font-display text-[#5243B2]">+۵۰,۰۰۰</span>
+                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">هنرجوی خواب شفاف</span>
+              </div>
+              <div className="space-y-1 p-2 rounded-xl bg-white/70 backdrop-blur-xs">
+                <span className="block text-2xl font-bold font-display text-[#5243B2]">۲۰+</span>
+                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">کتاب، پادکست و پکیج</span>
+              </div>
+              <div className="space-y-1 p-2 rounded-xl bg-white/70 backdrop-blur-xs">
+                <span className="block text-2xl font-bold font-display text-[#5243B2]">۳ ماه</span>
+                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">پشتیبانی اختصاصی</span>
+              </div>
+              <div className="space-y-1 p-2 rounded-xl bg-white/70 backdrop-blur-xs">
+                <span className="block text-2xl font-bold font-display text-[#5243B2]">۱۰۰٪</span>
+                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">تضمین کارایی تکنیک‌ها</span>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+
+        {/* ==================== MOBILE HERO LAYOUT ==================== */}
+        <div className="block md:hidden relative z-10 space-y-4">
+          {/* Top Hero Artwork + Left Title Area */}
+          <div className="relative min-h-[320px] sm:min-h-[360px] rounded-2xl overflow-hidden shadow-2xs border border-[#EEEAF9]">
+            {/* Background phone image (Girl & Gate on Right) */}
+            <img 
+              src={phoneHeroImg} 
+              alt="چهل دروازه آگاهی - نسخه موبایل" 
+              className="absolute inset-0 w-full h-full object-cover object-right opacity-95"
+              loading="eager"
+              width={941}
+              height={1672}
+            />
+            {/* Gradient overlay for contrast on left side */}
+            <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white/50 to-white/95" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#F7F5FC]/80 via-transparent to-transparent" />
+
+            {/* Text Content strictly placed on the LEFT side of the screen */}
+            <div className="absolute left-3.5 xs:left-4 top-0 bottom-0 max-w-[210px] xs:max-w-[230px] flex flex-col justify-center text-right space-y-2.5 z-10">
+              {/* Eyebrow - Single Line as requested */}
+              <div className="flex items-center gap-1.5 justify-start">
+                <span className="h-[1px] w-3.5 bg-[#7062C4]/60 shrink-0"></span>
+                <span className="text-[#5243B2] text-[11px] xs:text-xs font-extrabold whitespace-nowrap">
+                  مرجع تخصصی رویابینی آگاهانه
+                </span>
+              </div>
+
+              {/* Main Heading - Exact 4 lines as requested */}
+              <motion.h1
+                initial={{ opacity: 0, x: -15 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5 }}
+                className="text-lg xs:text-xl sm:text-2xl font-extrabold text-slate-900 leading-[1.3] tracking-tight"
+              >
+                <span className="block">تبدیل شدن به</span>
+                <span className="block">آفریدگار رویا،</span>
+                <span className="block text-[#5243B2] font-black">دروازه چهلم</span>
+                <span className="block">خودشناسی</span>
+              </motion.h1>
+            </div>
+          </div>
+
+          {/* Friendly Chat Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-xs sm:text-sm md:text-base text-slate-700 leading-relaxed max-w-2xl mx-auto bg-white/95 backdrop-blur-md p-5 rounded-2xl border border-[#EEEAF9] shadow-xs text-justify sm:text-center"
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="relative z-10 bg-white/90 backdrop-blur-md rounded-2xl border border-[#EEEAF9] p-4 text-center shadow-xs space-y-2"
           >
-            <span className="font-bold text-[#5243B2] block mb-1">
-              💬 گپ دوستانه من،{' '}
+            <div className="flex items-center justify-center gap-1.5 text-[#5243B2] font-extrabold text-xs sm:text-sm">
+              <span className="text-sm">💬</span>
+              <span>گپ دوستانه من،</span>
               <button 
                 onClick={() => setCurrentPage('about')}
-                className="no-underline text-[#5243B2] hover:text-[#42349A] transition-colors font-extrabold cursor-pointer underline underline-offset-4"
+                className="no-underline text-[#5243B2] font-black underline underline-offset-4 cursor-pointer"
               >
                 فرشاد میرشکاری
               </button>
-              {' '}با شما همراهان عزیز:
-            </span>
-            حقیقت اینه که ما هر شب رویا می‌بینیم؛ چه دلمون بخواد، چه نخواد... پس چه بهتر که به جای سرگردان بودن در خواب‌های خسته‌کننده، آستین همت رو بالا بزنیم و از دنیای رویاهامون یه بهشت شخصی بسازیم! 💖
-          </motion.p>
+              <span>با شما همراهان عزیز:</span>
+            </div>
+            
+            <p className="text-xs text-slate-700 leading-relaxed space-y-1 font-medium">
+              <span className="block">حقیقت اینه که ما هر شب رویا می‌بینیم؛</span>
+              <span className="block">چه دلمون بخواد، چه نخواد...</span>
+              <span className="block">پس چه بهتر که به جای سرگردان بودن در خواب‌های خسته‌کننده، آستین همت رو بالا بزنیم و از دنیای رویاهامون به بهترین شکل استفاده کنیم! 💖</span>
+            </p>
+          </motion.div>
 
+          {/* Full Width Buttons Stack */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-2"
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="relative z-10 space-y-2.5 pt-1"
           >
             <button
-              id="hero-shop-cta"
+              id="hero-shop-cta-mobile"
               onClick={() => setCurrentPage('shop')}
-              className="w-full sm:w-auto bg-[#5243B2] hover:bg-[#42349A] text-white flex items-center justify-center gap-2.5 shadow-md shadow-[#5243B2]/20 text-sm font-bold px-8 py-3.5 rounded-xl transition-all cursor-pointer"
+              className="w-full bg-[#5243B2] active:bg-[#42349A] text-white flex items-center justify-center gap-2 shadow-md shadow-[#5243B2]/20 text-xs sm:text-sm font-bold py-3.5 rounded-xl transition-all cursor-pointer"
             >
               <span>ورود به فروشگاه محصولات</span>
-              <ArrowLeft size={18} />
+              <ArrowLeft size={16} />
             </button>
+
             <button
-              id="hero-about-cta"
+              id="hero-about-cta-mobile"
               onClick={() => setCurrentPage('blog')}
-              className="w-full sm:w-auto bg-[#EEEAF9] hover:bg-[#E3DDF7] text-[#42349A] border border-[#D1C7F0] flex items-center justify-center gap-2.5 text-sm font-bold px-8 py-3.5 rounded-xl transition-all cursor-pointer"
+              className="w-full bg-[#F5F3FF] active:bg-[#ECE8FF] text-[#5243B2] border border-[#DDD6FE] flex items-center justify-center gap-2 text-xs sm:text-sm font-bold py-3.5 rounded-xl transition-all cursor-pointer"
             >
-              <Compass size={18} className="text-[#7062C4]" />
+              <Compass size={16} className="text-[#7062C4]" />
               <span>مطالعه مقالات آموزشی</span>
             </button>
           </motion.div>
 
-          {/* Quick Stats Grid */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5, duration: 0.8 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto pt-8 border-t border-[#EEEAF9] text-center"
-          >
-            <div className="space-y-1 p-2 rounded-xl bg-white/60">
-              <span className="block text-xl md:text-2xl font-bold font-display text-[#5243B2]">+۵۰,۰۰۰</span>
-              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">هنرجوی خواب شفاف</span>
+          {/* Mobile Quick Stats Grid */}
+          <div className="relative z-10 grid grid-cols-2 gap-2 pt-3 border-t border-[#EEEAF9] text-center">
+            <div className="p-2 rounded-xl bg-white/80 backdrop-blur-xs">
+              <span className="block text-base font-bold font-display text-[#5243B2]">+۵۰,۰۰۰</span>
+              <span className="text-[10px] font-bold text-slate-600">هنرجوی خواب شفاف</span>
             </div>
-            <div className="space-y-1 p-2 rounded-xl bg-white/60">
-              <span className="block text-xl md:text-2xl font-bold font-display text-[#5243B2]">۲۰+</span>
-              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">کتاب، پادکست و پکیج</span>
+            <div className="p-2 rounded-xl bg-white/80 backdrop-blur-xs">
+              <span className="block text-base font-bold font-display text-[#5243B2]">۲۰+</span>
+              <span className="text-[10px] font-bold text-slate-600">کتاب، پادکست و پکیج</span>
             </div>
-            <div className="space-y-1 p-2 rounded-xl bg-white/60">
-              <span className="block text-xl md:text-2xl font-bold font-display text-[#5243B2]">۳ ماه</span>
-              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">پشتیبانی اختصاصی</span>
+            <div className="p-2 rounded-xl bg-white/80 backdrop-blur-xs">
+              <span className="block text-base font-bold font-display text-[#5243B2]">۳ ماه</span>
+              <span className="text-[10px] font-bold text-slate-600">پشتیبانی اختصاصی</span>
             </div>
-            <div className="space-y-1 p-2 rounded-xl bg-white/60">
-              <span className="block text-xl md:text-2xl font-bold font-display text-[#5243B2]">۱۰۰٪</span>
-              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">تضمین کارایی تکنیک‌ها</span>
+            <div className="p-2 rounded-xl bg-white/80 backdrop-blur-xs">
+              <span className="block text-base font-bold font-display text-[#5243B2]">۱۰۰٪</span>
+              <span className="text-[10px] font-bold text-slate-600">تضمین کارایی تکنیک‌ها</span>
             </div>
-          </motion.div>
-
+          </div>
         </div>
       </section>
 

@@ -91,30 +91,10 @@ export default function Blog() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('all');
   const [likedArticles, setLikedArticles] = useState<string[]>([]);
-  const [readProgress, setReadProgress] = useState(0);
-
-  // Manage reading progress bar for details page
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!selectedArticleId) return;
-      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-      if (totalHeight > 0) {
-        const progress = (window.scrollY / totalHeight) * 100;
-        setReadProgress(progress);
-      }
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [selectedArticleId]);
 
   // Find active article
   const activeArticle = useMemo(() => {
     return BLOG_ARTICLES.find(a => a.id === selectedArticleId || a.slug === selectedArticleId);
-  }, [selectedArticleId]);
-
-  // Reset progress when closing article
-  useEffect(() => {
-    if (!selectedArticleId) setReadProgress(0);
   }, [selectedArticleId]);
 
   // Extract all unique tags
@@ -167,11 +147,6 @@ export default function Blog() {
           ogType="article"
           ogImage={activeArticle.image}
         />
-
-        {/* Floating reading progress bar */}
-        <div className="fixed top-20 left-0 right-0 h-1 bg-indigo-50 z-50">
-          <div className="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 transition-all duration-75" style={{ width: `${readProgress}%` }} />
-        </div>
 
         {/* Article Container */}
         <article className="max-w-3xl mx-auto px-4 py-8 space-y-8 mb-20 text-right">
