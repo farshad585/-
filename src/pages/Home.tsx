@@ -199,27 +199,28 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white/50 to-white/95" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#F7F5FC]/80 via-transparent to-transparent" />
 
-            {/* Text Content strictly placed on the LEFT side of the screen */}
-            <div className="absolute left-3.5 xs:left-4 top-0 bottom-0 max-w-[210px] xs:max-w-[230px] flex flex-col justify-center text-right space-y-2.5 z-10">
-              {/* Eyebrow - Single Line as requested */}
-              <div className="flex items-center gap-1.5 justify-start">
-                <span className="h-[1px] w-3.5 bg-[#7062C4]/60 shrink-0"></span>
-                <span className="text-[#5243B2] text-[11px] xs:text-xs font-extrabold whitespace-nowrap">
+            {/* Text Content strictly placed on the LEFT side of the screen (Left half) */}
+            <div className="absolute left-3 xs:left-3.5 top-0 bottom-0 w-[52%] sm:w-[48%] max-w-[270px] flex flex-col justify-center text-right space-y-2.5 z-10" dir="rtl">
+              {/* Eyebrow - Single Line with dashes on both sides */}
+              <div className="flex items-center gap-0.5 justify-start">
+                <span className="text-[#5243B2] text-[10px] xs:text-[11px] sm:text-xs font-bold">—</span>
+                <span className="text-[#5243B2] text-[10px] xs:text-[11px] sm:text-xs font-extrabold whitespace-nowrap">
                   مرجع تخصصی رویابینی آگاهانه
                 </span>
+                <span className="text-[#5243B2] text-[10px] xs:text-[11px] sm:text-xs font-bold">—</span>
               </div>
 
-              {/* Main Heading - Exact 4 lines as requested */}
+              {/* Main Heading - Larger size, strictly on the left side */}
               <motion.h1
-                initial={{ opacity: 0, x: -15 }}
+                initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
-                className="text-lg xs:text-xl sm:text-2xl font-extrabold text-slate-900 leading-[1.3] tracking-tight"
+                className="text-xl xs:text-[22px] sm:text-[26px] font-black text-slate-900 leading-[1.25] tracking-tight text-right"
               >
-                <span className="block">تبدیل شدن به</span>
-                <span className="block">آفریدگار رویا،</span>
-                <span className="block text-[#5243B2] font-black">دروازه چهلم</span>
-                <span className="block">خودشناسی</span>
+                <span className="block whitespace-nowrap">تبدیل شدن به</span>
+                <span className="block whitespace-nowrap">آفریدگار رویا،</span>
+                <span className="block text-[#5243B2] font-black whitespace-nowrap">دروازه چهلم</span>
+                <span className="block whitespace-nowrap">خودشناسی</span>
               </motion.h1>
             </div>
           </div>
