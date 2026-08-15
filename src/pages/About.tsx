@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import SEO from '../components/SEO';
 import { useApp } from '../context/AppContext';
-import farshadImg from '../assets/images/فرشاد میرشکاری.jpg';
+import farshadImg from '../assets/images/farshad_author.jpg';
 import { 
   Sparkles, 
   Award, 

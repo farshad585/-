@@ -49,6 +49,8 @@ import { BLOG_ARTICLES } from '../data/blog';
 import { Product, Order } from '../types';
 import { sendOrderStatusEmail } from '../utils/emailApi';
 
+import defaultProductImg from '../assets/images/book_40gates_print_1.jpg';
+
 interface LoginLog {
   id: string;
   timestamp: string;
@@ -744,7 +746,7 @@ export default function Admin() {
       format: newProductForm.format || 'نسخه اختصاصی',
       rating: 5.0,
       reviewsCount: 0,
-      images: ['/assets/images/کتاب چاپی چهل دروازه به ماورا1.jpg'],
+      images: [defaultProductImg],
       tags: typeof newProductForm.tags === 'string'
         ? (newProductForm.tags as string).split('،').map((t: string) => t.trim())
         : (newProductForm.tags || []),
@@ -1483,7 +1485,7 @@ export default function Admin() {
                         <div key={product.id} className="bg-slate-900 border border-slate-700/80 rounded-2xl p-4 flex flex-col justify-between space-y-3 hover:border-indigo-500/50 transition-colors">
                           <div className="flex gap-3">
                             <img
-                              src={product.images?.[0] || product.image || '/assets/images/کتاب چاپی چهل دروازه به ماورا1.jpg'}
+                              src={product.images?.[0] || product.image || defaultProductImg}
                               alt={product.title}
                               className="w-20 h-24 object-cover rounded-xl border border-slate-700/80 shrink-0 shadow-sm"
                             />

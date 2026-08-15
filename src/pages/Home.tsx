@@ -22,8 +22,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
-import desktopHeroImg from '../assets/images/desktop_opt.webp';
-import phoneHeroImg from '../assets/images/phone1_opt.webp';
+import desktopHeroImg from '../assets/images/desktop.jpg';
+import phoneHeroImg from '../assets/images/phone1.jpg';
 
 export default function Home() {
   const { setCurrentPage, setSelectedProductId, products } = useApp();

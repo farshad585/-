@@ -2,6 +2,8 @@ import { Product, Review } from '../types';
 import { ALL_REVIEWS } from './reviewsData';
 
 // Printed 40 Gates 1..10
+import book40GatesVol1Front from '../assets/images/40gates1-1.jpg';
+import book40GatesVol1Back from '../assets/images/40gates1-2.jpg';
 import book40GatesImg1 from '../assets/images/book_40gates_print_1.jpg';
 import book40GatesImg2 from '../assets/images/book_40gates_print_2.jpg';
 import book40GatesImg3 from '../assets/images/book_40gates_print_3.jpg';
@@ -19,7 +21,7 @@ import daneshkhand2 from '../assets/images/daneshkhand_2.jpg';
 
 // Farasou
 import farasou1 from '../assets/images/farasou_1.jpg';
-import farasou2 from '../assets/images/farasou_2.jpeg';
+import farasou2 from '../assets/images/farasou_2.jpg';
 import farasou3 from '../assets/images/farasou_3.jpg';
 import farasou4 from '../assets/images/farasou_4.jpg';
 
@@ -43,8 +45,8 @@ import behesht1 from '../assets/images/behesht_1.jpg';
 import behesht2 from '../assets/images/behesht_2.jpg';
 
 // Cheshm
-import cheshm1 from '../assets/images/cheshm_1.jpeg';
-import cheshm2 from '../assets/images/cheshm_2.jpeg';
+import cheshm1 from '../assets/images/cheshm_1.jpg';
+import cheshm2 from '../assets/images/cheshm_2.jpg';
 
 // PDF 01..04
 import pdf01 from '../assets/images/01.jpg';
@@ -222,7 +224,7 @@ export const PRODUCTS: Product[] = [
     salePrice: 809100,
     type: 'printed',
     category: 'books',
-    images: [book40GatesImg1, book40GatesImg6, book40GatesImg5],
+    images: [book40GatesVol1Front, book40GatesVol1Back],
     stock: 69,
     rating: 4.9,
     reviewsCount: 88,
