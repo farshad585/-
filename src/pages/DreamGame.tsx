@@ -1388,7 +1388,6 @@ export default function DreamGame() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 font-sans">
-      
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-[#EAF2FA] via-[#EEEAF9] to-[#F7F5FC] rounded-3xl p-6 md:p-10 text-[#25243A] shadow-xs relative overflow-hidden mb-8 border border-[#EEEAF9]">
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
