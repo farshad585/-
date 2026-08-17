@@ -1499,7 +1499,7 @@ export default function Admin() {
                                 </span>
                               </div>
 
-                              <p className="text-[10px] text-indigo-300">{product.englishTitle || product.author}</p>
+                              <p dir="ltr" className="text-[10px] text-indigo-300 text-right">{product.englishTitle || product.author}</p>
 
                               <div className="flex flex-wrap gap-1 text-[9px] pt-1">
                                 <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded">

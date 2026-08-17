@@ -146,7 +146,7 @@ export default function Cart() {
                     </div>
                     <div className="space-y-1 text-right">
                       <h4 className="text-xs font-bold text-slate-900 leading-relaxed line-clamp-1">{item.product.title}</h4>
-                      <p className="text-[10px] text-indigo-600 font-mono tracking-widest uppercase">{item.product.englishTitle}</p>
+                      <p dir="ltr" className="text-[10px] text-indigo-600 font-mono tracking-widest uppercase text-right">{item.product.englishTitle}</p>
                       <span className="inline-block text-[9px] bg-slate-100 border border-slate-200 text-slate-600 px-2.5 py-0.5 rounded-full mt-1.5 font-medium">
                         قالب: {item.selectedFormat}
                       </span>

@@ -309,7 +309,7 @@ export default function ProductDetails() {
               {product.type === 'printed' ? 'محصول فیزیکی گرانبها' : 'محصول دیجیتال با دسترسی آنی'}
             </span>
             <h1 className="text-2xl md:text-3xl font-black text-slate-900 leading-normal">{product.title}</h1>
-            <p className="text-xs font-mono text-slate-400 uppercase tracking-widest">{product.englishTitle}</p>
+            <p dir="ltr" className="text-xs font-mono text-slate-400 uppercase tracking-widest text-right">{product.englishTitle}</p>
           </div>
 
           {/* Rating stars */}

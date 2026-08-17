@@ -147,7 +147,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             </h3>
 
             {/* English Subtitle */}
-            <p className="text-[9px] font-mono text-[#6D6A7C] uppercase tracking-wider truncate mb-2">
+            <p dir="ltr" className="text-[9px] font-mono text-[#6D6A7C] uppercase tracking-wider truncate mb-2 text-right">
               {product.englishTitle}
             </p>
 

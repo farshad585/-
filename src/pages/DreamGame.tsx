@@ -21,6 +21,7 @@ import {
   Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import RealityCheckExperience from '../components/RealityCheckExperience';
 
 interface Scenario {
   id: number;
@@ -1345,6 +1346,9 @@ function NightmareDisregardPracticeGame() {
 export default function DreamGame() {
   const { setCurrentPage } = useApp();
 
+  // Reality Check Cinematic Matrix Effect (runs once per page mount)
+  const [isRealityCheckActive, setIsRealityCheckActive] = useState(true);
+
   // Game States
   const [activeTab, setActiveTab] = useState<'interactive' | 'scenarios' | 'guide'>('interactive');
   
@@ -1387,7 +1391,12 @@ export default function DreamGame() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 font-sans">
+    <div className="max-w-6xl mx-auto px-4 py-6 font-sans relative">
+      {/* Cinematic Reality Check Matrix Intro (runs only on page entry) */}
+      {isRealityCheckActive && (
+        <RealityCheckExperience onComplete={() => setIsRealityCheckActive(false)} />
+      )}
+
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-[#EAF2FA] via-[#EEEAF9] to-[#F7F5FC] rounded-3xl p-6 md:p-10 text-[#25243A] shadow-xs relative overflow-hidden mb-8 border border-[#EEEAF9]">
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
