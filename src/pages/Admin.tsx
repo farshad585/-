@@ -40,9 +40,7 @@ import {
   Trash2,
   Save,
   X,
-  Check,
-  Smartphone,
-  SendHorizontal
+  Check
 } from 'lucide-react';
 import SEO from '../components/SEO';
 import { useApp } from '../context/AppContext';
@@ -50,14 +48,6 @@ import { PRODUCTS } from '../data/products';
 import { BLOG_ARTICLES } from '../data/blog';
 import { Product, Order } from '../types';
 import { sendOrderStatusEmail } from '../utils/emailApi';
-import { 
-  getSmsStatus, 
-  getSmsLogs, 
-  testSmsTemplate, 
-  sendOrderShippedSms, 
-  SmsStatusResponse, 
-  SmsLogItem 
-} from '../utils/smsApi';
 
 import defaultProductImg from '../assets/images/book_40gates_print_1.jpg';
 
@@ -172,14 +162,6 @@ export default function Admin() {
   const [adminEmailConfigInput, setAdminEmailConfigInput] = useState<string>('fmfarshad585@gmail.com');
   const [smtpSaving, setSmtpSaving] = useState<boolean>(false);
   const [smtpSaveResult, setSmtpSaveResult] = useState<{ success: boolean; message: string } | null>(null);
-
-  // SMS.ir Gateway State
-  const [smsStatus, setSmsStatus] = useState<SmsStatusResponse | null>(null);
-  const [smsLogs, setSmsLogs] = useState<SmsLogItem[]>([]);
-  const [testSmsType, setTestSmsType] = useState<'verify' | 'password_reset' | 'new_order_admin' | 'order_registered' | 'order_shipped'>('verify');
-  const [testSmsMobile, setTestSmsMobile] = useState<string>('09123456789');
-  const [testSmsLoading, setTestSmsLoading] = useState<boolean>(false);
-  const [testSmsResult, setTestSmsResult] = useState<{ success: boolean; message: string; status?: string } | null>(null);
 
   // Supabase Connection State
   const [supabaseStatus, setSupabaseStatus] = useState<{
@@ -365,18 +347,10 @@ export default function Admin() {
           })
           .catch(err => console.warn('Email logs error:', err));
 
-        // 7. SMS.ir Status & Logs
-        const smsStatusPromise = getSmsStatus()
-          .then(status => { if (status) setSmsStatus(status); })
-          .catch(() => {});
-        const smsLogsPromise = getSmsLogs()
-          .then(logs => { if (Array.isArray(logs)) setSmsLogs(logs); })
-          .catch(() => {});
-
-        // 8. Supabase status
+        // 7. Supabase status
         checkSupabaseStatus().catch(() => {});
 
-        await Promise.all([usersPromise, logsPromise, settingsPromise, msgsPromise, emailLogsPromise, smsStatusPromise, smsLogsPromise]);
+        await Promise.all([usersPromise, logsPromise, settingsPromise, msgsPromise, emailLogsPromise]);
       } else {
         await usersPromise;
       }
@@ -451,37 +425,6 @@ export default function Admin() {
       setTestEmailResult({ success: false, message: 'خطا در ارتباط با سرور' });
     } finally {
       setTestEmailLoading(false);
-    }
-  };
-
-  const handleSendTestSms = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!testSmsMobile.trim()) return;
-    setTestSmsLoading(true);
-    setTestSmsResult(null);
-
-    try {
-      const res = await testSmsTemplate({
-        templateType: testSmsType,
-        mobile: testSmsMobile.trim()
-      });
-      setTestSmsResult({
-        success: res.success,
-        status: res.status,
-        message: res.message
-      });
-      const updatedLogs = await getSmsLogs();
-      if (Array.isArray(updatedLogs)) {
-        setSmsLogs(updatedLogs);
-      }
-    } catch (err: any) {
-      setTestSmsResult({
-        success: false,
-        status: 'failed',
-        message: 'خطا در برقراری ارتباط با سرویس پیامک'
-      });
-    } finally {
-      setTestSmsLoading(false);
     }
   };
 
@@ -842,15 +785,6 @@ export default function Admin() {
         customerName: targetOrder.customerInfo?.fullName || 'خریدار محترم',
         customerPhone
       });
-
-      if (newStatus === 'shipped' && customerPhone) {
-        sendOrderShippedSms({
-          mobile: customerPhone,
-          orderId,
-          trackingCode: trackingCode || 'ثبت شده در سامانه پستی',
-          customerName: targetOrder.customerInfo?.fullName || 'خریدار گرامی'
-        }).catch(err => console.warn('[SMS] Error dispatching shipped SMS:', err));
-      }
     }
   };
 
@@ -2264,189 +2198,6 @@ export default function Admin() {
                                   }`}>
                                     {log.status === 'sent' && '✅ ارسال شد'}
                                     {log.status === 'simulated' && '🟡 شبیه‌سازی'}
-                                    {log.status === 'failed' && '❌ ناموفق'}
-                                  </span>
-                                  {log.errorDetails && (
-                                    <span className="block text-[9px] text-rose-400 mt-0.5 font-sans dir-ltr text-left">
-                                      {log.errorDetails}
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                {/* SMS.IR GATEWAY MANAGEMENT & LIVE TESTING */}
-                <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4">
-                  <div className="flex justify-between items-center pb-3 border-b border-slate-700">
-                    <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
-                      <Smartphone className="text-emerald-400" size={18} />
-                      <span>اتصال به سامانه پیامک SMS.ir (خدماتی / وب‌سرویس پترن)</span>
-                    </h2>
-                    <button
-                      onClick={async () => {
-                        const [st, lg] = await Promise.all([getSmsStatus(), getSmsLogs()]);
-                        if (st) setSmsStatus(st);
-                        if (lg) setSmsLogs(lg);
-                      }}
-                      className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
-                    >
-                      <RefreshCw size={12} />
-                      <span>بروزرسانی وضعیت پیامک</span>
-                    </button>
-                  </div>
-
-                  {/* SMS Configuration Status Badges */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-[11px]">
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-center">
-                      <span className="text-slate-400 block text-[10px]">کلید API Key</span>
-                      <span className={`font-bold mt-1 inline-block ${smsStatus?.hasApiKey ? 'text-emerald-400' : 'text-amber-400'}`}>
-                        {smsStatus?.hasApiKey ? '✅ تنظیم شده' : '🟡 پیش‌فرض'}
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-center">
-                      <span className="text-slate-400 block text-[10px]">۱. تایید کاربر</span>
-                      <span className={`font-bold mt-1 inline-block ${smsStatus?.templates?.verify ? 'text-emerald-400' : 'text-slate-500'}`}>
-                        {smsStatus?.templates?.verify ? '✅ الگو فعال' : '⭕ الگو ۱'}
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-center">
-                      <span className="text-slate-400 block text-[10px]">۲. بازیابی رمز</span>
-                      <span className={`font-bold mt-1 inline-block ${smsStatus?.templates?.passwordReset ? 'text-emerald-400' : 'text-slate-500'}`}>
-                        {smsStatus?.templates?.passwordReset ? '✅ الگو فعال' : '⭕ الگو ۲'}
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-center">
-                      <span className="text-slate-400 block text-[10px]">۳. پیامک به مدیر</span>
-                      <span className={`font-bold mt-1 inline-block ${smsStatus?.templates?.newOrderAdmin ? 'text-emerald-400' : 'text-slate-500'}`}>
-                        {smsStatus?.templates?.newOrderAdmin ? '✅ الگو فعال' : '⭕ الگو ۳'}
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-center">
-                      <span className="text-slate-400 block text-[10px]">۴. ثبت سفارش مشتری</span>
-                      <span className={`font-bold mt-1 inline-block ${smsStatus?.templates?.orderRegistered ? 'text-emerald-400' : 'text-slate-500'}`}>
-                        {smsStatus?.templates?.orderRegistered ? '✅ الگو فعال' : '⭕ الگو ۴'}
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-center">
-                      <span className="text-slate-400 block text-[10px]">۵. ارسال و کد رهگیری</span>
-                      <span className={`font-bold mt-1 inline-block ${smsStatus?.templates?.orderShipped ? 'text-emerald-400' : 'text-slate-500'}`}>
-                        {smsStatus?.templates?.orderShipped ? '✅ الگو فعال' : '⭕ الگو ۵'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* SMS Test Console */}
-                  <form onSubmit={handleSendTestSms} className="space-y-3 bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                    <h3 className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                      <SendHorizontal size={14} className="text-emerald-400" />
-                      <span>تست زنده ارسال پیامک با الگوهای SMS.ir:</span>
-                    </h3>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[11px] text-slate-400 font-semibold block">انتخاب الگوی پیامک:</label>
-                        <select
-                          value={testSmsType}
-                          onChange={e => setTestSmsType(e.target.value as any)}
-                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-emerald-500"
-                        >
-                          <option value="verify">۱. اس ام اس تایید کاربر (کد تایید)</option>
-                          <option value="password_reset">۲. اس ام اس بازیابی کلمه عبور</option>
-                          <option value="new_order_admin">۳. سفارش جدید (پیامک به مدیر)</option>
-                          <option value="order_registered">۴. ثبت سفارش (پیامک به خریدار)</option>
-                          <option value="order_shipped">۵. ارسال سفارش (کد رهگیری پستی)</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[11px] text-slate-400 font-semibold block">شماره همراه گیرنده تست:</label>
-                        <input
-                          type="text"
-                          required
-                          value={testSmsMobile}
-                          onChange={e => setTestSmsMobile(e.target.value)}
-                          placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-emerald-500 dir-ltr text-left"
-                        />
-                      </div>
-
-                      <div className="flex items-end">
-                        <button
-                          type="submit"
-                          disabled={testSmsLoading}
-                          className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-all shadow-sm"
-                        >
-                          {testSmsLoading ? (
-                            <RefreshCw size={14} className="animate-spin" />
-                          ) : (
-                            <SendHorizontal size={14} />
-                          )}
-                          <span>ارسال پیامک آزمایشی</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {testSmsResult && (
-                      <div className={`p-3 rounded-xl text-xs font-semibold ${
-                        testSmsResult.success 
-                          ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800' 
-                          : 'bg-rose-950/60 text-rose-300 border border-rose-800'
-                      }`}>
-                        <div className="flex items-center gap-2">
-                          <span>{testSmsResult.success ? '✅' : '⚠️'}</span>
-                          <span>{testSmsResult.message}</span>
-                        </div>
-                      </div>
-                    )}
-                  </form>
-
-                  {/* SMS System Logs Table */}
-                  <div className="space-y-2">
-                    <h3 className="text-xs font-bold text-slate-300">تاریخچه پیامک‌های ارسالی اخیر:</h3>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs text-slate-300 text-right">
-                        <thead className="bg-slate-900 text-slate-400 text-[11px] border-b border-slate-700">
-                          <tr>
-                            <th className="p-2.5">زمان ارسال</th>
-                            <th className="p-2.5">نوع پیامک</th>
-                            <th className="p-2.5">شماره همراه</th>
-                            <th className="p-2.5">شناسه قالب (Template ID)</th>
-                            <th className="p-2.5">وضعیت</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800 font-mono text-[11px]">
-                          {smsLogs.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} className="p-4 text-center text-slate-500 font-sans">
-                                هنوز پیامکی در این جلسه ثبت نشده است.
-                              </td>
-                            </tr>
-                          ) : (
-                            smsLogs.map((log) => (
-                              <tr key={log.id} className="hover:bg-slate-800/40">
-                                <td className="p-2.5 text-slate-300">{log.timestamp}</td>
-                                <td className="p-2.5 font-sans text-emerald-300">{log.type}</td>
-                                <td className="p-2.5 text-slate-400 dir-ltr text-right">{log.mobile}</td>
-                                <td className="p-2.5 font-mono text-slate-400">{log.templateId}</td>
-                                <td className="p-2.5 font-sans">
-                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                    log.status === 'sent' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                                    log.status === 'simulated' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                                    'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                  }`}>
-                                    {log.status === 'sent' && '✅ ارسال به SMS.ir'}
-                                    {log.status === 'simulated' && '🟡 حالت شبیه‌سازی'}
                                     {log.status === 'failed' && '❌ ناموفق'}
                                   </span>
                                   {log.errorDetails && (

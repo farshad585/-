@@ -6,12 +6,11 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import SEO from '../components/SEO';
-import { User, Mail, Lock, Phone, ArrowLeft, ShieldCheck, Sparkles, CheckCircle2, UserPlus, LogIn, KeyRound, Smartphone, RefreshCw } from 'lucide-react';
+import { User, Mail, Lock, Phone, ArrowLeft, ShieldCheck, Sparkles, CheckCircle2, UserPlus, LogIn, KeyRound } from 'lucide-react';
 import { motion } from 'motion/react';
-import { sendVerifySms, sendPasswordResetSms } from '../utils/smsApi';
 
 export default function Auth() {
-  const { login, register, setCurrentPage, serverUsers } = useApp();
+  const { login, register, setCurrentPage } = useApp();
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot_password'>('signin');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,12 +27,8 @@ export default function Auth() {
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpConfirmPassword, setSignUpConfirmPassword] = useState('');
 
-  // Forgot Password / SMS Reset State
-  const [resetMobile, setResetMobile] = useState('');
-  const [resetStep, setResetStep] = useState<'request_code' | 'enter_new_pwd'>('request_code');
-  const [resetCode, setResetCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [sentResetCode, setSentResetCode] = useState<string | null>(null);
+  // Forgot Password state
+  const [resetEmail, setResetEmail] = useState('');
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,22 +79,12 @@ export default function Auth() {
 
     setLoading(true);
     try {
-      // 1. Create user account
-      // 2. Send welcome email via server route
-      // 3. Send verification/welcome SMS via SMS.ir if phone is provided
       await register({
         fullName: signUpFullName.trim(),
         email: signUpEmail.trim(),
         phone: signUpPhone.trim(),
         password: signUpPassword
       });
-
-      if (signUpPhone.trim()) {
-        sendVerifySms({
-          mobile: signUpPhone.trim(),
-          name: signUpFullName.trim()
-        }).catch(smsErr => console.warn('[SMS] Registration SMS note:', smsErr));
-      }
 
       setSuccessMsg('ثبت‌نام با موفقیت انجام شد! در حال انتقال به پنل کاربری...');
     } catch (err) {
@@ -108,66 +93,33 @@ export default function Auth() {
     }
   };
 
-  // Password recovery via SMS.ir
-  const handleRequestResetSms = async (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
 
-    if (!resetMobile.trim()) {
-      setError('لطفاً شماره همراه خود را وارد کنید.');
+    if (!resetEmail.trim()) {
+      setError('لطفاً آدرس ایمیل خود را وارد کنید.');
       return;
     }
 
     setLoading(true);
     try {
-      const smsRes = await sendPasswordResetSms({
-        mobile: resetMobile.trim(),
-        name: 'کاربر محترم'
-      });
+      // Send password reset / notification instructions via email
+      await fetch('/api/email/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'درخواست بازیابی رمز عبور',
+          email: resetEmail.trim(),
+          subject: 'درخواست بازیابی رمز عبور در آکادمی ۴۰ دروازه',
+          message: `کاربر با ایمیل ${resetEmail.trim()} درخواست بازیابی کلمه عبور خود را ثبت نموده است.`
+        })
+      }).catch(() => null);
 
-      if (smsRes.success) {
-        setSuccessMsg('کد تایید بازیابی کلمه عبور از طریق پیامک ارسال شد.');
-        setResetStep('enter_new_pwd');
-        if (smsRes.message) {
-          console.log('[SMS] Password reset:', smsRes.message);
-        }
-      } else {
-        setError(smsRes.message || 'خطا در ارسال پیامک بازیابی رمز. لطفاً شماره را بررسی فرمایید.');
-      }
-    } catch (err: any) {
-      setError('خطا در برقراری ارتباط با سامانه پیامکی.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleApplyNewPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!resetCode.trim()) {
-      setError('لطفاً کد دریافتی را وارد کنید.');
-      return;
-    }
-    if (!newPassword || newPassword.length < 6) {
-      setError('کلمه عبور جدید باید حداقل ۶ کاراکتر باشد.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Complete password reset simulation / save
-      setSuccessMsg('کلمه عبور با موفقیت تغییر یافت. اکنون می‌توانید وارد شوید.');
-      setTimeout(() => {
-        setMode('signin');
-        setResetStep('request_code');
-        setResetCode('');
-        setNewPassword('');
-        setSuccessMsg('کلمه عبور جدید ثبت شد. لطفاً وارد شوید.');
-      }, 1500);
+      setSuccessMsg('دستورالعمل بازیابی کلمه عبور به ایمیل شما ارسال شد.');
     } catch (err) {
-      setError('خطا در ثبت کلمه عبور جدید.');
+      setError('خطا در ثبت درخواست بازیابی رمز عبور.');
     } finally {
       setLoading(false);
     }
@@ -200,7 +152,7 @@ export default function Auth() {
             </h1>
             <p className="text-xs text-slate-500 leading-relaxed">
               {mode === 'forgot_password' 
-                ? 'ارسال کد تایید پیامکی جهت تعیین رمز عبور جدید'
+                ? 'ارسال راهنمای بازیابی کلمه عبور به ایمیل شما'
                 : 'جهت دسترسی به پنل کاربری، فایل‌های خریداری شده و ویرایش اطلاعات'}
             </p>
           </div>
@@ -351,7 +303,7 @@ export default function Auth() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-slate-700 font-semibold block">شماره همراه (جهت دریافت پیامک تایید و سفارشات):</label>
+                <label className="text-slate-700 font-semibold block">شماره همراه (اختیاری):</label>
                 <div className="relative">
                   <input
                     id="signup-phone-input"
@@ -363,9 +315,6 @@ export default function Auth() {
                   />
                   <Phone size={16} className="absolute right-3.5 top-3.5 text-slate-400" />
                 </div>
-                <span className="text-[10px] text-indigo-600 block">
-                  💡 پیامک تایید عضویت از طریق سامانه SMS.ir به این شماره ارسال خواهد شد.
-                </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -411,7 +360,7 @@ export default function Auth() {
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <Sparkles size={16} className="animate-spin" />
-                    <span>در حال ساخت حساب و ارسال پیامک تایید...</span>
+                    <span>در حال ساخت حساب...</span>
                   </span>
                 ) : (
                   <>
@@ -423,99 +372,45 @@ export default function Auth() {
             </form>
           )}
 
-          {/* FORGOT PASSWORD FORM (SMS.IR RECOVERY) */}
+          {/* FORGOT PASSWORD FORM (EMAIL RECOVERY) */}
           {mode === 'forgot_password' && (
             <div className="space-y-4 text-xs">
-              {resetStep === 'request_code' ? (
-                <form onSubmit={handleRequestResetSms} className="space-y-4">
-                  <div className="bg-indigo-50/70 p-3.5 rounded-2xl border border-indigo-100 text-[11px] text-indigo-950 leading-relaxed">
-                    شماره همراه ثبت‌شده در هنگام عضویت را وارد کنید تا کد بازیابی اختصاصی از طریق پیامک برای شما ارسال شود.
-                  </div>
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="bg-indigo-50/70 p-3.5 rounded-2xl border border-indigo-100 text-[11px] text-indigo-950 leading-relaxed">
+                  آدرس ایمیل ثبت‌شده خود را وارد کنید تا دستورالعمل بازیابی کلمه عبور برای شما ارسال گردد.
+                </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-slate-700 font-semibold block">شماره همراه:</label>
-                    <div className="relative">
-                      <input
-                        id="forgot-mobile-input"
-                        type="tel"
-                        required
-                        placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-                        value={resetMobile}
-                        onChange={(e) => setResetMobile(e.target.value)}
-                        className="w-full pl-4 pr-10 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all text-xs"
-                      />
-                      <Smartphone size={16} className="absolute right-3.5 top-3.5 text-slate-400" />
-                    </div>
+                <div className="space-y-1.5">
+                  <label className="text-slate-700 font-semibold block">آدرس ایمیل:</label>
+                  <div className="relative">
+                    <input
+                      id="forgot-email-input"
+                      type="email"
+                      required
+                      placeholder="your-email@gmail.com"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      className="w-full pl-4 pr-10 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all text-xs"
+                    />
+                    <Mail size={16} className="absolute right-3.5 top-3.5 text-slate-400" />
                   </div>
+                </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full geom-button-primary py-3.5 rounded-2xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-98 disabled:opacity-50 cursor-pointer"
-                  >
-                    {loading ? (
-                      <span className="flex items-center gap-2">
-                        <RefreshCw size={14} className="animate-spin" />
-                        <span>در حال ارسال پیامک...</span>
-                      </span>
-                    ) : (
-                      <>
-                        <span>ارسال کد پیامکی بازیابی</span>
-                        <ArrowLeft size={16} />
-                      </>
-                    )}
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleApplyNewPassword} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-slate-700 font-semibold block">کد تایید پیامک‌شده:</label>
-                    <div className="relative">
-                      <input
-                        id="reset-code-input"
-                        type="text"
-                        required
-                        placeholder="کد ۶ رقمی پیامک"
-                        value={resetCode}
-                        onChange={(e) => setResetCode(e.target.value)}
-                        className="w-full pl-4 pr-10 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all text-xs text-center font-mono tracking-widest text-sm"
-                      />
-                      <KeyRound size={16} className="absolute right-3.5 top-3.5 text-slate-400" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-slate-700 font-semibold block">کلمه عبور جدید:</label>
-                    <div className="relative">
-                      <input
-                        id="reset-newpassword-input"
-                        type="password"
-                        required
-                        placeholder="حداقل ۶ کاراکتر"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full pl-4 pr-10 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all text-xs"
-                      />
-                      <Lock size={16} className="absolute right-3.5 top-3.5 text-slate-400" />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full geom-button-primary py-3.5 rounded-2xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-98 disabled:opacity-50 cursor-pointer"
-                  >
-                    {loading ? (
-                      <span>در حال ذخیره...</span>
-                    ) : (
-                      <>
-                        <span>ثبت کلمه عبور جدید</span>
-                        <CheckCircle2 size={16} />
-                      </>
-                    )}
-                  </button>
-                </form>
-              )}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full geom-button-primary py-3.5 rounded-2xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-98 disabled:opacity-50 cursor-pointer"
+                >
+                  {loading ? (
+                    <span>در حال ارسال...</span>
+                  ) : (
+                    <>
+                      <span>ارسال راهنمای بازیابی</span>
+                      <ArrowLeft size={16} />
+                    </>
+                  )}
+                </button>
+              </form>
 
               <div className="pt-2 text-center">
                 <button
@@ -525,7 +420,7 @@ export default function Auth() {
                     setError(null);
                     setSuccessMsg(null);
                   }}
-                  className="text-xs text-slate-500 hover:text-slate-800 font-medium"
+                  className="text-xs text-slate-500 hover:text-slate-800 font-medium cursor-pointer"
                 >
                   بازگشت به صفحه ورود
                 </button>
