@@ -7,12 +7,10 @@ interface RealityCheckExperienceProps {
 
 export default function RealityCheckExperience({ onComplete }: RealityCheckExperienceProps) {
   // Stages:
-  // 'idle_wait': 0 - 2s (initial normal page view)
-  // 'ripple_start': 2s - 4.5s (liquid distortion starts, page blurs)
-  // 'mirror_ready': 4.5s+ (mirror, matrix silhouette, question and 3D pills appear)
+  // 'mirror_ready': Matrix digital rain full-screen immediately, question and 3D pills active
   // 'dissolving': user chose a pill, pill floats to center, liquid shockwave, dissolve
   // 'finished': unmounted
-  const [stage, setStage] = useState<'idle_wait' | 'ripple_start' | 'mirror_ready' | 'dissolving' | 'finished'>('idle_wait');
+  const [stage, setStage] = useState<'mirror_ready' | 'dissolving' | 'finished'>('mirror_ready');
   const [selectedPill, setSelectedPill] = useState<'red' | 'blue' | null>(null);
   const [hoveredPill, setHoveredPill] = useState<'red' | 'blue' | null>(null);
 
@@ -92,20 +90,9 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
 
   // Timeline Controller
   useEffect(() => {
-    // Phase 1: Wait 2 seconds before reality distortion starts
-    const t1 = setTimeout(() => {
-      setStage('ripple_start');
-      playAmbientTone();
-    }, 2000);
-
-    // Phase 2: Morph completely into mirror & reveal silhouette/pills after 2.5s of rippling
-    const t2 = setTimeout(() => {
-      setStage('mirror_ready');
-    }, 4500);
+    playAmbientTone();
 
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
         try {
@@ -119,7 +106,7 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
 
   // Digital Matrix Silhouette Canvas Rendering
   useEffect(() => {
-    if (stage === 'idle_wait') return;
+    if (stage === 'finished') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -433,64 +420,55 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
   return (
     <div
       id="reality-check-experience"
-      className={`fixed inset-0 z-50 overflow-hidden pointer-events-auto transition-all duration-1000 select-none ${
-        stage === 'idle_wait' ? 'opacity-0 pointer-events-none' : 'opacity-100'
-      }`}
-      style={{
-        backgroundColor: stage === 'ripple_start' ? 'rgba(7, 10, 19, 0.75)' : 'rgba(5, 7, 14, 0.98)',
-        backdropFilter: stage === 'ripple_start' ? 'blur(12px)' : 'blur(28px)'
-      }}
+      className="fixed inset-0 z-[99999] w-screen h-screen overflow-hidden bg-[#010403] select-none pointer-events-auto flex flex-col justify-between"
     >
       {/* Dynamic Matrix Silhouette Mirror Canvas */}
       <canvas
         ref={canvasRef}
         className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ${
-          stage === 'ripple_start' ? 'opacity-40' : stage === 'dissolving' ? 'opacity-20' : 'opacity-100'
+          stage === 'dissolving' ? 'opacity-30' : 'opacity-100'
         }`}
       />
 
       {/* Mirror Outer Bevel Frame & Ambient Liquid Sheen */}
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.85)_100%)]" />
 
-      {/* Center Cinematic Contents */}
+      {/* Center Cinematic Contents - Pure Rain, Main Question centered in 1 line, and 3D Pills below */}
       <AnimatePresence>
         {(stage === 'mirror_ready' || stage === 'dissolving') && (
-          <div className="relative z-10 w-full h-full flex flex-col items-center justify-between py-12 md:py-20 px-6">
+          <div className="relative z-10 w-full h-full min-h-screen flex flex-col items-center justify-center py-6 px-3 select-none">
             
-            {/* Top Atmospheric Empty Spacer */}
-            <div className="h-6 md:h-12" />
-
-            {/* Step 3: The Reality Question */}
+            {/* The Main Reality Question (Centered on screen, strictly 1 single line on all screen sizes) */}
             <motion.div
-              initial={{ opacity: 0, y: 30, scale: 0.94 }}
+              initial={{ opacity: 0, y: 20, scale: 0.94 }}
               animate={{
                 opacity: stage === 'dissolving' ? 0 : 1,
                 y: stage === 'dissolving' ? -40 : 0,
                 scale: stage === 'dissolving' ? 1.08 : 1
               }}
               transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-              className="text-center max-w-2xl px-4 mt-8 md:mt-16"
+              className="text-center w-full max-w-5xl px-2 flex justify-center items-center"
             >
               <h2
-                className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-relaxed drop-shadow-[0_0_35px_rgba(74,222,128,0.45)]"
+                className="text-[17px] min-[360px]:text-[19px] min-[400px]:text-xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white whitespace-nowrap leading-none drop-shadow-[0_0_35px_rgba(74,222,128,0.6)]"
                 style={{
                   fontFamily: 'inherit',
-                  textShadow: '0 0 20px rgba(74, 222, 128, 0.5), 0 0 45px rgba(16, 185, 129, 0.3)'
+                  textShadow: '0 0 20px rgba(74, 222, 128, 0.7), 0 0 45px rgba(16, 185, 129, 0.5), 0 4px 14px rgba(0,0,0,0.95)'
                 }}
               >
-                «چقدر مطمئنی الان خواب نیستی؟»
+                چقدر مطمئنی الان خواب نیستی؟
               </h2>
             </motion.div>
 
-            {/* Step 4: Two 3D Floating Minimalist Pills (Red & Blue) */}
+            {/* Two 3D Floating Minimalist Pills (Red & Blue) - Placed below question */}
             <motion.div
-              initial={{ opacity: 0, y: 50 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{
                 opacity: 1,
                 y: 0
               }}
-              transition={{ duration: 1.1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="flex items-center justify-center gap-12 sm:gap-20 md:gap-32 my-auto pt-8 pb-12"
+              transition={{ duration: 1.1, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="flex items-center justify-center gap-12 sm:gap-20 md:gap-28 mt-8 sm:mt-12 md:mt-16"
             >
               {/* 🔴 Red Pill Capsule */}
               <motion.button
@@ -623,14 +601,8 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
               </motion.button>
             </motion.div>
 
-            {/* Bottom Subtle Atmospheric Glow */}
-            <div
-              dir="ltr"
-              className="text-center opacity-40 text-emerald-400 text-xs font-mono tracking-widest pointer-events-none select-none"
-              style={{ direction: 'ltr', unicodeBidi: 'isolate' }}
-            >
-              40 GATES TO BEYOND
-            </div>
+            {/* Bottom Atmospheric Empty Spacer */}
+            <div className="h-6 md:h-12" />
           </div>
         )}
       </AnimatePresence>

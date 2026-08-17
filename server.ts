@@ -63,8 +63,249 @@ interface EmailLogItem {
   errorDetails?: string;
 }
 
+// SMS Log Model
+interface SmsLogItem {
+  id: string;
+  type: string;
+  mobile: string;
+  templateId: string | number;
+  parameters: Array<{ name: string; value: string }>;
+  timestamp: string;
+  status: 'sent' | 'simulated' | 'failed';
+  messageId?: string | number;
+  errorDetails?: string;
+}
+
 // Log of sent emails for debug / UI status
 const emailLogs: Array<EmailLogItem> = [];
+
+// Log of sent SMS for debug / UI status
+const smsLogs: Array<SmsLogItem> = [];
+
+// In-memory deduplication cache (to prevent double-sending on rapid clicks or page refreshes)
+const smsDeduplicationMap = new Map<string, number>();
+
+// Global Runtime SMS.ir Config
+const runtimeSmsConfig = {
+  apiKey: (process.env.SMSIR_API_KEY || '').trim(),
+  lineNumber: (process.env.SMSIR_LINE_NUMBER || '').trim(),
+  verifyTemplateId: (process.env.SMSIR_VERIFY_TEMPLATE_ID || '').trim(),
+  passwordResetTemplateId: (process.env.SMSIR_PASSWORD_RESET_TEMPLATE_ID || '').trim(),
+  newOrderTemplateId: (process.env.SMSIR_NEW_ORDER_TEMPLATE_ID || '').trim(),
+  orderRegisteredTemplateId: (process.env.SMSIR_ORDER_REGISTERED_TEMPLATE_ID || '').trim(),
+  orderShippedTemplateId: (process.env.SMSIR_ORDER_SHIPPED_TEMPLATE_ID || '').trim(),
+  adminPhone: (process.env.ADMIN_PHONE || '09121112233').trim()
+};
+
+/**
+ * Standardize Iranian Phone Number format
+ * Converts Persian/Arabic digits, removes spaces and international prefixes (+98, 0098)
+ * Ensures standard format: 09xxxxxxxxx
+ */
+function normalizeIranianPhoneNumber(rawPhone: string): string {
+  if (!rawPhone) return '';
+  let phone = String(rawPhone).trim();
+
+  // Convert Persian and Arabic digits to English
+  const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+  const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  for (let i = 0; i < 10; i++) {
+    phone = phone.replace(new RegExp(persianDigits[i], 'g'), String(i));
+    phone = phone.replace(new RegExp(arabicDigits[i], 'g'), String(i));
+  }
+
+  // Remove non-digit chars except plus
+  phone = phone.replace(/[^\d+]/g, '');
+
+  if (phone.startsWith('+98')) {
+    phone = '0' + phone.substring(3);
+  } else if (phone.startsWith('0098')) {
+    phone = '0' + phone.substring(4);
+  } else if (phone.startsWith('98') && phone.length === 12) {
+    phone = '0' + phone.substring(2);
+  } else if (!phone.startsWith('0') && phone.length === 10 && phone.startsWith('9')) {
+    phone = '0' + phone;
+  }
+
+  return phone;
+}
+
+/**
+ * Send SMS via SMS.ir Official REST API (v1/send/verify)
+ * Safe execution with deduplication, logging, and error handling.
+ */
+async function sendSmsIrVerifyTemplate(options: {
+  mobile: string;
+  templateId: string | number;
+  parameters: Array<{ name: string; value: string }>;
+  type: string;
+  deduplicationKey?: string;
+}): Promise<{
+  success: boolean;
+  status: 'sent' | 'simulated' | 'failed';
+  message: string;
+  messageId?: string | number;
+  error?: string;
+  alreadySent?: boolean;
+}> {
+  const normalizedMobile = normalizeIranianPhoneNumber(options.mobile);
+
+  if (!normalizedMobile || normalizedMobile.length < 10) {
+    return {
+      success: false,
+      status: 'failed',
+      message: 'شماره موبایل نامعتبر است',
+      error: 'Invalid phone number format'
+    };
+  }
+
+  // 1. Check Deduplication (within 60 seconds)
+  const dedupKey = options.deduplicationKey || `${options.type}_${normalizedMobile}`;
+  const lastSentTime = smsDeduplicationMap.get(dedupKey);
+  const now = Date.now();
+
+  if (lastSentTime && now - lastSentTime < 60000) {
+    console.log(`ℹ️ [SMS DEDUPLICATED - SKIPPED] ${options.type} to ${normalizedMobile} (sent ${Math.round((now - lastSentTime) / 1000)}s ago)`);
+    return {
+      success: true,
+      status: 'sent',
+      alreadySent: true,
+      message: 'پیامک در ۶۰ ثانیه گذشته برای این شماره ارسال شده است.'
+    };
+  }
+
+  const apiKey = (process.env.SMSIR_API_KEY || runtimeSmsConfig.apiKey || '').trim();
+  const templateIdRaw = options.templateId || '';
+  const templateId = Number(templateIdRaw);
+
+  // If API Key or Template ID is not yet provided, simulate and log gracefully without throwing errors
+  if (!apiKey || isNaN(templateId) || templateId <= 0) {
+    const reason = !apiKey 
+      ? 'SMSIR_API_KEY در Environment Variables تنظیم نشده است'
+      : `Template ID برای ${options.type} خالی یا نامعتبر است (${templateIdRaw})`;
+
+    console.log(`ℹ️ [SMS SIMULATED (${reason})] To: ${normalizedMobile} | Type: ${options.type} | TemplateId: ${templateIdRaw}`);
+
+    smsLogs.unshift({
+      id: 'SMS-SIM-' + Date.now(),
+      type: options.type,
+      mobile: normalizedMobile,
+      templateId: templateIdRaw || 'نامشخص',
+      parameters: options.parameters,
+      timestamp: new Date().toLocaleTimeString('fa-IR'),
+      status: 'simulated',
+      messageId: 'sim-' + Date.now()
+    });
+
+    smsDeduplicationMap.set(dedupKey, now);
+
+    return {
+      success: true,
+      status: 'simulated',
+      message: `پیامک شبیه‌سازی شد (${reason})`,
+      messageId: 'sim-' + Date.now()
+    };
+  }
+
+  try {
+    const payload = {
+      mobile: normalizedMobile,
+      templateId: templateId,
+      parameters: options.parameters.map(p => ({
+        name: String(p.name).trim(),
+        value: String(p.value).trim()
+      }))
+    };
+
+    console.log(`📡 [SMS.IR REQUEST] Sending ${options.type} to ${normalizedMobile} with Template #${templateId}...`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const response = await fetch('https://api.sms.ir/v1/send/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/plain',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    const responseData: any = await response.json().catch(() => null);
+
+    // SMS.ir returns status === 1 for success
+    if (response.ok && responseData && responseData.status === 1) {
+      const messageId = responseData.data?.messageId || responseData.data?.messageIds?.[0] || ('SMSIR-' + Date.now());
+      console.log(`✅ [SMS.IR SENT SUCCESSFULLY] To: ${normalizedMobile} | Template: ${templateId} | MessageId: ${messageId}`);
+
+      smsLogs.unshift({
+        id: 'SMS-' + Date.now(),
+        type: options.type,
+        mobile: normalizedMobile,
+        templateId,
+        parameters: options.parameters,
+        timestamp: new Date().toLocaleTimeString('fa-IR'),
+        status: 'sent',
+        messageId
+      });
+
+      smsDeduplicationMap.set(dedupKey, now);
+
+      return {
+        success: true,
+        status: 'sent',
+        message: 'پیامک با موفقیت از طریق SMS.ir ارسال شد.',
+        messageId
+      };
+    } else {
+      const errorMsg = responseData?.message || `پاسخ ناموفق از سامانه SMS.ir (کد وضعیت: ${response.status})`;
+      console.error(`❌ [SMS.IR API ERROR] To: ${normalizedMobile} | Message: ${errorMsg}`);
+
+      smsLogs.unshift({
+        id: 'SMS-ERR-' + Date.now(),
+        type: options.type,
+        mobile: normalizedMobile,
+        templateId,
+        parameters: options.parameters,
+        timestamp: new Date().toLocaleTimeString('fa-IR'),
+        status: 'failed',
+        errorDetails: errorMsg
+      });
+
+      return {
+        success: false,
+        status: 'failed',
+        message: `خطا در ارسال پیامک: ${errorMsg}`,
+        error: errorMsg
+      };
+    }
+  } catch (err: any) {
+    const errMsg = err?.name === 'AbortError' ? 'مهلت زمانی ارتباط با سامانه SMS.ir به پایان رسید (Timeout)' : (err?.message || String(err));
+    console.error(`❌ [SMS.IR NETWORK ERROR] To: ${normalizedMobile} | Error:`, errMsg);
+
+    smsLogs.unshift({
+      id: 'SMS-NET-ERR-' + Date.now(),
+      type: options.type,
+      mobile: normalizedMobile,
+      templateId,
+      parameters: options.parameters,
+      timestamp: new Date().toLocaleTimeString('fa-IR'),
+      status: 'failed',
+      errorDetails: errMsg
+    });
+
+    return {
+      success: false,
+      status: 'failed',
+      message: `خطا در ارتباط با وب‌سرویس SMS.ir: ${errMsg}`,
+      error: errMsg
+    };
+  }
+}
 
 // Global Memory Stores and Settings
 const runtimeSmtpConfig = {
@@ -1464,6 +1705,40 @@ app.post('/api/email/order-created', async (req, res) => {
       html: ownerHtml,
     }, 'order-admin');
 
+    // Automatically Trigger SMS.ir Notifications for New Order
+    const customerPhone = order.shippingAddress?.phone || order.customerInfo?.phone || '';
+    if (customerPhone) {
+      // 1. Send Order Registered SMS to Customer
+      sendSmsIrVerifyTemplate({
+        mobile: customerPhone,
+        templateId: process.env.SMSIR_ORDER_REGISTERED_TEMPLATE_ID || runtimeSmsConfig.orderRegisteredTemplateId,
+        parameters: [
+          { name: 'Name', value: (order.shippingAddress?.fullName || 'کاربر گرامی').slice(0, 30) },
+          { name: 'OrderId', value: String(order.id) },
+          { name: 'Amount', value: String(totalAmount) }
+        ],
+        type: 'order_registered',
+        deduplicationKey: `order_reg_${order.id}_${customerPhone}`
+      }).catch(err => console.warn('Customer order SMS warning:', err));
+    }
+
+    // 2. Send New Order Alert SMS to Admin / Site Owner
+    const adminPhone = process.env.ADMIN_PHONE || runtimeSmsConfig.adminPhone;
+    if (adminPhone) {
+      sendSmsIrVerifyTemplate({
+        mobile: adminPhone,
+        templateId: process.env.SMSIR_NEW_ORDER_TEMPLATE_ID || runtimeSmsConfig.newOrderTemplateId,
+        parameters: [
+          { name: 'OrderId', value: String(order.id) },
+          { name: 'Amount', value: String(totalAmount) },
+          { name: 'Customer', value: (order.shippingAddress?.fullName || 'خریدار جدید').slice(0, 30) },
+          { name: 'Date', value: new Date().toLocaleDateString('fa-IR') }
+        ],
+        type: 'new_order_admin',
+        deduplicationKey: `order_admin_${order.id}`
+      }).catch(err => console.warn('Admin order SMS warning:', err));
+    }
+
     // Store order in server memory store
     if (order && order.id) {
       const existingIdx = serverOrdersStore.findIndex(o => o.id === order.id);
@@ -1486,10 +1761,10 @@ app.post('/api/email/order-created', async (req, res) => {
   }
 });
 
-// API Endpoint 5: Order Status Update Email (Confirming, Preparing, Shipped)
+// API Endpoint 5: Order Status Update Email & SMS (Confirming, Preparing, Shipped)
 app.post('/api/email/order-status', async (req, res) => {
   try {
-    const { orderId, newStatus, trackingCode, customerEmail, customerName } = req.body;
+    const { orderId, newStatus, trackingCode, customerEmail, customerName, customerPhone } = req.body;
     if (!orderId || !customerEmail) {
       return res.status(400).json({ success: false, error: 'پارامترهای تغییر وضعیت سفارش نامعتبر است' });
     }
@@ -1510,6 +1785,23 @@ app.post('/api/email/order-status', async (req, res) => {
     };
 
     const label = statusLabels[newStatus] || newStatus;
+
+    // Automatically send SMS when order status changes to "shipped"
+    const recipientPhone = customerPhone || targetOrder?.shippingAddress?.phone || targetOrder?.customerInfo?.phone;
+    if (newStatus === 'shipped' && recipientPhone) {
+      sendSmsIrVerifyTemplate({
+        mobile: recipientPhone,
+        templateId: process.env.SMSIR_ORDER_SHIPPED_TEMPLATE_ID || runtimeSmsConfig.orderShippedTemplateId,
+        parameters: [
+          { name: 'Name', value: (customerName || targetOrder?.shippingAddress?.fullName || 'کاربر گرامی').slice(0, 30) },
+          { name: 'OrderId', value: String(orderId) },
+          { name: 'TrackingCode', value: String(trackingCode || 'در سامانه پست') },
+          { name: 'Code', value: String(trackingCode || 'در سامانه پست') }
+        ],
+        type: 'order_shipped',
+        deduplicationKey: `order_shipped_${orderId}_${trackingCode || ''}`
+      }).catch(err => console.warn('Order shipped SMS warning:', err));
+    }
 
     const htmlContent = `
       <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
@@ -1556,14 +1848,287 @@ app.post('/api/email/order-status', async (req, res) => {
 
     return res.json({ 
       success: true, 
-      message: 'ایمیل بروزرسانی وضعیت سفارش پردازش شد.',
+      message: 'بروزرسانی وضعیت سفارش پردازش شد.',
       status: statusEmailResult.status
     });
   } catch (err: any) {
     console.error('Status email error:', err);
-    return res.status(500).json({ success: false, error: err?.message || 'خطا در ارسال ایمیل تغییر وضعیت' });
+    return res.status(500).json({ success: false, error: err?.message || 'خطا در بروزرسانی وضعیت' });
   }
 });
+
+// =========================================================================
+// 🚀 DEDICATED SMS.IR REST API ENDPOINTS
+// =========================================================================
+
+// 1. POST /api/sms/send-verify: User verification / OTP
+app.post('/api/sms/send-verify', async (req, res) => {
+  try {
+    const { mobile, code, name } = req.body;
+    if (!mobile) {
+      return res.status(400).json({ success: false, error: 'شماره موبایل الزامی است' });
+    }
+
+    const otpCode = code || Math.floor(10000 + Math.random() * 90000).toString();
+    const templateId = process.env.SMSIR_VERIFY_TEMPLATE_ID || runtimeSmsConfig.verifyTemplateId;
+
+    const result = await sendSmsIrVerifyTemplate({
+      mobile,
+      templateId,
+      parameters: [
+        { name: 'Code', value: String(otpCode) },
+        { name: 'CODE', value: String(otpCode) },
+        { name: 'Otp', value: String(otpCode) },
+        { name: 'Name', value: (name || 'هنرجوی گرامی').slice(0, 30) }
+      ],
+      type: 'verify',
+      deduplicationKey: `verify_${mobile}`
+    });
+
+    return res.json({ ...result, generatedCode: process.env.NODE_ENV !== 'production' ? otpCode : undefined });
+  } catch (err: any) {
+    console.error('SMS verify error:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'خطا در ارسال پیامک تایید' });
+  }
+});
+
+// 2. POST /api/sms/send-password-reset: Password recovery SMS
+app.post('/api/sms/send-password-reset', async (req, res) => {
+  try {
+    const { mobile, code, newPassword, name } = req.body;
+    if (!mobile) {
+      return res.status(400).json({ success: false, error: 'شماره موبایل الزامی است' });
+    }
+
+    const resetCode = code || newPassword || Math.floor(100000 + Math.random() * 900000).toString();
+    const templateId = process.env.SMSIR_PASSWORD_RESET_TEMPLATE_ID || runtimeSmsConfig.passwordResetTemplateId;
+
+    const result = await sendSmsIrVerifyTemplate({
+      mobile,
+      templateId,
+      parameters: [
+        { name: 'Code', value: String(resetCode) },
+        { name: 'CODE', value: String(resetCode) },
+        { name: 'Password', value: String(resetCode) },
+        { name: 'Name', value: (name || 'کاربر گرامی').slice(0, 30) }
+      ],
+      type: 'password_reset',
+      deduplicationKey: `pwd_reset_${mobile}`
+    });
+
+    return res.json({ ...result, generatedCode: process.env.NODE_ENV !== 'production' ? resetCode : undefined });
+  } catch (err: any) {
+    console.error('SMS password reset error:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'خطا در ارسال پیامک بازیابی رمز' });
+  }
+});
+
+// 3. POST /api/sms/send-order-registered: Order registered SMS to customer
+app.post('/api/sms/send-order-registered', async (req, res) => {
+  try {
+    const { mobile, orderId, amount, customerName } = req.body;
+    if (!mobile || !orderId) {
+      return res.status(400).json({ success: false, error: 'شماره موبایل و شناسه سفارش الزامی است' });
+    }
+
+    const templateId = process.env.SMSIR_ORDER_REGISTERED_TEMPLATE_ID || runtimeSmsConfig.orderRegisteredTemplateId;
+
+    const result = await sendSmsIrVerifyTemplate({
+      mobile,
+      templateId,
+      parameters: [
+        { name: 'Name', value: (customerName || 'کاربر گرامی').slice(0, 30) },
+        { name: 'OrderId', value: String(orderId) },
+        { name: 'Amount', value: String(amount || 0) }
+      ],
+      type: 'order_registered',
+      deduplicationKey: `order_reg_${orderId}_${mobile}`
+    });
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error('SMS order registered error:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'خطا در ارسال پیامک ثبت سفارش' });
+  }
+});
+
+// 4. POST /api/sms/send-new-order-admin: New order notification SMS to admin
+app.post('/api/sms/send-new-order-admin', async (req, res) => {
+  try {
+    const { orderId, amount, customerName, mobile } = req.body;
+    if (!orderId) {
+      return res.status(400).json({ success: false, error: 'شناسه سفارش الزامی است' });
+    }
+
+    const targetPhone = mobile || process.env.ADMIN_PHONE || runtimeSmsConfig.adminPhone;
+    const templateId = process.env.SMSIR_NEW_ORDER_TEMPLATE_ID || runtimeSmsConfig.newOrderTemplateId;
+
+    const result = await sendSmsIrVerifyTemplate({
+      mobile: targetPhone,
+      templateId,
+      parameters: [
+        { name: 'OrderId', value: String(orderId) },
+        { name: 'Amount', value: String(amount || 0) },
+        { name: 'Customer', value: (customerName || 'خریدار').slice(0, 30) },
+        { name: 'Date', value: new Date().toLocaleDateString('fa-IR') }
+      ],
+      type: 'new_order_admin',
+      deduplicationKey: `order_admin_${orderId}`
+    });
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error('SMS new order admin error:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'خطا در ارسال پیامک مدیر' });
+  }
+});
+
+// 5. POST /api/sms/send-order-shipped: Order shipped with tracking code
+app.post('/api/sms/send-order-shipped', async (req, res) => {
+  try {
+    const { mobile, orderId, trackingCode, customerName } = req.body;
+    if (!mobile || !orderId) {
+      return res.status(400).json({ success: false, error: 'شماره موبایل و شناسه سفارش الزامی است' });
+    }
+
+    const templateId = process.env.SMSIR_ORDER_SHIPPED_TEMPLATE_ID || runtimeSmsConfig.orderShippedTemplateId;
+
+    const result = await sendSmsIrVerifyTemplate({
+      mobile,
+      templateId,
+      parameters: [
+        { name: 'Name', value: (customerName || 'کاربر گرامی').slice(0, 30) },
+        { name: 'OrderId', value: String(orderId) },
+        { name: 'TrackingCode', value: String(trackingCode || 'ثبت شده') },
+        { name: 'Code', value: String(trackingCode || 'ثبت شده') }
+      ],
+      type: 'order_shipped',
+      deduplicationKey: `order_shipped_${orderId}_${trackingCode || ''}`
+    });
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error('SMS order shipped error:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'خطا در ارسال پیامک ارسال سفارش' });
+  }
+});
+
+// GET /api/sms/status - Check configuration state safely
+app.get('/api/sms/status', (req, res) => {
+  const apiKey = (process.env.SMSIR_API_KEY || runtimeSmsConfig.apiKey || '').trim();
+  const verifyTpl = (process.env.SMSIR_VERIFY_TEMPLATE_ID || runtimeSmsConfig.verifyTemplateId || '').trim();
+  const pwdTpl = (process.env.SMSIR_PASSWORD_RESET_TEMPLATE_ID || runtimeSmsConfig.passwordResetTemplateId || '').trim();
+  const newOrderTpl = (process.env.SMSIR_NEW_ORDER_TEMPLATE_ID || runtimeSmsConfig.newOrderTemplateId || '').trim();
+  const orderRegTpl = (process.env.SMSIR_ORDER_REGISTERED_TEMPLATE_ID || runtimeSmsConfig.orderRegisteredTemplateId || '').trim();
+  const orderShipTpl = (process.env.SMSIR_ORDER_SHIPPED_TEMPLATE_ID || runtimeSmsConfig.orderShippedTemplateId || '').trim();
+
+  return res.json({
+    success: true,
+    status: {
+      configured: Boolean(apiKey),
+      hasApiKey: Boolean(apiKey),
+      lineNumber: (process.env.SMSIR_LINE_NUMBER || runtimeSmsConfig.lineNumber || 'خدماتی اشتراکی'),
+      adminPhone: (process.env.ADMIN_PHONE || runtimeSmsConfig.adminPhone || 'تنظیم نشده'),
+      templates: {
+        verify: Boolean(verifyTpl),
+        passwordReset: Boolean(pwdTpl),
+        newOrderAdmin: Boolean(newOrderTpl),
+        orderRegistered: Boolean(orderRegTpl),
+        orderShipped: Boolean(orderShipTpl)
+      },
+      templateIds: {
+        verify: verifyTpl || null,
+        passwordReset: pwdTpl || null,
+        newOrderAdmin: newOrderTpl || null,
+        orderRegistered: orderRegTpl || null,
+        orderShipped: orderShipTpl || null
+      }
+    }
+  });
+});
+
+// GET /api/sms/logs - Recent SMS logs
+app.get('/api/sms/logs', (req, res) => {
+  return res.json({
+    success: true,
+    logs: smsLogs.slice(0, 100)
+  });
+});
+
+// POST /api/sms/test - Test any template from admin panel
+app.post('/api/sms/test', async (req, res) => {
+  try {
+    const { templateType, mobile, customParameters } = req.body;
+    if (!mobile) {
+      return res.status(400).json({ success: false, error: 'شماره موبایل الزامی است' });
+    }
+
+    let templateId = '';
+    let params: Array<{ name: string; value: string }> = customParameters || [];
+
+    switch (templateType) {
+      case 'verify':
+        templateId = process.env.SMSIR_VERIFY_TEMPLATE_ID || runtimeSmsConfig.verifyTemplateId;
+        if (!params.length) {
+          params = [{ name: 'Code', value: '12345' }, { name: 'CODE', value: '12345' }, { name: 'Name', value: 'تست سیستم' }];
+        }
+        break;
+      case 'password_reset':
+        templateId = process.env.SMSIR_PASSWORD_RESET_TEMPLATE_ID || runtimeSmsConfig.passwordResetTemplateId;
+        if (!params.length) {
+          params = [{ name: 'Code', value: '987654' }, { name: 'Name', value: 'تست سیستم' }];
+        }
+        break;
+      case 'new_order_admin':
+        templateId = process.env.SMSIR_NEW_ORDER_TEMPLATE_ID || runtimeSmsConfig.newOrderTemplateId;
+        if (!params.length) {
+          params = [
+            { name: 'OrderId', value: 'TEST-1001' },
+            { name: 'Amount', value: '450000' },
+            { name: 'Customer', value: 'کاربر تستی' },
+            { name: 'Date', value: new Date().toLocaleDateString('fa-IR') }
+          ];
+        }
+        break;
+      case 'order_registered':
+        templateId = process.env.SMSIR_ORDER_REGISTERED_TEMPLATE_ID || runtimeSmsConfig.orderRegisteredTemplateId;
+        if (!params.length) {
+          params = [
+            { name: 'Name', value: 'کاربر تستی' },
+            { name: 'OrderId', value: 'TEST-1001' },
+            { name: 'Amount', value: '450000' }
+          ];
+        }
+        break;
+      case 'order_shipped':
+        templateId = process.env.SMSIR_ORDER_SHIPPED_TEMPLATE_ID || runtimeSmsConfig.orderShippedTemplateId;
+        if (!params.length) {
+          params = [
+            { name: 'Name', value: 'کاربر تستی' },
+            { name: 'OrderId', value: 'TEST-1001' },
+            { name: 'TrackingCode', value: '98765432101234567890' },
+            { name: 'Code', value: '98765432101234567890' }
+          ];
+        }
+        break;
+      default:
+        templateId = req.body.templateId || '';
+        break;
+    }
+
+    const result = await sendSmsIrVerifyTemplate({
+      mobile,
+      templateId,
+      parameters: params,
+      type: templateType || 'test'
+    });
+
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'خطا در ارسال پیامک تستی' });
+  }
+});
+
 
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {

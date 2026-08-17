@@ -20,6 +20,7 @@ export interface SendOrderStatusEmailParams {
   trackingCode?: string;
   customerEmail: string;
   customerName?: string;
+  customerPhone?: string;
 }
 
 /**
