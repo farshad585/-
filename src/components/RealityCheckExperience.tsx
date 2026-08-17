@@ -136,48 +136,84 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
     };
     window.addEventListener('resize', handleResize);
 
-    // Matrix characters streams setup: strictly using letters from "40 gates to beyond"
-    const fontSize = Math.max(12, Math.floor(width / 75));
-    const columns = Math.ceil(width / fontSize);
-    // Staggered drop positions across the full screen
-    const drops: number[] = Array.from({ length: columns }, () => Math.random() * -100);
-    const dropSpeeds: number[] = Array.from({ length: columns }, () => 0.9 + Math.random() * 1.1);
-    
-    // Exact characters from "40 gates to beyond" (uppercase & lowercase)
-    const chars = '40GATESTOBEYOND40gatestobeyond40GATES40';
+    // Authentic Matrix 1 Digital Rain Engine (Pure single-column stream lines)
+    const fontSize = Math.max(13, Math.floor(width / 65));
+    const columnSpacing = fontSize;
+    const columns = Math.ceil(width / columnSpacing);
 
+    // Characters pool and full word tokens
+    const WORD = '40GATES';
+    const glyphs = ['4', '0', 'G', 'A', 'T', 'E', 'S'];
+
+    interface RainStream {
+      x: number;
+      y: number;
+      speed: number;
+      length: number;
+      chars: string[];
+      changeInterval: number[];
+      isWordStream: boolean;
+    }
+
+    // Initialize authentic single-column Matrix streams (with rare ~6% voluminous 40GATES cascades)
+    const streams: RainStream[] = [];
+    for (let i = 0; i < columns; i++) {
+      const isWordStream = Math.random() < 0.06; // Rare occasional voluminous word cascade between single lines
+      const len = isWordStream ? Math.floor(5 + Math.random() * 8) : Math.floor(10 + Math.random() * 22);
+      const streamChars: string[] = [];
+      const intervals: number[] = [];
+      const offset = Math.floor(Math.random() * WORD.length);
+
+      for (let j = 0; j < len; j++) {
+        if (isWordStream) {
+          streamChars.push(WORD);
+        } else {
+          // Strictly single glyphs per line
+          streamChars.push(WORD[(j + offset) % WORD.length]);
+        }
+        intervals.push(Math.floor(4 + Math.random() * 12));
+      }
+
+      streams.push({
+        x: i * columnSpacing,
+        y: Math.random() * -height * 1.5, // Natural staggered vertical start
+        speed: 0.22 + Math.random() * 0.35, // Varied individual fall speeds (calm ~30% pace)
+        length: len,
+        chars: streamChars,
+        changeInterval: intervals,
+        isWordStream,
+      });
+    }
+
+    let frameCount = 0;
     let time = 0;
 
     const draw = () => {
+      frameCount++;
       time += 0.03;
 
-      // Dark obsidian mirror base with subtle fading trails (creates the classic Matrix code stream effect)
-      ctx.fillStyle = 'rgba(2, 5, 8, 0.22)';
+      // Phosphor decay trail fade (creates organic Matrix 1 CRT trail persistence)
+      ctx.fillStyle = 'rgba(1, 4, 3, 0.16)';
       ctx.fillRect(0, 0, width, height);
 
       const centerX = width / 2;
-      const centerY = height * 0.42;
+      const centerY = height * 0.46;
 
-      // Head Silhouette Definition (Proportions matching reference image: Head, Ears, Jawline, Neck, Shoulders)
-      const silHeight = Math.min(height * 0.58, 440);
-      const silWidth = silHeight * 0.72;
-      const headRadiusX = silWidth * 0.42;
-      const headRadiusY = silHeight * 0.32;
-      const headCenterY = centerY - silHeight * 0.12;
+      // Head Silhouette Definition (2x Larger: Head, Ears, Jawline, Neck, Shoulders)
+      const silHeight = Math.min(height * 0.92, 880);
+      const silWidth = silHeight * 0.74;
+      const headRadiusX = silWidth * 0.44;
+      const headRadiusY = silHeight * 0.34;
+      const headCenterY = centerY - silHeight * 0.08;
 
-      // Function to calculate exact distance / inclusion in the human silhouette
-      // Returns:
-      // 'edge': close to the boundary (where bright green code forms the face/ear outline)
-      // 'inside': inside the head/face void (darker, dim streams)
-      // 'outside': background rain
       const getSilhouetteIntensity = (x: number, y: number): { isEdge: boolean; isInside: boolean; edgeGlow: number } => {
         const dx = (x - centerX) / headRadiusX;
         const dy = (y - headCenterY) / headRadiusY;
 
-        // Ear protrusions on the sides
+        // Ear protrusions on the sides (2x scaled)
         const earY = headCenterY + headRadiusY * 0.15;
-        const isLeftEar = Math.abs(x - (centerX - headRadiusX * 1.08)) < 16 && Math.abs(y - earY) < 32;
-        const isRightEar = Math.abs(x - (centerX + headRadiusX * 1.08)) < 16 && Math.abs(y - earY) < 32;
+        const isLeftEar = Math.abs(x - (centerX - headRadiusX * 1.06)) < 30 && Math.abs(y - earY) < 55;
+        const isRightEar = Math.abs(x - (centerX + headRadiusX * 1.06)) < 30 && Math.abs(y - earY) < 55;
         const hasEar = isLeftEar || isRightEar;
 
         // Elliptical head equation
@@ -210,7 +246,6 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
         }
 
         if (effectiveDist >= 0.82 && effectiveDist <= 1.15) {
-          // Precise boundary edge: calculate peak glow
           const edgeDist = Math.abs(effectiveDist - 0.98) / 0.16;
           const edgeGlow = Math.max(0, 1 - edgeDist);
           return { isEdge: true, isInside: false, edgeGlow };
@@ -221,63 +256,96 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
         return { isEdge: false, isInside: false, edgeGlow: 0 };
       };
 
-      // 1. RENDER FULL SCREEN MATRIX RAIN & DYNAMIC SILHOUETTE
-      ctx.font = `bold ${fontSize}px monospace`;
+      ctx.font = `bold ${fontSize}px "Courier New", monospace`;
 
-      for (let i = 0; i < columns; i++) {
-        const x = i * fontSize;
-        const y = drops[i] * fontSize;
+      // Draw all cascading streams
+      for (let i = 0; i < streams.length; i++) {
+        const stream = streams[i];
+        const streamHeadY = stream.y * fontSize;
 
-        const char = chars[Math.floor(Math.random() * chars.length)];
-        const sil = getSilhouetteIntensity(x, y);
+        for (let j = 0; j < stream.length; j++) {
+          const charY = streamHeadY - j * fontSize;
 
-        if (sil.isEdge) {
-          // 🔥 Silhouette Outline: Intense glowing emerald & bright neon green codes forming the human face/ears contour
-          ctx.fillStyle = sil.edgeGlow > 0.6 ? '#ffffff' : '#86efac';
-          ctx.shadowColor = '#22c55e';
-          ctx.shadowBlur = 14 + sil.edgeGlow * 12;
-          ctx.fillText(char, x, y);
+          // Skip if off-screen vertically
+          if (charY < -fontSize || charY > height + fontSize) continue;
 
-          // Sub-char trailing glow
-          ctx.fillStyle = 'rgba(74, 222, 128, 0.95)';
-          ctx.shadowBlur = 8;
-          const prevChar = chars[Math.floor(Math.random() * chars.length)];
-          ctx.fillText(prevChar, x, y - fontSize);
+          // Occasional organic character mutation / glitch
+          if (stream.chars[j] && frameCount % (stream.changeInterval[j] || 6) === 0 && Math.random() > 0.7) {
+            if (stream.isWordStream) {
+              stream.chars[j] = WORD;
+            } else {
+              stream.chars[j] = glyphs[Math.floor(Math.random() * glyphs.length)];
+            }
+          }
 
-        } else if (sil.isInside) {
-          // 👤 Inside the Silhouette: Hollow / Dark Void with very faint, shadowy green streams (like the reference)
-          ctx.shadowBlur = 0;
-          ctx.fillStyle = 'rgba(20, 83, 45, 0.18)';
-          ctx.fillText(char, x, y);
+          const char = stream.chars[j] || (stream.isWordStream ? WORD : glyphs[j % glyphs.length]);
+          const sil = getSilhouetteIntensity(stream.x, charY);
 
-          const prevChar = chars[Math.floor(Math.random() * chars.length)];
-          ctx.fillStyle = 'rgba(5, 46, 22, 0.08)';
-          ctx.fillText(prevChar, x, y - fontSize);
+          if (sil.isEdge) {
+            // 🔥 Silhouette Outline: High-intensity neon & white glyphs with emerald corona
+            ctx.shadowBlur = 14 + sil.edgeGlow * 12;
+            ctx.shadowColor = '#22c55e';
+            ctx.fillStyle = sil.edgeGlow > 0.5 || j === 0 ? '#ffffff' : '#86efac';
+            ctx.fillText(char, stream.x, charY);
 
-        } else {
-          // 🌌 Background Streams: Classic cascading Matrix code rain
-          ctx.shadowBlur = 4;
-          ctx.shadowColor = '#16a34a';
+          } else if (sil.isInside) {
+            // 👤 Hollow Silhouette Void: Faint ghostly green streams inside the face reflection
+            ctx.shadowBlur = 0;
+            const insideAlpha = Math.max(0.04, 0.22 * (1 - j / stream.length));
+            ctx.fillStyle = `rgba(34, 197, 94, ${insideAlpha})`;
+            ctx.fillText(char, stream.x, charY);
 
-          // Leading drop char
-          ctx.fillStyle = '#bbf7d0';
-          ctx.fillText(char, x, y);
-
-          // Trail
-          ctx.fillStyle = 'rgba(34, 197, 94, 0.65)';
-          const prevChar = chars[Math.floor(Math.random() * chars.length)];
-          ctx.fillText(prevChar, x, y - fontSize);
-
-          ctx.fillStyle = 'rgba(21, 128, 61, 0.35)';
-          ctx.shadowBlur = 0;
-          ctx.fillText(char, x, y - fontSize * 2);
+          } else {
+            // 🌌 Classic Matrix 1 Code Stream Cascades:
+            if (j === 0) {
+              // ⚡ Leading Head Drop (White hot with intense green bloom)
+              ctx.fillStyle = '#ffffff';
+              ctx.shadowColor = '#4ade80';
+              ctx.shadowBlur = 8;
+              ctx.fillText(char, stream.x, charY);
+            } else if (j < 3) {
+              // High-luminescence emerald green near the head
+              ctx.fillStyle = '#86efac';
+              ctx.shadowColor = '#22c55e';
+              ctx.shadowBlur = 4;
+              ctx.fillText(char, stream.x, charY);
+            } else if (j < 8) {
+              // Classic vibrant phosphor matrix green
+              ctx.fillStyle = '#22c55e';
+              ctx.shadowBlur = 0;
+              ctx.fillText(char, stream.x, charY);
+            } else {
+              // Deep tail fade towards black
+              const tailProgress = (j - 8) / Math.max(1, stream.length - 8);
+              const alpha = Math.max(0.08, 0.75 * (1 - tailProgress));
+              ctx.fillStyle = `rgba(22, 163, 74, ${alpha})`;
+              ctx.shadowBlur = 0;
+              ctx.fillText(char, stream.x, charY);
+            }
+          }
         }
 
-        // Reset drop when off screen
-        if (y > height && Math.random() > 0.975) {
-          drops[i] = 0;
+        // Advance stream
+        stream.y += stream.speed;
+
+        // Reset stream when it passes the bottom
+        if (stream.y * fontSize - stream.length * fontSize > height) {
+          stream.y = -Math.random() * 25 - 5;
+          stream.speed = 0.22 + Math.random() * 0.35;
+          stream.isWordStream = Math.random() < 0.06; // Rare occasional voluminous word cascade
+          stream.length = stream.isWordStream ? Math.floor(5 + Math.random() * 8) : Math.floor(10 + Math.random() * 22);
+          stream.chars = [];
+          stream.changeInterval = [];
+          const offset = Math.floor(Math.random() * WORD.length);
+          for (let j = 0; j < stream.length; j++) {
+            if (stream.isWordStream) {
+              stream.chars.push(WORD);
+            } else {
+              stream.chars.push(WORD[(j + offset) % WORD.length]);
+            }
+            stream.changeInterval.push(Math.floor(4 + Math.random() * 12));
+          }
         }
-        drops[i] += dropSpeeds[i];
       }
 
       // 2. Liquid ripples spreading on the mirror surface
