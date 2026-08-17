@@ -26,12 +26,12 @@ import farasou3 from '../assets/images/farasou_3.jpg';
 import farasou4 from '../assets/images/farasou_4.jpg';
 
 // Aferidegar
-import aferidegar1 from '../assets/images/aferidegar_1.jpg';
-import aferidegar2 from '../assets/images/aferidegar_2.jpg';
+import aferidegar1 from '../assets/images/aferidegar_1_1786777280233.jpg';
+import aferidegar2 from '../assets/images/aferidegar_2_1786777326165.jpg';
 
 // Asrar
-import asrar1 from '../assets/images/asrar_1.jpg';
-import asrar2 from '../assets/images/asrar_2.jpg';
+import asrar1 from '../assets/images/asrar_1_1786777302382.jpg';
+import asrar2 from '../assets/images/asrar_2_1786777313072.jpg';
 
 // Roman
 import roman1 from '../assets/images/roman_1.jpg';

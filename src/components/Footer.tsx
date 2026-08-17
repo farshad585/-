@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import logoIcon from '../assets/images/icon40fates.png';
+import logoIcon from '../assets/images/40gates_logo_1784533471317.png';
 import { 
   Instagram, 
   Send, 
