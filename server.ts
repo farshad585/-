@@ -74,11 +74,41 @@ const runtimeSmtpConfig = {
 };
 
 /**
+ * Utility to sanitize sensitive details (passwords, tokens, credentials) from error messages and logs.
+ */
+export function sanitizeErrorLog(message: string, secrets: string[] = []): string {
+  if (!message) return '';
+  let sanitized = String(message);
+
+  // Redact known secrets (e.g. gmail pass, app passwords)
+  const activeSecrets = [
+    runtimeSmtpConfig.pass,
+    process.env.GMAIL_APP_PASSWORD,
+    process.env.ADMIN_PASSWORD,
+    process.env.ADMIN_SECRET,
+    ...secrets
+  ].filter((s): s is string => Boolean(s && s.length >= 4));
+
+  for (const secret of activeSecrets) {
+    const trimmedSecret = secret.trim();
+    if (trimmedSecret) {
+      // Escape special characters for RegExp
+      const escaped = trimmedSecret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      sanitized = sanitized.replace(new RegExp(escaped, 'gi'), '***REDACTED***');
+    }
+  }
+
+  // Redact generic authorization or password strings in log traces if any
+  sanitized = sanitized.replace(/(pass|password|auth|token|secret|key)=["']?[^"'\s&]+["']?/gi, '$1=***REDACTED***');
+  return sanitized;
+}
+
+/**
  * Universal Fast & Safe Email Sending Helper Function
  * Handles timeouts, network glitches, and auth errors gracefully.
- * Configured with 30s timeouts for cloud serverless environments (Vercel).
+ * Configured with 15s timeouts optimized for Vercel serverless execution limits.
  */
-async function sendMailSafely(
+export async function sendMailSafely(
   options: nodemailer.SendMailOptions,
   type: string = 'general'
 ): Promise<{ success: boolean; status: 'sent' | 'simulated' | 'failed'; error?: string; messageId?: string }> {
@@ -100,8 +130,8 @@ async function sendMailSafely(
           runtimeSmtpConfig.pass = gmailPass;
         }
       }
-    } catch (dbErr) {
-      console.warn('Could not fetch SMTP config from Supabase:', dbErr);
+    } catch (dbErr: any) {
+      console.warn('Could not fetch SMTP config from Supabase:', sanitizeErrorLog(dbErr?.message || String(dbErr)));
     }
   }
 
@@ -122,9 +152,9 @@ async function sendMailSafely(
         tls: {
           rejectUnauthorized: false
         },
-        connectionTimeout: 30000, // 30s connection timeout for cold starts on Vercel
-        greetingTimeout: 30000,
-        socketTimeout: 30000,
+        connectionTimeout: 15000, // 15s connection timeout optimized for Vercel Serverless Function limits
+        greetingTimeout: 15000,
+        socketTimeout: 15000,
       });
 
       return await transporter.sendMail({
@@ -139,7 +169,8 @@ async function sendMailSafely(
         // Try Port 465 with direct SSL first (most reliable on Vercel cloud serverless)
         info = await trySendWithTransporter(465, true);
       } catch (sslErr: any) {
-        console.warn(`⚠️ [SMTP 465 SSL failed, trying 587 STARTTLS fallback...]`, sslErr?.message);
+        const safeSslErrMsg = sanitizeErrorLog(sslErr?.message || String(sslErr), [gmailPass]);
+        console.warn(`⚠️ [SMTP 465 SSL failed, trying 587 STARTTLS fallback...]`, safeSslErrMsg);
         info = await trySendWithTransporter(587, false);
       }
 
@@ -154,8 +185,9 @@ async function sendMailSafely(
       });
       return { success: true, status: 'sent', messageId: info.messageId };
     } catch (err: any) {
-      const errMsg = err?.message || String(err);
-      console.error(`❌ [GMAIL SMTP ERROR] To: ${to} | Error:`, errMsg);
+      const rawErrMsg = err?.message || String(err);
+      const safeErrMsg = sanitizeErrorLog(rawErrMsg, [gmailPass]);
+      console.error(`❌ [GMAIL SMTP ERROR] To: ${to} | Error:`, safeErrMsg);
 
       emailLogs.unshift({
         id: 'EML-ERR-' + Date.now(),
@@ -164,13 +196,13 @@ async function sendMailSafely(
         subject: `[خطا] ${subject}`,
         timestamp: new Date().toLocaleTimeString('fa-IR'),
         status: 'failed',
-        errorDetails: errMsg,
+        errorDetails: safeErrMsg,
       });
 
       return {
         success: false,
         status: 'failed',
-        error: `خطا در اتصال یا احراز هویت Gmail SMTP: ${errMsg}`,
+        error: `خطا در اتصال یا احراز هویت Gmail SMTP: ${safeErrMsg}`,
       };
     }
   }
@@ -1327,6 +1359,72 @@ app.post('/api/admin/test-email', requireAdminAuth, async (req, res) => {
   }
 });
 
+// API Endpoint: Password Reset Email
+app.post('/api/email/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ success: false, error: 'آدرس ایمیل معتبر الزامی است.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const adminEmail = runtimeSmtpConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
+
+    // 1. Send instruction email to the requesting user
+    const userResetHtml = `
+      <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+          <div style="text-align: center; margin-bottom: 25px;">
+            <h2 style="color: #4338ca; margin: 0 0 8px 0;">🔑 بازیابی کلمه عبور - آکادمی ۴۰ دروازه</h2>
+            <p style="color: #64748b; font-size: 13px; margin: 0;">راهنمای تنظیم مجدد گذرواژه حساب کاربری</p>
+          </div>
+
+          <p style="font-size: 14px; line-height: 1.8; color: #334155;">
+            سلام دوست گرامی؛<br/>
+            درخواست بازیابی کلمه عبور برای حساب کاربری متصل به ایمیل <strong>${cleanEmail}</strong> ثبت شده است.
+          </p>
+
+          <div style="background-color: #f1f5f9; border-right: 4px solid #6366f1; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 13px; line-height: 1.8;">
+            جهت تسریع در بازیابی کلمه عبور و حفظ امنیت حساب، لطفاً با ایمیل پشتیبانی به آدرس <a href="mailto:${adminEmail}" style="color: #2563eb; font-weight: bold;">${adminEmail}</a> یا پشتیبانی تلگرام <a href="https://t.me/Farshad_God" style="color: #2563eb; font-weight: bold;">t.me/Farshad_God</a> در ارتباط باشید.
+          </div>
+
+          <p style="font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 15px; margin-top: 20px;">
+            اگر این درخواست توسط شما ثبت نشده است، می‌توانید این ایمیل را نادیده بگیرید.
+          </p>
+        </div>
+      </div>
+    `;
+
+    const userEmailResult = await sendMailSafely({
+      to: cleanEmail,
+      subject: '🔑 درخواست بازیابی کلمه عبور در آکادمی ۴۰ دروازه',
+      html: userResetHtml,
+    }, 'forgot-password');
+
+    // 2. Notify site admin about password reset request
+    sendMailSafely({
+      to: adminEmail,
+      subject: `🔑 درخواست بازیابی کلمه عبور: ${cleanEmail}`,
+      html: `
+        <div dir="rtl" style="font-family: Tahoma, sans-serif; padding: 20px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
+          <h3 style="color: #fbbf24;">🔑 درخواست بازیابی رمز عبور جدید ثبت شد</h3>
+          <p><strong>ایمیل کاربر:</strong> ${cleanEmail}</p>
+          <p><strong>تاریخ و زمان:</strong> ${new Date().toLocaleDateString('fa-IR')} - ساعت ${new Date().toLocaleTimeString('fa-IR')}</p>
+        </div>
+      `
+    }, 'forgot-password-admin-notify').catch(e => console.warn('Admin password reset notify err:', e));
+
+    return res.json({
+      success: true,
+      message: 'دستورالعمل بازیابی کلمه عبور به ایمیل شما ارسال شد.',
+      status: userEmailResult.status
+    });
+  } catch (err: any) {
+    console.error('Forgot password endpoint error:', err);
+    return res.status(500).json({ success: false, error: 'خطا در فرآیند بازیابی کلمه عبور' });
+  }
+});
+
 // API Endpoint 3: Register / Welcome Email
 app.post('/api/email/welcome', async (req, res) => {
   try {
@@ -1658,7 +1756,7 @@ async function startServer() {
   });
 }
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
   startServer();
 }
 

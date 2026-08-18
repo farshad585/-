@@ -105,21 +105,20 @@ export default function Auth() {
 
     setLoading(true);
     try {
-      // Send password reset / notification instructions via email
-      await fetch('/api/email/contact', {
+      const response = await fetch('/api/email/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'درخواست بازیابی رمز عبور',
-          email: resetEmail.trim(),
-          subject: 'درخواست بازیابی رمز عبور در آکادمی ۴۰ دروازه',
-          message: `کاربر با ایمیل ${resetEmail.trim()} درخواست بازیابی کلمه عبور خود را ثبت نموده است.`
-        })
-      }).catch(() => null);
+        body: JSON.stringify({ email: resetEmail.trim() })
+      });
+      const data = await response.json();
 
-      setSuccessMsg('دستورالعمل بازیابی کلمه عبور به ایمیل شما ارسال شد.');
+      if (data.success) {
+        setSuccessMsg(data.message || 'دستورالعمل بازیابی کلمه عبور به ایمیل شما ارسال شد.');
+      } else {
+        setError(data.error || 'خطا در ثبت درخواست بازیابی رمز عبور.');
+      }
     } catch (err) {
-      setError('خطا در ثبت درخواست بازیابی رمز عبور.');
+      setError('خطا در شبکه یا اتصال به سرور. لطفاً مجدداً تلاش کنید.');
     } finally {
       setLoading(false);
     }
