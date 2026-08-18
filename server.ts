@@ -76,6 +76,7 @@ const runtimeSmtpConfig = {
 /**
  * Universal Fast & Safe Email Sending Helper Function
  * Handles timeouts, network glitches, and auth errors gracefully.
+ * Configured with 30s timeouts for cloud serverless environments (Vercel).
  */
 async function sendMailSafely(
   options: nodemailer.SendMailOptions,
@@ -121,9 +122,9 @@ async function sendMailSafely(
         tls: {
           rejectUnauthorized: false
         },
-        connectionTimeout: 3500,
-        greetingTimeout: 3500,
-        socketTimeout: 4000,
+        connectionTimeout: 30000, // 30s connection timeout for cold starts on Vercel
+        greetingTimeout: 30000,
+        socketTimeout: 30000,
       });
 
       return await transporter.sendMail({
@@ -135,11 +136,11 @@ async function sendMailSafely(
     try {
       let info;
       try {
-        // Try Port 587 with STARTTLS first (faster and standard for serverless)
-        info = await trySendWithTransporter(587, false);
-      } catch (tlsErr: any) {
-        console.warn(`⚠️ [SMTP 587 STARTTLS failed, trying 465 SSL fallback...]`, tlsErr?.message);
+        // Try Port 465 with direct SSL first (most reliable on Vercel cloud serverless)
         info = await trySendWithTransporter(465, true);
+      } catch (sslErr: any) {
+        console.warn(`⚠️ [SMTP 465 SSL failed, trying 587 STARTTLS fallback...]`, sslErr?.message);
+        info = await trySendWithTransporter(587, false);
       }
 
       console.log(`✅ [EMAIL SENT SUCCESSFULLY] To: ${to} | Subject: ${subject}`);
@@ -174,19 +175,21 @@ async function sendMailSafely(
     }
   }
 
-  console.log(`ℹ️ [EMAIL SIMULATED (GMAIL_USER or GMAIL_APP_PASSWORD pending in config)] To: ${to} | Subject: ${subject}`);
+  console.warn(`⚠️ [EMAIL NOT SENT - SMTP CREDENTIALS MISSING] GMAIL_USER or GMAIL_APP_PASSWORD not set in environment or database. Attempted To: ${to} | Subject: ${subject}`);
   emailLogs.unshift({
     id: 'EML-SIM-' + Date.now(),
     type,
     to,
-    subject: `[شبیه‌سازی] ${subject}`,
+    subject: `[پیکربندی نشده] ${subject}`,
     timestamp: new Date().toLocaleTimeString('fa-IR'),
     status: 'simulated',
+    errorDetails: 'متغیرهای GMAIL_USER و GMAIL_APP_PASSWORD در تنظیمات Vercel یا پنل مدیریت تعریف نشده‌اند.'
   });
 
   return {
-    success: true,
+    success: false,
     status: 'simulated',
+    error: 'سرویس ایمیل به دلیل عدم تنظیم GMAIL_USER یا GMAIL_APP_PASSWORD در Vercel فعال نیست.',
     messageId: 'simulated-' + Date.now(),
   };
 }
@@ -635,20 +638,85 @@ app.post('/api/orders', async (req, res) => {
         }
       }
 
-      // Send order notification email
+      // Send order notification emails (Separately to Customer & Admin)
       const adminEmail = runtimeSmtpConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
-      await sendMailSafely({
-        to: custEmail || adminEmail,
-        subject: `🛒 ثبت سفارش جدید #${order.id} - آکادمی ۴۰ دروازه`,
+      const items = order.items || [];
+      const totalAmount = order.totalAmount || 0;
+      const subtotal = order.subtotal || 0;
+      const shippingFee = order.shippingFee || 0;
+
+      const itemsHtml = items.map((item: any) => `
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+          <td style="padding: 10px; font-size: 13px;">${item.title || 'محصول'} (${item.quantity || 1} عدد)</td>
+          <td style="padding: 10px; font-size: 13px; text-align: left; font-weight: bold; color: #4338ca;">
+            ${((item.price || 0) * (item.quantity || 1)).toLocaleString('fa-IR')} تومان
+          </td>
+        </tr>
+      `).join('');
+
+      // 1. Send confirmation email to Customer (if email is provided)
+      if (custEmail) {
+        sendMailSafely({
+          to: custEmail,
+          subject: `🛒 تایید ثبت سفارش #${order.id} - آکادمی ۴۰ دروازه`,
+          html: `
+            <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                <div style="background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95); padding: 25px 20px; text-align: center; color: #ffffff;">
+                  <h1 style="margin: 0; font-size: 20px; color: #fbbf24;">تایید ثبت سفارش - آکادمی ۴۰ دروازه</h1>
+                  <p style="margin: 6px 0 0 0; font-size: 12px; color: #e0e7ff;">شماره سفارش: ${order.id}</p>
+                </div>
+                <div style="padding: 25px; font-size: 13px; line-height: 1.8;">
+                  <p>سلام <strong>${custName || 'هنرجوی گرامی'}</strong> عزیز،</p>
+                  <p>سفارش شما با شماره <strong>#${order.id}</strong> با موفقیت ثبت شد و در مرحله پردازش قرار گرفت.</p>
+                  <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                    <thead>
+                      <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                        <th style="padding: 8px; text-align: right; font-size: 12px; color: #64748b;">محصول</th>
+                        <th style="padding: 8px; text-align: left; font-size: 12px; color: #64748b;">مبلغ</th>
+                      </tr>
+                    </thead>
+                    <tbody>${itemsHtml}</tbody>
+                  </table>
+                  <div style="background-color: #f8fafc; border-radius: 12px; padding: 15px; margin: 15px 0;">
+                    <p style="margin: 4px 0;">جمع کل: <strong>${subtotal.toLocaleString('fa-IR')} تومان</strong></p>
+                    ${shippingFee > 0 ? `<p style="margin: 4px 0;">هزینه ارسال: <strong>${shippingFee.toLocaleString('fa-IR')} تومان</strong></p>` : ''}
+                    <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: bold; color: #1e1b4b; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
+                      مبلغ نهایی پرداختی: ${totalAmount.toLocaleString('fa-IR')} تومان
+                    </p>
+                  </div>
+                  <p style="font-size: 12px; color: #64748b;">وضعیت سفارش از طریق همین ایمیل و پیامک به شما اطلاع‌رسانی خواهد شد.</p>
+                </div>
+                <div style="background-color: #f8fafc; padding: 12px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+                  پشتیبانی آکادمی ۴۰ دروازه
+                </div>
+              </div>
+            </div>
+          `
+        }, 'order-customer').catch(e => console.warn('Customer order email err:', e));
+      }
+
+      // 2. Send distinct notification email to Admin
+      sendMailSafely({
+        to: adminEmail,
+        subject: `🔔 سفارش جدید ثبت شد #${order.id} - ${totalAmount.toLocaleString('fa-IR')} تومان`,
         html: `
-          <div dir="rtl" style="font-family: Tahoma, sans-serif; padding: 25px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
-            <h2 style="color: #fbbf24; margin-top: 0;">🛒 سفارش جدید با موفقیت ثبت شد</h2>
+          <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 25px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
+            <h2 style="color: #38bdf8; margin-top: 0;">🛒 سفارش جدید در وب‌سایت ثبت شد!</h2>
             <p><strong>شماره سفارش:</strong> ${order.id}</p>
-            <p><strong>خریدار:</strong> ${custName || custEmail}</p>
-            <p><strong>مبلغ کل:</strong> ${(order.totalAmount || 0).toLocaleString('fa-IR')} تومان</p>
+            <p><strong>نام خریدار:</strong> ${custName || 'نامشخص'}</p>
+            <p><strong>ایمیل خریدار:</strong> ${custEmail || 'ثبت نشده'}</p>
+            <p><strong>تلفن خریدار:</strong> ${custPhone || '-'}</p>
+            <p><strong>مبلغ کل:</strong> ${totalAmount.toLocaleString('fa-IR')} تومان</p>
+            <p><strong>آدرس:</strong> ${order.shippingAddress?.address || 'دیجیتال / آنلاین'}</p>
+            <hr style="border-color: #334155; margin: 15px 0;"/>
+            <h4 style="color: #fbbf24; margin: 0 0 10px 0;">اقلام سفارش:</h4>
+            <ul>
+              ${items.map((i: any) => `<li>${i.title || 'محصول'} - ${i.quantity || 1} عدد (${((i.price || 0) * (i.quantity || 1)).toLocaleString('fa-IR')} تومان)</li>`).join('')}
+            </ul>
           </div>
         `
-      }, 'order-created');
+      }, 'order-admin-notify').catch(e => console.warn('Admin order email err:', e));
     }
     res.json({ success: true, orders: serverOrdersStore });
   } catch (e: any) {
@@ -1011,7 +1079,7 @@ app.post('/api/admin/smtp-config', requireAdminAuth, async (req, res) => {
 });
 
 // Public Contact Endpoint
-app.post('/api/contact', async (req, res) => {
+const handleContactMessage = async (req: express.Request, res: express.Response) => {
   try {
     const { name, email, subject, message } = req.body;
     if (!name || !email || !message) {
@@ -1121,7 +1189,10 @@ app.post('/api/contact', async (req, res) => {
     console.error('Contact endpoint error:', err);
     return res.status(500).json({ success: false, error: 'خطا در ثبت پیام' });
   }
-});
+};
+
+app.post('/api/contact', handleContactMessage);
+app.post('/api/email/contact', handleContactMessage);
 
 // Protected Contact Messages Endpoint for Admin
 app.get('/api/admin/contact-messages', requireAdminAuth, (req, res) => {
