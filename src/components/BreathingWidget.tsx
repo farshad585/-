@@ -181,40 +181,23 @@ export default function BreathingWidget() {
         className="absolute inset-0 bg-gradient-to-r from-[#EEEAF9] via-[#EAF2FA] to-[#F7F5FC] transition-all duration-1000 ease-in-out opacity-90"
       />
 
-      <div className="max-w-7xl mx-auto px-4 py-2 relative z-10 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-1.5 relative z-10 flex items-center justify-between gap-2">
         
-        {/* Controls Bar (Right Side in RTL): Widget Toggle & Speaker Icon */}
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+        {/* Right Side: Collapse / Expand Toggle */}
+        <div className="flex items-center justify-center shrink-0 z-20">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1.5 rounded-lg bg-white hover:bg-[#E3DDF7] border border-[#DCD5F3] text-[#6557B8] transition-all text-xs flex items-center gap-1 shadow-2xs"
+            className="p-1.5 sm:p-2 rounded-lg bg-white hover:bg-[#E3DDF7] border border-[#DCD5F3] text-[#6557B8] transition-all text-xs flex items-center gap-1 shadow-2xs cursor-pointer"
             title={isCollapsed ? 'نمایش تمرین' : 'بستن تمرین'}
           >
             <Wind className="w-4 h-4 text-[#6557B8]" />
             {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
           </button>
-
-          {/* Speaker Icon Only (No Text) */}
-          <button
-            onClick={toggleAudio}
-            className={`p-1.5 rounded-lg border transition-all ${
-              !isAudioMuted
-                ? 'bg-[#6557B8] border-[#6557B8] text-white shadow-xs'
-                : 'bg-white border-[#DCD5F3] text-[#6D6A7C] hover:text-[#25243A]'
-            }`}
-            title={!isAudioMuted ? 'قطع صدای دریا' : 'پخش صدای دریا'}
-          >
-            {!isAudioMuted ? (
-              <Volume2 className="w-4 h-4 text-white animate-pulse" />
-            ) : (
-              <VolumeX className="w-3.5 h-3.5" />
-            )}
-          </button>
         </div>
 
         {/* Center Area: Water Ripple Concentric Rings & Smooth Fade Breathing Text */}
-        {!isCollapsed && (
-          <div className="flex-1 flex items-center justify-center relative min-h-[75px] w-full py-1">
+        {!isCollapsed ? (
+          <div className="flex-1 flex items-center justify-center relative min-h-[58px] sm:min-h-[68px] w-full py-0.5 overflow-hidden">
             
             {/* Concentric Water Ripple Rings */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
@@ -233,19 +216,19 @@ export default function BreathingWidget() {
                     ease: 'easeOut',
                   }}
                   style={{
-                    width: `${110 + ringIndex * 35}px`,
-                    height: `${110 + ringIndex * 35}px`,
+                    width: `${90 + ringIndex * 30}px`,
+                    height: `${90 + ringIndex * 30}px`,
                   }}
                 />
               ))}
             </div>
 
             {/* Center Text overlay inside ripples with smooth fade transitions */}
-            <div className="relative z-10 flex flex-col items-center justify-center text-center gap-1.5">
+            <div className="relative z-10 flex flex-col items-center justify-center text-center gap-0.5 sm:gap-1">
               
               {/* Pulsing & Fading Text: آهسته و عمیق نفس بکشید */}
               <motion.p
-                className="text-xs sm:text-sm font-semibold tracking-wide text-[#6557B8] font-mono"
+                className="text-[10px] sm:text-xs font-semibold tracking-wide text-[#6557B8] font-mono"
                 animate={{
                   opacity: [0.4, 1, 0.4],
                 }}
@@ -259,7 +242,7 @@ export default function BreathingWidget() {
               </motion.p>
 
               {/* Current Phase Title with Fade Effect */}
-              <div className="flex items-center gap-2 min-h-[28px]">
+              <div className="flex items-center gap-1.5 sm:gap-2 min-h-[24px]">
                 <AnimatePresence mode="wait">
                   <motion.span
                     key={currentPhase.name}
@@ -267,20 +250,43 @@ export default function BreathingWidget() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 1.05 }}
                     transition={{ duration: 0.5, ease: 'easeInOut' }}
-                    className="font-extrabold text-sm sm:text-base text-[#25243A]"
+                    className="font-extrabold text-xs sm:text-sm md:text-base text-[#25243A] whitespace-nowrap"
                   >
                     {currentPhase.label}
                   </motion.span>
                 </AnimatePresence>
 
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white border border-[#DCD5F3] text-[#6557B8]">
+                <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-[#DCD5F3] text-[#6557B8] whitespace-nowrap">
                   {timeLeft} ثانیه
                 </span>
               </div>
 
             </div>
           </div>
+        ) : (
+          <div className="flex-1 text-center text-xs font-medium text-[#6557B8]">
+            تمرین تنفس عمیق و امواج صوتی آرامش
+          </div>
         )}
+
+        {/* Left Side: Speaker Audio Toggle Button */}
+        <div className="flex items-center justify-center shrink-0 z-20">
+          <button
+            onClick={toggleAudio}
+            className={`p-1.5 sm:p-2 rounded-lg border transition-all cursor-pointer ${
+              !isAudioMuted
+                ? 'bg-[#6557B8] border-[#6557B8] text-white shadow-xs'
+                : 'bg-white border-[#DCD5F3] text-[#6D6A7C] hover:text-[#25243A]'
+            }`}
+            title={!isAudioMuted ? 'قطع صدای دریا' : 'پخش صدای دریا'}
+          >
+            {!isAudioMuted ? (
+              <Volume2 className="w-4 h-4 text-white animate-pulse" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            )}
+          </button>
+        </div>
 
       </div>
     </div>

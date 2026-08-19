@@ -128,7 +128,7 @@ export default function Home() {
                 </button>
                 {' '}با شما همراهان عزیز:
               </span>
-              حقیقت اینه که ما هر شب رویا می‌بینیم؛ چه دلمون بخواد، چه نخواد... پس چه بهتر که به‌جای سرگردان بودن در خواب‌های خسته‌کننده، آستین همت رو بالا بزنیم و از دنیای رویاهامون یه بهشت شخصی بسازیم! 💖
+              حقیقت اینه که ما هر شب رویا می‌بینیم؛ چه دلمون بخواد، چه نخواد... پس چه بهتر که به‌جای سرگردان بودن در خواب‌های خسته‌کننده، آستین همت رو بالا بزنیم و از دنیای رویامون یه بهشت شخصی بسازیم! 💖
             </motion.p>
 
             <motion.div
@@ -200,7 +200,7 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-t from-[#F7F5FC]/80 via-transparent to-transparent" />
 
             {/* Text Content strictly placed on the LEFT side of the screen (Left half) */}
-            <div className="absolute left-3 xs:left-3.5 top-0 bottom-0 w-[52%] sm:w-[48%] max-w-[270px] flex flex-col justify-center text-right space-y-2.5 z-10" dir="rtl">
+            <div className="absolute left-3 xs:left-3.5 top-0 bottom-0 w-[39%] sm:w-[36%] max-w-[200px] flex flex-col justify-center text-right space-y-2.5 z-10" dir="rtl">
               {/* Eyebrow - Single Line with dashes on both sides */}
               <div className="flex items-center gap-0.5 justify-start">
                 <span className="text-[#5243B2] text-[10px] xs:text-[11px] sm:text-xs font-bold">—</span>
@@ -230,10 +230,10 @@ export default function Home() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="relative z-10 bg-white/90 backdrop-blur-md rounded-2xl border border-[#EEEAF9] p-4 text-center shadow-xs space-y-2"
+            className="relative z-10 bg-white/90 backdrop-blur-md rounded-2xl border border-[#EEEAF9] px-2.5 py-3 sm:p-4 text-center shadow-xs space-y-2"
           >
-            <div className="flex items-center justify-center gap-1.5 text-[#5243B2] font-extrabold text-xs sm:text-sm">
-              <span className="text-sm">💬</span>
+            <div className="flex items-center justify-center gap-1.5 text-[#5243B2] font-extrabold text-[11px] xs:text-xs sm:text-sm">
+              <span className="text-xs sm:text-sm">💬</span>
               <span>گپ دوستانه من،</span>
               <button 
                 onClick={() => setCurrentPage('about')}
@@ -244,10 +244,10 @@ export default function Home() {
               <span>با شما همراهان عزیز:</span>
             </div>
             
-            <p className="text-xs text-slate-700 leading-relaxed space-y-1 font-medium">
-              <span className="block">حقیقت اینه که ما هر شب رویا می‌بینیم؛</span>
-              <span className="block">چه دلمون بخواد، چه نخواد...</span>
-              <span className="block">پس چه بهتر که به‌جای سرگردان بودن در خواب‌های خسته‌کننده، آستین همت رو بالا بزنیم و از دنیای رویاهامون یه بهشت شخصی بسازیم! 💖</span>
+            <p className="text-[clamp(9.5px,2.65vw,12px)] tracking-tight text-slate-700 leading-[1.7] font-medium text-center">
+              <span className="block whitespace-nowrap">حقیقت اینه که ما هر شب رویا می‌بینیم؛ چه دلمون بخواد، چه نخواد...</span>
+              <span className="block whitespace-nowrap">پس چه بهتر که به‌جای سرگردان بودن در خواب‌های خسته‌کننده،</span>
+              <span className="block whitespace-nowrap">آستین همت رو بالا بزنیم و از دنیای رویامون یه بهشت شخصی بسازیم! 💖</span>
             </p>
           </motion.div>
 

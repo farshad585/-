@@ -36,14 +36,14 @@ app.use((req, res, next) => {
 
 // Runtime Supabase Config Store
 const runtimeSupabaseConfig = {
-  url: (process.env.VITE_SUPABASE_URL || '').trim(),
-  anonKey: (process.env.VITE_SUPABASE_ANON_KEY || '').trim(),
-  serviceKey: (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
+  url: (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim(),
+  anonKey: (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim(),
+  serviceKey: (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
 };
 
 function getSupabaseClient() {
-  const url = (process.env.VITE_SUPABASE_URL || runtimeSupabaseConfig.url || '').trim();
-  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || runtimeSupabaseConfig.serviceKey || process.env.VITE_SUPABASE_ANON_KEY || runtimeSupabaseConfig.anonKey || '').trim();
+  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || runtimeSupabaseConfig.url || '').trim();
+  const key = (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || runtimeSupabaseConfig.serviceKey || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || runtimeSupabaseConfig.anonKey || '').trim();
   if (!url || !key || url.includes('placeholder')) return null;
   try {
     return createClient(url, key);
