@@ -7,27 +7,84 @@ interface RealityCheckExperienceProps {
 
 export default function RealityCheckExperience({ onComplete }: RealityCheckExperienceProps) {
   // Stages:
-  // 'mirror_ready': Matrix digital rain full-screen immediately, question and 3D pills active
-  // 'dissolving': user chose a pill, pill floats to center, liquid shockwave, dissolve
+  // 'mirror_ready': Matrix digital rain full-screen, typing question, and 3D pills
+  // 'dissolving': user chose a pill, liquid shockwave, dissolve
   // 'finished': unmounted
   const [stage, setStage] = useState<'mirror_ready' | 'dissolving' | 'finished'>('mirror_ready');
   const [selectedPill, setSelectedPill] = useState<'red' | 'blue' | null>(null);
   const [hoveredPill, setHoveredPill] = useState<'red' | 'blue' | null>(null);
+
+  // Human-like typing state
+  const FULL_TEXT = 'چقدر مطمئنی الان خواب نیستی؟';
+  const [displayedText, setDisplayedText] = useState<string>('');
+  const [isTypingComplete, setIsTypingComplete] = useState<boolean>(false);
+  const [isTypingStarted, setIsTypingStarted] = useState<boolean>(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const shockwaveOriginRef = useRef<{ x: number; y: number; progress: number } | null>(null);
 
-  // Synthesize subtle, cinematic sound effects safely with Web Audio API
+  // Get or init audio context safely
+  const getAudioContext = () => {
+    if (!audioCtxRef.current) {
+      try {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioCtx) {
+          audioCtxRef.current = new AudioCtx();
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    return audioCtxRef.current;
+  };
+
+  // Synthesize realistic subtle mechanical terminal keyboard click
+  const playKeyClickSound = () => {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      const t = ctx.currentTime;
+
+      // Crisp mechanical key click + resonant tap
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      // Pitch variation for human-like typing feel
+      const baseFreq = 1600 + Math.random() * 900;
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(baseFreq, t);
+      osc.frequency.exponentialRampToValueAtTime(260, t + 0.028);
+
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2400 + (Math.random() * 600 - 300), t);
+      filter.Q.setValueAtTime(3.5, t);
+
+      gain.gain.setValueAtTime(0.04, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.032);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(t);
+      osc.stop(t + 0.035);
+    } catch {
+      // Safe fallback if user hasn't interacted
+    }
+  };
+
+  // Synthesize subtle, cinematic sub-bass drone safely with Web Audio API
   const playAmbientTone = () => {
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      audioCtxRef.current = ctx;
+      const ctx = getAudioContext();
+      if (!ctx) return;
 
-      // Soft sub-bass drone
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       const filter = ctx.createBiquadFilter();
@@ -37,12 +94,12 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
       filter.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 4);
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(55, ctx.currentTime); // A1 note
+      osc.frequency.setValueAtTime(55, ctx.currentTime);
       osc.frequency.linearRampToValueAtTime(45, ctx.currentTime + 3);
 
       gain.gain.setValueAtTime(0.001, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 1.5);
-      gain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 4);
+      gain.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 1.5);
+      gain.gain.linearRampToValueAtTime(0.03, ctx.currentTime + 4);
 
       osc.connect(filter);
       filter.connect(gain);
@@ -56,7 +113,7 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
 
   const playLiquidDissolveSound = () => {
     try {
-      const ctx = audioCtxRef.current || new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const ctx = getAudioContext();
       if (!ctx) return;
       if (ctx.state === 'suspended') {
         ctx.resume();
@@ -88,7 +145,56 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
     }
   };
 
-  // Timeline Controller
+  // Human-like typing timeline with 1-second delay and realistic intervals
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    let charIndex = 0;
+
+    // Start after exactly 1 second (1000ms)
+    const startDelay = setTimeout(() => {
+      setIsTypingStarted(true);
+
+      const typeNextChar = () => {
+        if (charIndex <= FULL_TEXT.length) {
+          const currentSub = FULL_TEXT.slice(0, charIndex);
+          setDisplayedText(currentSub);
+
+          if (charIndex > 0) {
+            playKeyClickSound();
+          }
+
+          if (charIndex === FULL_TEXT.length) {
+            setIsTypingComplete(true);
+            return;
+          }
+
+          // Realistic human timing:
+          const nextChar = FULL_TEXT[charIndex];
+          let nextDelay = 85 + Math.random() * 65; // standard letter speed (~85-150ms)
+
+          // Extra pause between words (spaces) so it feels authentically typed
+          if (nextChar === ' ') {
+            nextDelay = 260 + Math.random() * 140; // 260-400ms pause between words
+          } else if (nextChar === '؟') {
+            nextDelay = 220;
+          }
+
+          charIndex++;
+          timer = setTimeout(typeNextChar, nextDelay);
+        }
+      };
+
+      charIndex = 1;
+      typeNextChar();
+    }, 1000);
+
+    return () => {
+      clearTimeout(startDelay);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // Ambient Drone & Audio lifecycle
   useEffect(() => {
     playAmbientTone();
 
@@ -104,7 +210,7 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
     };
   }, []);
 
-  // Digital Matrix Silhouette Canvas Rendering
+  // Digital Matrix Silhouette Canvas Rendering (Authentic Vintage CRT Matrix Phosphor Green)
   useEffect(() => {
     if (stage === 'finished') return;
     const canvas = canvasRef.current;
@@ -123,14 +229,13 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
     };
     window.addEventListener('resize', handleResize);
 
-    // Authentic Matrix 1 Digital Rain Engine (Pure single-column stream lines)
+    // Authentic Vintage Matrix Digital Rain Engine
     const fontSize = Math.max(13, Math.floor(width / 65));
     const columnSpacing = fontSize;
     const columns = Math.ceil(width / columnSpacing);
 
-    // Characters pool and full word tokens
     const WORD = '40GATES';
-    const glyphs = ['4', '0', 'G', 'A', 'T', 'E', 'S'];
+    const glyphs = ['4', '0', 'G', 'A', 'T', 'E', 'S', '0', '1', '2', '8', '9'];
 
     interface RainStream {
       x: number;
@@ -142,10 +247,9 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
       isWordStream: boolean;
     }
 
-    // Initialize authentic single-column Matrix streams (with rare ~6% voluminous 40GATES cascades)
     const streams: RainStream[] = [];
     for (let i = 0; i < columns; i++) {
-      const isWordStream = Math.random() < 0.06; // Rare occasional voluminous word cascade between single lines
+      const isWordStream = Math.random() < 0.05;
       const len = isWordStream ? Math.floor(5 + Math.random() * 8) : Math.floor(10 + Math.random() * 22);
       const streamChars: string[] = [];
       const intervals: number[] = [];
@@ -155,7 +259,6 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
         if (isWordStream) {
           streamChars.push(WORD);
         } else {
-          // Strictly single glyphs per line
           streamChars.push(WORD[(j + offset) % WORD.length]);
         }
         intervals.push(Math.floor(4 + Math.random() * 12));
@@ -163,8 +266,8 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
 
       streams.push({
         x: i * columnSpacing,
-        y: Math.random() * -height * 1.5, // Natural staggered vertical start
-        speed: 0.22 + Math.random() * 0.35, // Varied individual fall speeds (calm ~30% pace)
+        y: Math.random() * -height * 1.5,
+        speed: 0.20 + Math.random() * 0.32,
         length: len,
         chars: streamChars,
         changeInterval: intervals,
@@ -179,15 +282,15 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
       frameCount++;
       time += 0.03;
 
-      // Phosphor decay trail fade (creates organic Matrix 1 CRT trail persistence)
-      ctx.fillStyle = 'rgba(1, 4, 3, 0.16)';
+      // Phosphor decay trail fade with deep CRT phosphor dark-green/black tint
+      ctx.fillStyle = 'rgba(1, 7, 4, 0.17)';
       ctx.fillRect(0, 0, width, height);
 
       const centerX = width / 2;
-      const centerY = height * 0.46;
+      const centerY = height * 0.42;
 
-      // Head Silhouette Definition (2x Larger: Head, Ears, Jawline, Neck, Shoulders)
-      const silHeight = Math.min(height * 0.92, 880);
+      // Head Silhouette Definition
+      const silHeight = Math.min(height * 0.90, 840);
       const silWidth = silHeight * 0.74;
       const headRadiusX = silWidth * 0.44;
       const headRadiusY = silHeight * 0.34;
@@ -197,16 +300,13 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
         const dx = (x - centerX) / headRadiusX;
         const dy = (y - headCenterY) / headRadiusY;
 
-        // Ear protrusions on the sides (2x scaled)
         const earY = headCenterY + headRadiusY * 0.15;
         const isLeftEar = Math.abs(x - (centerX - headRadiusX * 1.06)) < 30 && Math.abs(y - earY) < 55;
         const isRightEar = Math.abs(x - (centerX + headRadiusX * 1.06)) < 30 && Math.abs(y - earY) < 55;
         const hasEar = isLeftEar || isRightEar;
 
-        // Elliptical head equation
         const headDist = Math.sqrt(dx * dx + dy * dy);
 
-        // Jaw and Chin tapering
         const isJawArea = y > headCenterY && y < headCenterY + headRadiusY * 1.4;
         let jawDist = 999;
         if (isJawArea) {
@@ -216,7 +316,6 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
           jawDist = Math.sqrt(jawDx * jawDx + jawDy * jawDy);
         }
 
-        // Neck and Shoulders
         const isNeckShoulders = y >= headCenterY + headRadiusY * 1.0 && y <= centerY + silHeight * 0.6;
         let neckDist = 999;
         if (isNeckShoulders) {
@@ -243,7 +342,7 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
         return { isEdge: false, isInside: false, edgeGlow: 0 };
       };
 
-      ctx.font = `bold ${fontSize}px "Courier New", monospace`;
+      ctx.font = `bold ${fontSize}px "Courier New", Courier, monospace`;
 
       // Draw all cascading streams
       for (let i = 0; i < streams.length; i++) {
@@ -253,10 +352,8 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
         for (let j = 0; j < stream.length; j++) {
           const charY = streamHeadY - j * fontSize;
 
-          // Skip if off-screen vertically
           if (charY < -fontSize || charY > height + fontSize) continue;
 
-          // Occasional organic character mutation / glitch
           if (stream.chars[j] && frameCount % (stream.changeInterval[j] || 6) === 0 && Math.random() > 0.7) {
             if (stream.isWordStream) {
               stream.chars[j] = WORD;
@@ -269,57 +366,53 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
           const sil = getSilhouetteIntensity(stream.x, charY);
 
           if (sil.isEdge) {
-            // 🔥 Silhouette Outline: High-intensity neon & white glyphs with emerald corona
             ctx.shadowBlur = 14 + sil.edgeGlow * 12;
-            ctx.shadowColor = '#22c55e';
-            ctx.fillStyle = sil.edgeGlow > 0.5 || j === 0 ? '#ffffff' : '#86efac';
+            ctx.shadowColor = '#34d399';
+            ctx.fillStyle = sil.edgeGlow > 0.5 || j === 0 ? '#ffffff' : '#5dfc92';
             ctx.fillText(char, stream.x, charY);
 
           } else if (sil.isInside) {
-            // 👤 Hollow Silhouette Void: Faint ghostly green streams inside the face reflection
             ctx.shadowBlur = 0;
-            const insideAlpha = Math.max(0.04, 0.22 * (1 - j / stream.length));
-            ctx.fillStyle = `rgba(34, 197, 94, ${insideAlpha})`;
+            const insideAlpha = Math.max(0.04, 0.20 * (1 - j / stream.length));
+            ctx.fillStyle = `rgba(52, 211, 153, ${insideAlpha})`;
             ctx.fillText(char, stream.x, charY);
 
           } else {
-            // 🌌 Classic Matrix 1 Code Stream Cascades:
+            // Authentic CRT Phosphor Green code stream colors
             if (j === 0) {
-              // ⚡ Leading Head Drop (White hot with intense green bloom)
-              ctx.fillStyle = '#ffffff';
-              ctx.shadowColor = '#4ade80';
-              ctx.shadowBlur = 8;
+              // Leading drop (White hot with CRT green corona)
+              ctx.fillStyle = '#f0fdf4';
+              ctx.shadowColor = '#5dfc92';
+              ctx.shadowBlur = 9;
               ctx.fillText(char, stream.x, charY);
             } else if (j < 3) {
-              // High-luminescence emerald green near the head
-              ctx.fillStyle = '#86efac';
+              // Vibrant phosphor green near head
+              ctx.fillStyle = '#6ee7b7';
               ctx.shadowColor = '#22c55e';
-              ctx.shadowBlur = 4;
+              ctx.shadowBlur = 5;
               ctx.fillText(char, stream.x, charY);
             } else if (j < 8) {
-              // Classic vibrant phosphor matrix green
+              // Classic phosphor green
               ctx.fillStyle = '#22c55e';
               ctx.shadowBlur = 0;
               ctx.fillText(char, stream.x, charY);
             } else {
-              // Deep tail fade towards black
+              // Deep tail fade towards CRT scanline black
               const tailProgress = (j - 8) / Math.max(1, stream.length - 8);
-              const alpha = Math.max(0.08, 0.75 * (1 - tailProgress));
-              ctx.fillStyle = `rgba(22, 163, 74, ${alpha})`;
+              const alpha = Math.max(0.08, 0.70 * (1 - tailProgress));
+              ctx.fillStyle = `rgba(16, 185, 129, ${alpha})`;
               ctx.shadowBlur = 0;
               ctx.fillText(char, stream.x, charY);
             }
           }
         }
 
-        // Advance stream
         stream.y += stream.speed;
 
-        // Reset stream when it passes the bottom
         if (stream.y * fontSize - stream.length * fontSize > height) {
           stream.y = -Math.random() * 25 - 5;
-          stream.speed = 0.22 + Math.random() * 0.35;
-          stream.isWordStream = Math.random() < 0.06; // Rare occasional voluminous word cascade
+          stream.speed = 0.20 + Math.random() * 0.32;
+          stream.isWordStream = Math.random() < 0.05;
           stream.length = stream.isWordStream ? Math.floor(5 + Math.random() * 8) : Math.floor(10 + Math.random() * 22);
           stream.chars = [];
           stream.changeInterval = [];
@@ -335,21 +428,21 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
         }
       }
 
-      // 2. Liquid ripples spreading on the mirror surface
+      // Liquid ripples
       ctx.save();
       const rippleCount = 3;
       for (let r = 0; r < rippleCount; r++) {
         const radius = ((time * 35 + r * 80) % 420) + 50;
-        const opacity = Math.max(0, 0.18 - radius / 420);
+        const opacity = Math.max(0, 0.16 - radius / 420);
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(74, 222, 128, ${opacity})`;
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = `rgba(93, 252, 146, ${opacity})`;
+        ctx.lineWidth = 1.2;
         ctx.stroke();
       }
       ctx.restore();
 
-      // 3. If shockwave active (on pill selection)
+      // Shockwave on pill select
       if (shockwaveOriginRef.current) {
         const sw = shockwaveOriginRef.current;
         sw.progress += 0.02;
@@ -406,7 +499,6 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
       progress: 0
     };
 
-    // Smooth exit timing
     setTimeout(() => {
       setStage('finished');
       onComplete();
@@ -420,7 +512,7 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
   return (
     <div
       id="reality-check-experience"
-      className="fixed inset-0 z-[99999] w-screen h-screen overflow-hidden bg-[#010403] select-none pointer-events-auto flex flex-col justify-between"
+      className="fixed inset-0 z-[99999] w-screen h-screen overflow-hidden bg-[#010905] select-none pointer-events-auto flex flex-col justify-between"
     >
       {/* Dynamic Matrix Silhouette Mirror Canvas */}
       <canvas
@@ -430,45 +522,76 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
         }`}
       />
 
-      {/* Mirror Outer Bevel Frame & Ambient Liquid Sheen */}
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.85)_100%)]" />
+      {/* Vintage CRT Scanlines Overlay */}
+      <div 
+        className="absolute inset-0 pointer-events-none opacity-40 z-10"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.45) 50%)',
+          backgroundSize: '100% 4px'
+        }}
+      />
 
-      {/* Center Cinematic Contents - Pure Rain, Main Question centered in 1 line, and 3D Pills below */}
+      {/* CRT Vignette & Curvature Glow (Phosphor Dark Green Border) */}
+      <div 
+        className="absolute inset-0 pointer-events-none z-10" 
+        style={{
+          background: 'radial-gradient(circle at center, transparent 45%, rgba(0, 8, 3, 0.65) 80%, rgba(0, 4, 1, 0.95) 100%)',
+          boxShadow: 'inset 0 0 100px rgba(0, 0, 0, 0.9)'
+        }}
+      />
+
+      {/* Center Cinematic Contents - Question and 3D Pills positioned slightly below center */}
       <AnimatePresence>
         {(stage === 'mirror_ready' || stage === 'dissolving') && (
-          <div className="relative z-10 w-full h-full min-h-screen flex flex-col items-center justify-center py-6 px-3 select-none">
+          <div className="relative z-20 w-full h-full min-h-screen flex flex-col items-center justify-center pt-16 sm:pt-20 md:pt-24 px-3 select-none">
             
-            {/* The Main Reality Question (Centered on screen, strictly 1 single line on all screen sizes) */}
+            {/* The Main Reality Question - Cyberpunk Heavy Display Styling + Human Typewriter */}
             <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.94 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{
                 opacity: stage === 'dissolving' ? 0 : 1,
                 y: stage === 'dissolving' ? -40 : 0,
-                scale: stage === 'dissolving' ? 1.08 : 1
+                scale: stage === 'dissolving' ? 1.06 : 1
               }}
-              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-              className="text-center w-full max-w-5xl px-2 flex justify-center items-center"
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              className="text-center w-full max-w-5xl px-2 flex justify-center items-center min-h-[56px] sm:min-h-[64px]"
             >
-              <h2
-                className="text-[17px] min-[360px]:text-[19px] min-[400px]:text-xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white whitespace-nowrap leading-none drop-shadow-[0_0_35px_rgba(74,222,128,0.6)]"
-                style={{
-                  fontFamily: 'inherit',
-                  textShadow: '0 0 20px rgba(74, 222, 128, 0.7), 0 0 45px rgba(16, 185, 129, 0.5), 0 4px 14px rgba(0,0,0,0.95)'
-                }}
-              >
-                چقدر مطمئنی الان خواب نیستی؟
-              </h2>
+              {isTypingStarted && (
+                <h2
+                  className="text-[20px] min-[360px]:text-[22px] min-[400px]:text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight whitespace-nowrap leading-none flex items-center justify-center select-none"
+                  style={{
+                    fontFamily: '"Vazirmatn", "JetBrains Mono", system-ui, sans-serif',
+                    fontWeight: 900,
+                    color: '#5dfc92',
+                    letterSpacing: '-0.01em',
+                    textShadow: '0 0 6px rgba(93, 252, 146, 0.55), 0 0 14px rgba(51, 255, 119, 0.3), 0 2px 8px rgba(0,0,0,0.95)'
+                  }}
+                >
+                  <span>{displayedText}</span>
+                  
+                  {/* Blinking CRT Phosphor Terminal Cursor */}
+                  <span
+                    className={`inline-block w-2.5 sm:w-3.5 h-6 sm:h-9 mr-1.5 align-middle bg-[#5dfc92] shadow-[0_0_8px_#5dfc92] ${
+                      isTypingComplete ? 'animate-pulse' : 'animate-ping'
+                    }`}
+                    style={{
+                      opacity: isTypingComplete ? 0.75 : 1
+                    }}
+                  />
+                </h2>
+              )}
             </motion.div>
 
             {/* Two 3D Floating Minimalist Pills (Red & Blue) - Placed below question */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 25, scale: 0.9 }}
               animate={{
-                opacity: 1,
-                y: 0
+                opacity: isTypingComplete ? 1 : 0,
+                y: isTypingComplete ? 0 : 20,
+                scale: isTypingComplete ? 1 : 0.9
               }}
-              transition={{ duration: 1.1, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="flex items-center justify-center gap-12 sm:gap-20 md:gap-28 mt-8 sm:mt-12 md:mt-16"
+              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+              className="flex items-center justify-center gap-12 sm:gap-20 md:gap-28 mt-6 sm:mt-8 md:mt-10"
             >
               {/* 🔴 Red Pill Capsule */}
               <motion.button
@@ -477,6 +600,7 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
                 onTouchStart={(e) => handleSelect('red', e)}
                 onMouseEnter={() => setHoveredPill('red')}
                 onMouseLeave={() => setHoveredPill(null)}
+                disabled={!isTypingComplete}
                 animate={
                   selectedPill === 'red'
                     ? {
@@ -509,7 +633,7 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
                 className="group relative cursor-pointer outline-none bg-transparent border-none p-4 touch-manipulation"
                 aria-label="Red Pill"
               >
-                {/* 3D Capsule Pill Body (50% smaller size for refined aesthetics) */}
+                {/* 3D Capsule Pill Body */}
                 <div
                   className={`w-7 h-14 sm:w-8 sm:h-16 md:w-10 md:h-20 rounded-full transition-shadow duration-300 relative shadow-2xl ${
                     hoveredPill === 'red'
@@ -521,17 +645,12 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
                     transform: 'perspective(600px) rotateX(15deg)'
                   }}
                 >
-                  {/* Glossy Specular Sheen 1 (Curved highlight) */}
+                  {/* Glossy Specular Sheen */}
                   <div className="absolute top-1 left-1 right-1 h-1/2 rounded-full bg-gradient-to-b from-white/85 via-white/25 to-transparent opacity-90 pointer-events-none" />
-                  
-                  {/* Glossy Specular Sheen 2 (Edge reflection) */}
                   <div className="absolute top-2 left-1.5 w-1 sm:w-1.5 h-8 sm:h-10 rounded-full bg-white/75 blur-[0.5px] pointer-events-none" />
-
-                  {/* Deep Core Shadow & Inner Horizon Glow */}
                   <div className="absolute bottom-1 inset-x-1 h-5 rounded-b-full bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
                 </div>
 
-                {/* Delicate Pulsing Ambient Aura */}
                 <div className="absolute -inset-2 rounded-full bg-red-500/20 blur-lg group-hover:bg-red-500/40 transition-colors pointer-events-none -z-10" />
               </motion.button>
 
@@ -542,6 +661,7 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
                 onTouchStart={(e) => handleSelect('blue', e)}
                 onMouseEnter={() => setHoveredPill('blue')}
                 onMouseLeave={() => setHoveredPill(null)}
+                disabled={!isTypingComplete}
                 animate={
                   selectedPill === 'blue'
                     ? {
@@ -574,7 +694,7 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
                 className="group relative cursor-pointer outline-none bg-transparent border-none p-4 touch-manipulation"
                 aria-label="Blue Pill"
               >
-                {/* 3D Capsule Pill Body (50% smaller size for refined aesthetics) */}
+                {/* 3D Capsule Pill Body */}
                 <div
                   className={`w-7 h-14 sm:w-8 sm:h-16 md:w-10 md:h-20 rounded-full transition-shadow duration-300 relative shadow-2xl ${
                     hoveredPill === 'blue'
@@ -586,26 +706,19 @@ export default function RealityCheckExperience({ onComplete }: RealityCheckExper
                     transform: 'perspective(600px) rotateX(15deg)'
                   }}
                 >
-                  {/* Glossy Specular Sheen 1 (Curved highlight) */}
+                  {/* Glossy Specular Sheen */}
                   <div className="absolute top-1 left-1 right-1 h-1/2 rounded-full bg-gradient-to-b from-white/85 via-white/25 to-transparent opacity-90 pointer-events-none" />
-                  
-                  {/* Glossy Specular Sheen 2 (Edge reflection) */}
                   <div className="absolute top-2 left-1.5 w-1 sm:w-1.5 h-8 sm:h-10 rounded-full bg-white/75 blur-[0.5px] pointer-events-none" />
-
-                  {/* Deep Core Shadow & Inner Horizon Glow */}
                   <div className="absolute bottom-1 inset-x-1 h-5 rounded-b-full bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
                 </div>
 
-                {/* Delicate Pulsing Ambient Aura */}
                 <div className="absolute -inset-2 rounded-full bg-blue-500/20 blur-lg group-hover:bg-blue-500/40 transition-colors pointer-events-none -z-10" />
               </motion.button>
             </motion.div>
-
-            {/* Bottom Atmospheric Empty Spacer */}
-            <div className="h-6 md:h-12" />
           </div>
         )}
       </AnimatePresence>
     </div>
   );
 }
+
