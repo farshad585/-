@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { generateSecret, generateURI, verifySync } from 'otplib';
@@ -66,133 +66,153 @@ interface EmailLogItem {
 // Log of sent emails for debug / UI status
 const emailLogs: Array<EmailLogItem> = [];
 
-// Global Memory Stores and Settings
-const runtimeSmtpConfig = {
-  user: (process.env.GMAIL_USER || '').trim(),
-  pass: (process.env.GMAIL_APP_PASSWORD || '').trim(),
+// Email payload definition
+export interface EmailPayload {
+  to: string | string[];
+  subject: string;
+  html?: string;
+  text?: string;
+  from?: string;
+  replyTo?: string;
+}
+
+export interface SendMailResult {
+  success: boolean;
+  status: 'sent' | 'simulated' | 'failed';
+  error?: string;
+  messageId?: string;
+}
+
+// Global Memory Stores and Settings for Resend Email Delivery
+const runtimeResendConfig = {
+  apiKey: (process.env.RESEND_API_KEY || '').trim(),
+  fromEmail: (process.env.RESEND_FROM_EMAIL || 'آکادمی ۴۰ دروازه <onboarding@resend.dev>').trim(),
   adminEmail: (process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim()
 };
 
 /**
- * Utility to sanitize sensitive details (passwords, tokens, credentials) from error messages and logs.
+ * Utility to sanitize sensitive details (API keys, passwords, tokens) from error messages and logs.
  */
 export function sanitizeErrorLog(message: string, secrets: string[] = []): string {
   if (!message) return '';
   let sanitized = String(message);
 
-  // Redact known secrets (e.g. gmail pass, app passwords)
   const activeSecrets = [
-    runtimeSmtpConfig.pass,
-    process.env.GMAIL_APP_PASSWORD,
+    runtimeResendConfig.apiKey,
+    process.env.RESEND_API_KEY,
     process.env.ADMIN_PASSWORD,
     process.env.ADMIN_SECRET,
+    process.env.SUPABASE_SECRET_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.GEMINI_API_KEY,
     ...secrets
   ].filter((s): s is string => Boolean(s && s.length >= 4));
 
   for (const secret of activeSecrets) {
     const trimmedSecret = secret.trim();
     if (trimmedSecret) {
-      // Escape special characters for RegExp
       const escaped = trimmedSecret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       sanitized = sanitized.replace(new RegExp(escaped, 'gi'), '***REDACTED***');
     }
   }
 
-  // Redact generic authorization or password strings in log traces if any
-  sanitized = sanitized.replace(/(pass|password|auth|token|secret|key)=["']?[^"'\s&]+["']?/gi, '$1=***REDACTED***');
+  sanitized = sanitized.replace(/(pass|password|auth|token|secret|key|re_)[="']?[^"'\s&]+["']?/gi, '$1=***REDACTED***');
   return sanitized;
 }
 
 /**
- * Universal Fast & Safe Email Sending Helper Function
- * Handles timeouts, network glitches, and auth errors gracefully.
- * Configured with 15s timeouts optimized for Vercel serverless execution limits.
+ * Universal Fast & Safe Email Sending Helper using Resend API.
+ * Server-only execution, strictly awaited, handles API keys, timeouts and error logging.
  */
 export async function sendMailSafely(
-  options: nodemailer.SendMailOptions,
+  options: EmailPayload,
   type: string = 'general'
-): Promise<{ success: boolean; status: 'sent' | 'simulated' | 'failed'; error?: string; messageId?: string }> {
-  let gmailUser = (runtimeSmtpConfig.user || process.env.GMAIL_USER || '').trim();
-  let rawPass = (runtimeSmtpConfig.pass || process.env.GMAIL_APP_PASSWORD || '').trim();
-  let gmailPass = rawPass.replace(/\s+/g, ''); // strip any accidental copy-paste spaces
+): Promise<SendMailResult> {
+  let apiKey = (runtimeResendConfig.apiKey || process.env.RESEND_API_KEY || '').trim();
+  let fromEmail = (runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || 'آکادمی ۴۰ دروازه <onboarding@resend.dev>').trim();
+  let adminEmail = (runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim();
 
-  // On Vercel / Serverless, if memory config is empty, attempt loading from Supabase DB site_settings
-  if ((!gmailUser || !gmailPass) && getSupabaseClient()) {
+  // On Vercel Serverless, if memory config is missing apiKey, attempt loading from Supabase DB site_settings
+  if (!apiKey && getSupabaseClient()) {
     try {
       const client = getSupabaseClient();
       if (client) {
-        const { data } = await client.from('site_settings').select('value').eq('id', 'smtp_config').single();
+        const { data } = await client.from('site_settings').select('value').eq('id', 'email_config').single();
         if (data && data.value) {
-          if (!gmailUser && data.value.user) gmailUser = String(data.value.user).trim();
-          if (!gmailPass && data.value.pass) gmailPass = String(data.value.pass).trim().replace(/\s+/g, '');
-          if (data.value.adminEmail) runtimeSmtpConfig.adminEmail = String(data.value.adminEmail).trim();
-          runtimeSmtpConfig.user = gmailUser;
-          runtimeSmtpConfig.pass = gmailPass;
+          if (!apiKey && data.value.apiKey) apiKey = String(data.value.apiKey).trim();
+          if (data.value.fromEmail) fromEmail = String(data.value.fromEmail).trim();
+          if (data.value.adminEmail) adminEmail = String(data.value.adminEmail).trim();
+          runtimeResendConfig.apiKey = apiKey;
+          runtimeResendConfig.fromEmail = fromEmail;
+          runtimeResendConfig.adminEmail = adminEmail;
         }
       }
     } catch (dbErr: any) {
-      console.warn('Could not fetch SMTP config from Supabase:', sanitizeErrorLog(dbErr?.message || String(dbErr)));
+      console.warn('Could not fetch Resend config from Supabase:', sanitizeErrorLog(dbErr?.message || String(dbErr)));
     }
   }
 
-  const to = Array.isArray(options.to) ? options.to.join(', ') : String(options.to || '');
+  const toList = Array.isArray(options.to) ? options.to : [options.to];
+  const cleanTo = toList.map(t => String(t || '').trim()).filter(Boolean);
+  const toDisplay = cleanTo.join(', ');
   const subject = String(options.subject || '');
-  const sender = options.from || (gmailUser ? `آکادمی ۴۰ دروازه <${gmailUser}>` : 'آکادمی ۴۰ دروازه <40gates.main@gmail.com>');
+  const sender = options.from || fromEmail || 'آکادمی ۴۰ دروازه <onboarding@resend.dev>';
+  const replyTo = options.replyTo || adminEmail;
 
-  if (gmailUser && gmailPass) {
-    const trySendWithTransporter = async (port: number, secure: boolean) => {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port,
-        secure,
-        auth: {
-          user: gmailUser,
-          pass: gmailPass,
-        },
-        tls: {
-          rejectUnauthorized: false
-        },
-        connectionTimeout: 15000, // 15s connection timeout optimized for Vercel Serverless Function limits
-        greetingTimeout: 15000,
-        socketTimeout: 15000,
-      });
-
-      return await transporter.sendMail({
-        ...options,
-        from: sender,
-      });
-    };
-
+  if (apiKey) {
     try {
-      let info;
-      try {
-        // Try Port 465 with direct SSL first (most reliable on Vercel cloud serverless)
-        info = await trySendWithTransporter(465, true);
-      } catch (sslErr: any) {
-        const safeSslErrMsg = sanitizeErrorLog(sslErr?.message || String(sslErr), [gmailPass]);
-        console.warn(`⚠️ [SMTP 465 SSL failed, trying 587 STARTTLS fallback...]`, safeSslErrMsg);
-        info = await trySendWithTransporter(587, false);
+      const resend = new Resend(apiKey);
+      const { data, error } = await resend.emails.send({
+        from: sender,
+        to: cleanTo,
+        subject,
+        html: options.html || `<div dir="rtl">${options.text || ''}</div>`,
+        text: options.text,
+        replyTo: replyTo,
+      });
+
+      if (error) {
+        const rawErrMsg = error.message || JSON.stringify(error);
+        const safeErrMsg = sanitizeErrorLog(rawErrMsg, [apiKey]);
+        console.error(`❌ [RESEND API ERROR] To: ${toDisplay} | Error:`, safeErrMsg);
+
+        emailLogs.unshift({
+          id: 'EML-ERR-' + Date.now(),
+          type,
+          to: toDisplay,
+          subject: `[خطا] ${subject}`,
+          timestamp: new Date().toLocaleTimeString('fa-IR'),
+          status: 'failed',
+          errorDetails: safeErrMsg,
+        });
+
+        return {
+          success: false,
+          status: 'failed',
+          error: `خطا در ارسال با Resend API: ${safeErrMsg}`,
+        };
       }
 
-      console.log(`✅ [EMAIL SENT SUCCESSFULLY] To: ${to} | Subject: ${subject}`);
+      console.log(`✅ [RESEND EMAIL SENT] ID: ${data?.id} | To: ${toDisplay} | Subject: ${subject}`);
       emailLogs.unshift({
         id: 'EML-' + Date.now(),
         type,
-        to,
+        to: toDisplay,
         subject,
         timestamp: new Date().toLocaleTimeString('fa-IR'),
         status: 'sent',
       });
-      return { success: true, status: 'sent', messageId: info.messageId };
+
+      return { success: true, status: 'sent', messageId: data?.id };
     } catch (err: any) {
       const rawErrMsg = err?.message || String(err);
-      const safeErrMsg = sanitizeErrorLog(rawErrMsg, [gmailPass]);
-      console.error(`❌ [GMAIL SMTP ERROR] To: ${to} | Error:`, safeErrMsg);
+      const safeErrMsg = sanitizeErrorLog(rawErrMsg, [apiKey]);
+      console.error(`❌ [RESEND EXCEPTION] To: ${toDisplay} | Error:`, safeErrMsg);
 
       emailLogs.unshift({
         id: 'EML-ERR-' + Date.now(),
         type,
-        to,
+        to: toDisplay,
         subject: `[خطا] ${subject}`,
         timestamp: new Date().toLocaleTimeString('fa-IR'),
         status: 'failed',
@@ -202,26 +222,26 @@ export async function sendMailSafely(
       return {
         success: false,
         status: 'failed',
-        error: `خطا در اتصال یا احراز هویت Gmail SMTP: ${safeErrMsg}`,
+        error: `استثنا در ارسال ایمیل با Resend: ${safeErrMsg}`,
       };
     }
   }
 
-  console.warn(`⚠️ [EMAIL NOT SENT - SMTP CREDENTIALS MISSING] GMAIL_USER or GMAIL_APP_PASSWORD not set in environment or database. Attempted To: ${to} | Subject: ${subject}`);
+  console.warn(`⚠️ [EMAIL NOT SENT - RESEND_API_KEY MISSING] Attempted To: ${toDisplay} | Subject: ${subject}`);
   emailLogs.unshift({
     id: 'EML-SIM-' + Date.now(),
     type,
-    to,
+    to: toDisplay,
     subject: `[پیکربندی نشده] ${subject}`,
     timestamp: new Date().toLocaleTimeString('fa-IR'),
     status: 'simulated',
-    errorDetails: 'متغیرهای GMAIL_USER و GMAIL_APP_PASSWORD در تنظیمات Vercel یا پنل مدیریت تعریف نشده‌اند.'
+    errorDetails: 'متغیر RESEND_API_KEY در تنظیمات Vercel یا پنل مدیریت تعریف نشده است.'
   });
 
   return {
     success: false,
     status: 'simulated',
-    error: 'سرویس ایمیل به دلیل عدم تنظیم GMAIL_USER یا GMAIL_APP_PASSWORD در Vercel فعال نیست.',
+    error: 'سرویس ایمیل به دلیل عدم تنظیم RESEND_API_KEY در Vercel فعال نیست.',
     messageId: 'simulated-' + Date.now(),
   };
 }
@@ -671,7 +691,7 @@ app.post('/api/orders', async (req, res) => {
       }
 
       // Send order notification emails (Separately to Customer & Admin)
-      const adminEmail = runtimeSmtpConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
+      const adminEmail = runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
       const items = order.items || [];
       const totalAmount = order.totalAmount || 0;
       const subtotal = order.subtotal || 0;
@@ -688,67 +708,75 @@ app.post('/api/orders', async (req, res) => {
 
       // 1. Send confirmation email to Customer (if email is provided)
       if (custEmail) {
-        sendMailSafely({
-          to: custEmail,
-          subject: `🛒 تایید ثبت سفارش #${order.id} - آکادمی ۴۰ دروازه`,
-          html: `
-            <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
-              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                <div style="background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95); padding: 25px 20px; text-align: center; color: #ffffff;">
-                  <h1 style="margin: 0; font-size: 20px; color: #fbbf24;">تایید ثبت سفارش - آکادمی ۴۰ دروازه</h1>
-                  <p style="margin: 6px 0 0 0; font-size: 12px; color: #e0e7ff;">شماره سفارش: ${order.id}</p>
-                </div>
-                <div style="padding: 25px; font-size: 13px; line-height: 1.8;">
-                  <p>سلام <strong>${custName || 'هنرجوی گرامی'}</strong> عزیز،</p>
-                  <p>سفارش شما با شماره <strong>#${order.id}</strong> با موفقیت ثبت شد و در مرحله پردازش قرار گرفت.</p>
-                  <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-                    <thead>
-                      <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1;">
-                        <th style="padding: 8px; text-align: right; font-size: 12px; color: #64748b;">محصول</th>
-                        <th style="padding: 8px; text-align: left; font-size: 12px; color: #64748b;">مبلغ</th>
-                      </tr>
-                    </thead>
-                    <tbody>${itemsHtml}</tbody>
-                  </table>
-                  <div style="background-color: #f8fafc; border-radius: 12px; padding: 15px; margin: 15px 0;">
-                    <p style="margin: 4px 0;">جمع کل: <strong>${subtotal.toLocaleString('fa-IR')} تومان</strong></p>
-                    ${shippingFee > 0 ? `<p style="margin: 4px 0;">هزینه ارسال: <strong>${shippingFee.toLocaleString('fa-IR')} تومان</strong></p>` : ''}
-                    <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: bold; color: #1e1b4b; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
-                      مبلغ نهایی پرداختی: ${totalAmount.toLocaleString('fa-IR')} تومان
-                    </p>
+        try {
+          await sendMailSafely({
+            to: custEmail,
+            subject: `🛒 تایید ثبت سفارش #${order.id} - آکادمی ۴۰ دروازه`,
+            html: `
+              <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                  <div style="background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95); padding: 25px 20px; text-align: center; color: #ffffff;">
+                    <h1 style="margin: 0; font-size: 20px; color: #fbbf24;">تایید ثبت سفارش - آکادمی ۴۰ دروازه</h1>
+                    <p style="margin: 6px 0 0 0; font-size: 12px; color: #e0e7ff;">شماره سفارش: ${order.id}</p>
                   </div>
-                  <p style="font-size: 12px; color: #64748b;">وضعیت سفارش از طریق همین ایمیل و پیامک به شما اطلاع‌رسانی خواهد شد.</p>
-                </div>
-                <div style="background-color: #f8fafc; padding: 12px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
-                  پشتیبانی آکادمی ۴۰ دروازه
+                  <div style="padding: 25px; font-size: 13px; line-height: 1.8;">
+                    <p>سلام <strong>${custName || 'هنرجوی گرامی'}</strong> عزیز،</p>
+                    <p>سفارش شما با شماره <strong>#${order.id}</strong> با موفقیت ثبت شد و در مرحله پردازش قرار گرفت.</p>
+                    <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                      <thead>
+                        <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                          <th style="padding: 8px; text-align: right; font-size: 12px; color: #64748b;">محصول</th>
+                          <th style="padding: 8px; text-align: left; font-size: 12px; color: #64748b;">مبلغ</th>
+                        </tr>
+                      </thead>
+                      <tbody>${itemsHtml}</tbody>
+                    </table>
+                    <div style="background-color: #f8fafc; border-radius: 12px; padding: 15px; margin: 15px 0;">
+                      <p style="margin: 4px 0;">جمع کل: <strong>${subtotal.toLocaleString('fa-IR')} تومان</strong></p>
+                      ${shippingFee > 0 ? `<p style="margin: 4px 0;">هزینه ارسال: <strong>${shippingFee.toLocaleString('fa-IR')} تومان</strong></p>` : ''}
+                      <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: bold; color: #1e1b4b; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
+                        مبلغ نهایی پرداختی: ${totalAmount.toLocaleString('fa-IR')} تومان
+                      </p>
+                    </div>
+                    <p style="font-size: 12px; color: #64748b;">وضعیت سفارش از طریق همین ایمیل و پیامک به شما اطلاع‌رسانی خواهد شد.</p>
+                  </div>
+                  <div style="background-color: #f8fafc; padding: 12px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+                    پشتیبانی آکادمی ۴۰ دروازه
+                  </div>
                 </div>
               </div>
-            </div>
-          `
-        }, 'order-customer').catch(e => console.warn('Customer order email err:', e));
+            `
+          }, 'order-customer');
+        } catch (e) {
+          console.warn('Customer order email err:', e);
+        }
       }
 
       // 2. Send distinct notification email to Admin
-      sendMailSafely({
-        to: adminEmail,
-        subject: `🔔 سفارش جدید ثبت شد #${order.id} - ${totalAmount.toLocaleString('fa-IR')} تومان`,
-        html: `
-          <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 25px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
-            <h2 style="color: #38bdf8; margin-top: 0;">🛒 سفارش جدید در وب‌سایت ثبت شد!</h2>
-            <p><strong>شماره سفارش:</strong> ${order.id}</p>
-            <p><strong>نام خریدار:</strong> ${custName || 'نامشخص'}</p>
-            <p><strong>ایمیل خریدار:</strong> ${custEmail || 'ثبت نشده'}</p>
-            <p><strong>تلفن خریدار:</strong> ${custPhone || '-'}</p>
-            <p><strong>مبلغ کل:</strong> ${totalAmount.toLocaleString('fa-IR')} تومان</p>
-            <p><strong>آدرس:</strong> ${order.shippingAddress?.address || 'دیجیتال / آنلاین'}</p>
-            <hr style="border-color: #334155; margin: 15px 0;"/>
-            <h4 style="color: #fbbf24; margin: 0 0 10px 0;">اقلام سفارش:</h4>
-            <ul>
-              ${items.map((i: any) => `<li>${i.title || 'محصول'} - ${i.quantity || 1} عدد (${((i.price || 0) * (i.quantity || 1)).toLocaleString('fa-IR')} تومان)</li>`).join('')}
-            </ul>
-          </div>
-        `
-      }, 'order-admin-notify').catch(e => console.warn('Admin order email err:', e));
+      try {
+        await sendMailSafely({
+          to: adminEmail,
+          subject: `🔔 سفارش جدید ثبت شد #${order.id} - ${totalAmount.toLocaleString('fa-IR')} تومان`,
+          html: `
+            <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 25px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
+              <h2 style="color: #38bdf8; margin-top: 0;">🛒 سفارش جدید در وب‌سایت ثبت شد!</h2>
+              <p><strong>شماره سفارش:</strong> ${order.id}</p>
+              <p><strong>نام خریدار:</strong> ${custName || 'نامشخص'}</p>
+              <p><strong>ایمیل خریدار:</strong> ${custEmail || 'ثبت نشده'}</p>
+              <p><strong>تلفن خریدار:</strong> ${custPhone || '-'}</p>
+              <p><strong>مبلغ کل:</strong> ${totalAmount.toLocaleString('fa-IR')} تومان</p>
+              <p><strong>آدرس:</strong> ${order.shippingAddress?.address || 'دیجیتال / آنلاین'}</p>
+              <hr style="border-color: #334155; margin: 15px 0;"/>
+              <h4 style="color: #fbbf24; margin: 0 0 10px 0;">اقلام سفارش:</h4>
+              <ul>
+                ${items.map((i: any) => `<li>${i.title || 'محصول'} - ${i.quantity || 1} عدد (${((i.price || 0) * (i.quantity || 1)).toLocaleString('fa-IR')} تومان)</li>`).join('')}
+              </ul>
+            </div>
+          `
+        }, 'order-admin-notify');
+      } catch (e) {
+        console.warn('Admin order email err:', e);
+      }
     }
     res.json({ success: true, orders: serverOrdersStore });
   } catch (e: any) {
@@ -797,7 +825,7 @@ app.post('/api/users/register', async (req, res) => {
         registeredUsersStore.unshift(newUser);
 
         // Notify site admin about new registration
-        const adminEmail = runtimeSmtpConfig.adminEmail || process.env.ADMIN_EMAIL || process.env.GMAIL_USER || '40gates.main@gmail.com';
+        const adminEmail = runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
         await sendMailSafely({
           to: adminEmail,
           subject: `👤 ثبت‌نام کاربر جدید: ${newUser.fullName} (${newUser.email})`,
@@ -1052,31 +1080,42 @@ app.get('/api/admin/logs', requireAdminAuth, (req, res) => {
 // Admin Settings Endpoint
 app.get('/api/admin/settings', requireAdminAuth, (req, res) => {
   const { adminEmail } = getAdminConfig();
-  const activeAdminEmail = runtimeSmtpConfig.adminEmail || adminEmail;
-  const gmailUser = runtimeSmtpConfig.user || process.env.GMAIL_USER;
-  const isSmtpConfigured = !!(gmailUser && (runtimeSmtpConfig.pass || process.env.GMAIL_APP_PASSWORD));
+  const activeAdminEmail = runtimeResendConfig.adminEmail || adminEmail;
+  const isResendConfigured = Boolean(runtimeResendConfig.apiKey || process.env.RESEND_API_KEY);
+  const fromEmail = runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || 'آکادمی ۴۰ دروازه <onboarding@resend.dev>';
 
   res.json({
     success: true,
     settings: {
       adminEmail: activeAdminEmail,
-      smtpConfigured: isSmtpConfigured,
-      smtpUser: gmailUser || 'تنظیم نشده',
+      emailService: 'resend',
+      resendConfigured: isResendConfigured,
+      resendApiKeyMasked: isResendConfigured ? 're_••••••••' : 'تنظیم نشده',
+      resendFromEmail: fromEmail,
+      // Backward compatibility fields
+      smtpConfigured: isResendConfigured,
+      smtpUser: fromEmail,
       activeSessionsCount: adminSecurityState.activeSessions.size,
       totalLogins: adminSecurityState.loginLogs.length
     }
   });
 });
 
-// Admin Update SMTP Credentials Endpoint
-app.post('/api/admin/smtp-config', requireAdminAuth, async (req, res) => {
+// Admin Update Email / Resend Credentials Endpoint
+const handleUpdateEmailConfig = async (req: express.Request, res: express.Response) => {
   try {
-    const { gmailUser, gmailPass, adminEmail } = req.body;
-    if (gmailUser !== undefined && gmailUser !== '') runtimeSmtpConfig.user = gmailUser.trim();
-    if (gmailPass !== undefined && gmailPass !== '') runtimeSmtpConfig.pass = gmailPass.trim();
-    if (adminEmail !== undefined && adminEmail !== '') runtimeSmtpConfig.adminEmail = adminEmail.trim();
+    const { resendApiKey, apiKey, resendFromEmail, fromEmail, adminEmail, gmailUser, gmailPass } = req.body;
+    
+    // Accept either Resend specific params or legacy alias keys
+    const newApiKey = (resendApiKey || apiKey || (gmailPass && gmailPass.startsWith('re_') ? gmailPass : '') || '').trim();
+    const newFromEmail = (resendFromEmail || fromEmail || (gmailUser && !gmailUser.includes('@gmail.com') ? gmailUser : '') || '').trim();
+    const newAdminEmail = (adminEmail || '').trim();
 
-    const isSmtpConfigured = !!(runtimeSmtpConfig.user && runtimeSmtpConfig.pass);
+    if (newApiKey) runtimeResendConfig.apiKey = newApiKey;
+    if (newFromEmail) runtimeResendConfig.fromEmail = newFromEmail;
+    if (newAdminEmail) runtimeResendConfig.adminEmail = newAdminEmail;
+
+    const isResendConfigured = Boolean(runtimeResendConfig.apiKey || process.env.RESEND_API_KEY);
 
     // Save to Supabase DB so Vercel Serverless Functions can read it across stateless requests
     if (getSupabaseClient()) {
@@ -1084,31 +1123,37 @@ app.post('/api/admin/smtp-config', requireAdminAuth, async (req, res) => {
         const client = getSupabaseClient();
         if (client) {
           await client.from('site_settings').upsert({
-            id: 'smtp_config',
+            id: 'email_config',
             value: {
-              user: runtimeSmtpConfig.user,
-              pass: runtimeSmtpConfig.pass,
-              adminEmail: runtimeSmtpConfig.adminEmail,
+              apiKey: runtimeResendConfig.apiKey,
+              fromEmail: runtimeResendConfig.fromEmail,
+              adminEmail: runtimeResendConfig.adminEmail,
               updatedAt: new Date().toISOString()
             }
           });
         }
       } catch (dbErr) {
-        console.warn('Could not persist SMTP config to Supabase:', dbErr);
+        console.warn('Could not persist Resend config to Supabase:', dbErr);
       }
     }
 
     return res.json({
       success: true,
-      message: 'تنظیمات SMTP ایمیل با موفقیت در سرور به‌روزرسانی شد.',
-      smtpConfigured: isSmtpConfigured,
-      smtpUser: runtimeSmtpConfig.user || 'تنظیم نشده',
-      adminEmail: runtimeSmtpConfig.adminEmail
+      message: 'تنظیمات ارسال ایمیل (Resend API) با موفقیت در سرور به‌روزرسانی شد.',
+      resendConfigured: isResendConfigured,
+      fromEmail: runtimeResendConfig.fromEmail,
+      adminEmail: runtimeResendConfig.adminEmail,
+      // Backward-compat
+      smtpConfigured: isResendConfigured,
+      smtpUser: runtimeResendConfig.fromEmail
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: 'خطا در ذخیره تنظیمات SMTP' });
+    return res.status(500).json({ success: false, error: 'خطا در ذخیره تنظیمات ایمیل' });
   }
-});
+};
+
+app.post('/api/admin/email-config', requireAdminAuth, handleUpdateEmailConfig);
+app.post('/api/admin/smtp-config', requireAdminAuth, handleUpdateEmailConfig);
 
 // Public Contact Endpoint
 const handleContactMessage = async (req: express.Request, res: express.Response) => {
@@ -1326,20 +1371,26 @@ app.get('/api/email/logs', (req, res) => {
   res.json({ success: true, logs: emailLogs });
 });
 
-// Admin Test Email Endpoint
-app.post('/api/admin/test-email', requireAdminAuth, async (req, res) => {
+// Admin & Developer Test Email Endpoint (with Resend API)
+const handleTestEmail = async (req: express.Request, res: express.Response) => {
   try {
-    const { testEmail } = req.body;
-    const target = (testEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim();
+    const { testEmail, to } = req.body;
+    const target = (testEmail || to || runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim();
 
+    const isConfigured = Boolean(runtimeResendConfig.apiKey || process.env.RESEND_API_KEY);
     const result = await sendMailSafely({
       to: target,
-      subject: '🧪 ایمیل آزمایشی آکادمی ۴۰ دروازه - تست اتصال SMTP',
+      subject: '🧪 ایمیل آزمایشی آکادمی ۴۰ دروازه - تست سرویس Resend API',
       html: `
-        <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 25px; background: #0f172a; color: #fff;">
-          <h2 style="color: #38bdf8;">✅ تست ارسال ایمیل موفقیت‌آمیز بود!</h2>
-          <p>این ایمیل جهت تست سرویس SMTP آکادمی ۴۰ دروازه ارسال گردیده است.</p>
-          <p style="font-size: 12px; color: #94a3b8;">زمان ارسال: ${new Date().toLocaleString('fa-IR')}</p>
+        <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 25px; background: #0f172a; color: #fff; border-radius: 12px;">
+          <h2 style="color: #38bdf8; margin-top: 0;">✅ تست ارسال ایمیل Resend API موفقیت‌آمیز بود!</h2>
+          <p>این ایمیل جهت تست سرویس ارسال ایمیل مدرن آکادمی ۴۰ دروازه از طریق <strong>Resend API</strong> ارسال گردیده است.</p>
+          <div style="background: #1e293b; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 13px;">
+            <p style="margin: 4px 0;"><strong>فرستنده:</strong> ${runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || 'آکادمی ۴۰ دروازه <onboarding@resend.dev>'}</p>
+            <p style="margin: 4px 0;"><strong>گیرنده:</strong> ${target}</p>
+            <p style="margin: 4px 0;"><strong>زمان ارسال:</strong> ${new Date().toLocaleString('fa-IR')}</p>
+          </div>
+          <p style="font-size: 12px; color: #94a3b8; margin-bottom: 0;">سیستم ارسال ایمیل به Resend متصل است و عملیات با موفقیت تایید شد.</p>
         </div>
       `
     }, 'test-email');
@@ -1347,17 +1398,21 @@ app.post('/api/admin/test-email', requireAdminAuth, async (req, res) => {
     return res.json({
       success: result.success,
       status: result.status,
+      configured: isConfigured,
       message: result.status === 'sent' 
-        ? `ایمیل تست با موفقیت به ${target} ارسال شد.` 
+        ? `ایمیل تست با موفقیت از طریق Resend API به ${target} ارسال شد.` 
         : result.status === 'simulated'
-        ? `سرویس SMTP در محیط فعال نیست (GMAIL_USER و GMAIL_APP_PASSWORD مقداردهی نشده‌اند). ارسال شبیه‌سازی گردید.`
-        : `خطا در ارسال ایمیل واقعی: ${result.error}`,
+        ? `کلید RESEND_API_KEY در متغیرهای محیطی یافت نشد. ارسال شبیه‌سازی شد (محیط آزمایشی).` 
+        : `خطا در ارسال ایمیل از طریق Resend API: ${result.error}`,
       details: result
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || 'خطا در تست ایمیل' });
   }
-});
+};
+
+app.post('/api/admin/test-email', requireAdminAuth, handleTestEmail);
+app.post('/api/email/test', handleTestEmail);
 
 // API Endpoint: Password Reset Email
 app.post('/api/email/forgot-password', async (req, res) => {
@@ -1368,7 +1423,7 @@ app.post('/api/email/forgot-password', async (req, res) => {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const adminEmail = runtimeSmtpConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
+    const adminEmail = runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
 
     // 1. Send instruction email to the requesting user
     const userResetHtml = `
@@ -1402,17 +1457,21 @@ app.post('/api/email/forgot-password', async (req, res) => {
     }, 'forgot-password');
 
     // 2. Notify site admin about password reset request
-    sendMailSafely({
-      to: adminEmail,
-      subject: `🔑 درخواست بازیابی کلمه عبور: ${cleanEmail}`,
-      html: `
-        <div dir="rtl" style="font-family: Tahoma, sans-serif; padding: 20px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
-          <h3 style="color: #fbbf24;">🔑 درخواست بازیابی رمز عبور جدید ثبت شد</h3>
-          <p><strong>ایمیل کاربر:</strong> ${cleanEmail}</p>
-          <p><strong>تاریخ و زمان:</strong> ${new Date().toLocaleDateString('fa-IR')} - ساعت ${new Date().toLocaleTimeString('fa-IR')}</p>
-        </div>
-      `
-    }, 'forgot-password-admin-notify').catch(e => console.warn('Admin password reset notify err:', e));
+    try {
+      await sendMailSafely({
+        to: adminEmail,
+        subject: `🔑 درخواست بازیابی کلمه عبور: ${cleanEmail}`,
+        html: `
+          <div dir="rtl" style="font-family: Tahoma, sans-serif; padding: 20px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
+            <h3 style="color: #fbbf24;">🔑 درخواست بازیابی رمز عبور جدید ثبت شد</h3>
+            <p><strong>ایمیل کاربر:</strong> ${cleanEmail}</p>
+            <p><strong>تاریخ و زمان:</strong> ${new Date().toLocaleDateString('fa-IR')} - ساعت ${new Date().toLocaleTimeString('fa-IR')}</p>
+          </div>
+        `
+      }, 'forgot-password-admin-notify');
+    } catch (e) {
+      console.warn('Admin password reset notify err:', e);
+    }
 
     return res.json({
       success: true,

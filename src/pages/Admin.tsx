@@ -156,9 +156,9 @@ export default function Admin() {
   const [testEmailLoading, setTestEmailLoading] = useState<boolean>(false);
   const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // SMTP Settings inputs
-  const [smtpUserInput, setSmtpUserInput] = useState<string>('');
-  const [smtpPassInput, setSmtpPassInput] = useState<string>('');
+  // Resend / Email Settings inputs
+  const [resendApiKeyInput, setResendApiKeyInput] = useState<string>('');
+  const [resendFromEmailInput, setResendFromEmailInput] = useState<string>('');
   const [adminEmailConfigInput, setAdminEmailConfigInput] = useState<string>('fmfarshad585@gmail.com');
   const [smtpSaving, setSmtpSaving] = useState<boolean>(false);
   const [smtpSaveResult, setSmtpSaveResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -319,8 +319,8 @@ export default function Admin() {
           .then(data => {
             if (data.success && data.settings) {
               setSettingsInfo(data.settings);
-              if (data.settings.smtpUser && data.settings.smtpUser !== 'تنظیم نشده') {
-                setSmtpUserInput(prev => prev || data.settings.smtpUser);
+              if (data.settings.resendFromEmail && data.settings.resendFromEmail !== 'تنظیم نشده') {
+                setResendFromEmailInput(prev => prev || data.settings.resendFromEmail);
               }
               if (data.settings.adminEmail) {
                 setAdminEmailConfigInput(prev => prev || data.settings.adminEmail);
@@ -373,25 +373,25 @@ export default function Admin() {
     setSmtpSaveResult(null);
 
     try {
-      const res = await fetch('/api/admin/smtp-config', {
+      const res = await fetch('/api/admin/email-config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${adminToken}`
         },
         body: JSON.stringify({
-          gmailUser: smtpUserInput,
-          gmailPass: smtpPassInput,
+          resendApiKey: resendApiKeyInput,
+          resendFromEmail: resendFromEmailInput,
           adminEmail: adminEmailConfigInput
         })
       });
       const data = await res.json();
       if (data.success) {
         setSmtpSaveResult({ success: true, message: data.message });
-        setSmtpPassInput('');
+        setResendApiKeyInput('');
         fetchAdminData();
       } else {
-        setSmtpSaveResult({ success: false, message: data.error || 'خطا در ذخیره تنظیمات SMTP' });
+        setSmtpSaveResult({ success: false, message: data.error || 'خطا در ذخیره تنظیمات ایمیل' });
       }
     } catch (err) {
       setSmtpSaveResult({ success: false, message: 'خطا در ارتباط با سرور' });
@@ -2024,37 +2024,36 @@ export default function Admin() {
                   </div>
                 </div>
 
-                {/* SMTP Credentials Configuration Card */}
+                {/* Resend API Credentials Configuration Card */}
                 <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4">
                   <div className="flex justify-between items-center pb-3 border-b border-slate-700">
                     <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
                       <Settings className="text-amber-400" size={18} />
-                      <span>تنظیمات سرور ارسال ایمیل واقعی (Gmail SMTP Configuration)</span>
+                      <span>تنظیمات سرویس ارسال ایمیل مدرن (Resend API)</span>
                     </h2>
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                      settingsInfo?.smtpConfigured 
+                      settingsInfo?.resendConfigured || settingsInfo?.smtpConfigured
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
                         : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     }`}>
-                      {settingsInfo?.smtpConfigured ? '🟢 SMTP فعال است' : '🟡 غیرفعال (شبیه‌سازی)'}
+                      {settingsInfo?.resendConfigured || settingsInfo?.smtpConfigured ? '🟢 Resend API فعال است' : '🟡 غیرفعال (شبیه‌سازی)'}
                     </span>
                   </div>
 
                   <form onSubmit={handleSaveSmtp} className="bg-slate-900 border border-slate-700 rounded-xl p-4 space-y-4 text-xs">
                     <p className="text-[11px] text-slate-300 leading-relaxed bg-indigo-950/40 p-3 rounded-lg border border-indigo-800/50">
-                      💡 برای فعال‌سازی ارسال ایمیل واقعی برای خریداران و مدیریت، آدرس جی‌میل و <strong>App Password (کلمه عبور اختصاصی برنامه)</strong> خود را وارد نمایید.
+                      🚀 سیستم ارسال ایمیل به <strong>Resend API</strong> مهاجرت کرده است. تمام ایمیل‌های تایید سفارش، ثبت‌نام و بازیابی رمز بدون تاخیر از طریق Resend ارسال می‌شوند.
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <label className="block text-slate-300 font-bold">آدرس ایمیل ارسال‌کننده (Gmail User):</label>
+                        <label className="block text-slate-300 font-bold">فرستنده ایمیل (Resend From Address):</label>
                         <input
-                          type="email"
-                          placeholder="مثلاً: 40gates.main@gmail.com"
-                          value={smtpUserInput}
-                          onChange={e => setSmtpUserInput(e.target.value)}
+                          type="text"
+                          placeholder="مثلاً: آکادمی ۴۰ دروازه <onboarding@resend.dev> یا noreply@40gates.ir"
+                          value={resendFromEmailInput}
+                          onChange={e => setResendFromEmailInput(e.target.value)}
                           className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 dir-ltr text-left"
-                          required
                         />
                       </div>
 
@@ -2062,7 +2061,7 @@ export default function Admin() {
                         <label className="block text-slate-300 font-bold">ایمیل دریافت‌کننده مدیریت (Admin Email):</label>
                         <input
                           type="email"
-                          placeholder="مثلاً: fmfarshad585@gmail.com"
+                          placeholder="مثلاً: 40gates.main@gmail.com"
                           value={adminEmailConfigInput}
                           onChange={e => setAdminEmailConfigInput(e.target.value)}
                           className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 dir-ltr text-left"
@@ -2071,16 +2070,16 @@ export default function Admin() {
                       </div>
 
                       <div className="space-y-1 md:col-span-2">
-                        <label className="block text-slate-300 font-bold">کلمه عبور برنامه (Gmail App Password - ۱۶ کاراکتر):</label>
+                        <label className="block text-slate-300 font-bold">کلید API سرویس Resend (RESEND_API_KEY):</label>
                         <input
                           type="password"
-                          placeholder="مثلاً: abcd efgh ijkl mnop"
-                          value={smtpPassInput}
-                          onChange={e => setSmtpPassInput(e.target.value)}
+                          placeholder={settingsInfo?.resendApiKeyMasked || "re_••••••••••••••••••••••••"}
+                          value={resendApiKeyInput}
+                          onChange={e => setResendApiKeyInput(e.target.value)}
                           className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 dir-ltr text-left"
                         />
                         <p className="text-[10px] text-slate-400 leading-normal">
-                          نکته: جهت دریافت App Password، وارد حساب گوگل خود شوید -&gt; امنیت (Security) -&gt; تایید دو مرحله‌ای -&gt; کلمه‌های عبور برنامه (App Passwords) و یک کد ۱۶ رقمی دریافت کنید.
+                          نکته: جهت دریافت کلید API، در وب‌سایت <span className="text-indigo-300 font-mono">resend.com</span> یک API Key جدید ایجاد کرده و در اینجا یا در متغیرهای محیطی Vercel قرار دهید.
                         </p>
                       </div>
                     </div>
@@ -2092,7 +2091,7 @@ export default function Admin() {
                         className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold px-5 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-2"
                       >
                         {smtpSaving ? <RefreshCw className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
-                        <span>ذخیره و فعال‌سازی سرویس ایمیل</span>
+                        <span>ذخیره و فعال‌سازی Resend API</span>
                       </button>
 
                       {smtpSaveResult && (
@@ -2109,15 +2108,15 @@ export default function Admin() {
                   <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-3 border-b border-slate-700">
                     <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
                       <Mail className="text-indigo-400" size={18} />
-                      <span>تست و عیب‌یابی سرویس ارسال ایمیل (Email Dispatch Diagnostics)</span>
+                      <span>تست و عیب‌یابی سرویس ارسال ایمیل (Resend API Diagnostics)</span>
                     </h2>
                     <div className="flex items-center gap-2">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                        settingsInfo?.smtpConfigured 
+                        settingsInfo?.resendConfigured || settingsInfo?.smtpConfigured
                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
                           : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                       }`}>
-                        {settingsInfo?.smtpConfigured ? '🟢 سرویس SMTP فعال است' : '🟡 حالت شبیه‌ساز (GMAIL_USER ست نشده)'}
+                        {settingsInfo?.resendConfigured || settingsInfo?.smtpConfigured ? '🟢 سرویس Resend فعال است' : '🟡 حالت شبیه‌ساز (کلید ست نشده)'}
                       </span>
                       <button
                         onClick={fetchAdminData}
@@ -2289,8 +2288,8 @@ export default function Admin() {
                     <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-[11px] text-indigo-300 space-y-1 dir-ltr text-left">
                       <p>ADMIN_EMAIL=your-email@example.com</p>
                       <p>ADMIN_PASSWORD=••••••••••••••••</p>
-                      <p>GMAIL_USER=your-email@gmail.com</p>
-                      <p>GMAIL_APP_PASSWORD=••••••••••••••••</p>
+                      <p>RESEND_API_KEY=re_••••••••••••••••••••••••</p>
+                      <p>RESEND_FROM_EMAIL=آکادمی ۴۰ دروازه &lt;noreply@40gates.ir&gt;</p>
                     </div>
 
                     <div className="space-y-2 pt-2">
