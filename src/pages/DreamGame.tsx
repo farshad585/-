@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import RealityCheckExperience from '../components/RealityCheckExperience';
+import AtariDreamOverOverlay from '../components/AtariDreamOverOverlay';
 
 interface Scenario {
   id: number;
@@ -387,6 +388,7 @@ function DoughWallPracticeGame() {
   const [dreamStability, setDreamStability] = useState<number>(0);
   const [isPressing, setIsPressing] = useState<boolean>(false);
   const [wallDepth, setWallDepth] = useState<number>(0);
+  const [isGameOver, setIsGameOver] = useState<boolean>(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('دست خود را با آرامش، آهسته درون دیوار خمیری فرو ببرید (۱۰ ثانیه برای نفوذ کامل)...');
   const [feedbackType, setFeedbackType] = useState<'neutral' | 'success' | 'warning' | 'error'>('neutral');
 
@@ -452,6 +454,7 @@ function DoughWallPracticeGame() {
     setHoldTime(0);
     setDreamStability(0);
     setWallDepth(0);
+    setIsGameOver(true);
     setFeedbackMessage('🚨 کلیک‌های شتابزده و بی‌صبری! رویا به دلیل رفتار هیجانی متلاشی شد. دوباره با فرو بردن تدریجی دست (۱۰ ثانیه) شروع کنید.');
     setFeedbackType('error');
   };
@@ -460,12 +463,19 @@ function DoughWallPracticeGame() {
     setHoldTime(0);
     setDreamStability(0);
     setWallDepth(0);
+    setIsGameOver(false);
     setFeedbackMessage('دست خود را با آرامش، آهسته درون دیوار خمیری فرو ببرید (۱۰ ثانیه برای نفوذ کامل)...');
     setFeedbackType('neutral');
   };
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[460px]">
+      {/* Atari DREAM OVER Overlay when lost */}
+      {isGameOver && (
+        <AtariDreamOverOverlay
+          onRestart={resetGame}
+        />
+      )}
       {/* Background Atmosphere */}
       <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-indigo-950/80 to-slate-900 pointer-events-none">
         <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
@@ -578,6 +588,7 @@ function AppleTelekinesisPracticeGame() {
   const [dreamStability, setDreamStability] = useState<number>(0);
   const [isPressing, setIsPressing] = useState<boolean>(false);
   const [appleProgress, setAppleProgress] = useState<number>(0);
+  const [isGameOver, setIsGameOver] = useState<boolean>(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('دست را باز و ثابت نگه دارید... بدون دویدن به سمت درخت، سیب را جذب کنید (۱۰ ثانیه)...');
   const [feedbackType, setFeedbackType] = useState<'neutral' | 'success' | 'warning' | 'error'>('neutral');
 
@@ -643,6 +654,7 @@ function AppleTelekinesisPracticeGame() {
     setHoldTime(0);
     setDreamStability(0);
     setAppleProgress(0);
+    setIsGameOver(true);
     setFeedbackMessage('🚨 به سمت درخت دویدید! در دنیای رویا، طی کردن مسافت فیزیکی و عجله کردن باعث سقوط سیب و متلاشی شدن رویا می‌شود.');
     setFeedbackType('error');
   };
@@ -651,12 +663,19 @@ function AppleTelekinesisPracticeGame() {
     setHoldTime(0);
     setDreamStability(0);
     setAppleProgress(0);
+    setIsGameOver(false);
     setFeedbackMessage('دست را باز و ثابت نگه دارید... بدون دویدن به سمت درخت، سیب را جذب کنید (۱۰ ثانیه)...');
     setFeedbackType('neutral');
   };
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[460px]">
+      {/* Atari DREAM OVER Overlay when lost */}
+      {isGameOver && (
+        <AtariDreamOverOverlay
+          onRestart={resetGame}
+        />
+      )}
       {/* Background Atmosphere */}
       <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/60 via-amber-950/40 to-slate-900 pointer-events-none">
         <div className="absolute inset-0 opacity-30 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
@@ -1274,6 +1293,13 @@ function NightmareDisregardPracticeGame() {
               onSelectLane={handleSelectLane}
             />
 
+            {/* Atari DREAM OVER Overlay when lost */}
+            {gameState === 'gameover' && (
+              <AtariDreamOverOverlay
+                onRestart={startGame}
+              />
+            )}
+
             {gameState === 'idle' && (
               <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20">
                 <Flame size={36} className="text-purple-400 mb-3 animate-bounce" />
@@ -1358,6 +1384,7 @@ export default function DreamGame() {
   const [scenarioScore, setScenarioScore] = useState<number>(0);
   const [scenarioStability, setScenarioStability] = useState<number>(50);
   const [scenarioFinished, setScenarioFinished] = useState<boolean>(false);
+  const [showScenariosDreamOver, setShowScenariosDreamOver] = useState<boolean>(false);
 
   // Scenario Choice Selection
   const handleSelectOption = (scenario: Scenario, optionIndex: number) => {
@@ -1388,6 +1415,7 @@ export default function DreamGame() {
     setScenarioScore(0);
     setScenarioStability(50);
     setScenarioFinished(false);
+    setShowScenariosDreamOver(false);
   };
 
   return (
@@ -1519,7 +1547,12 @@ export default function DreamGame() {
       )}
       {/* TAB 2: SCENARIOS GAME */}
       {activeTab === 'scenarios' && (
-        <div className="max-w-3xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 text-white shadow-2xl">
+        <div className="max-w-3xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 text-white shadow-2xl relative overflow-hidden min-h-[460px]">
+          {showScenariosDreamOver && (
+            <AtariDreamOverOverlay
+              onRestart={resetScenarios}
+            />
+          )}
           {!scenarioFinished ? (
             <div>
               {/* Scenario Header */}
@@ -1621,6 +1654,17 @@ export default function DreamGame() {
               </div>
 
               <div className="flex flex-col sm:flex-row justify-center gap-3">
+                {scenarioScore < 200 && (
+                  <button
+                    onClick={() => {
+                      // Trigger retro Atari DREAM OVER screen
+                      setShowScenariosDreamOver(true);
+                    }}
+                    className="bg-[#ff0055] hover:bg-[#ff2277] text-white px-5 py-3 rounded-2xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 border border-[#ffe600]"
+                  >
+                    <span>👾 مشاهده DREAM OVER (آتاری)</span>
+                  </button>
+                )}
                 <button
                   onClick={resetScenarios}
                   className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-2xl text-xs font-bold transition-all shadow-md"
@@ -1631,7 +1675,7 @@ export default function DreamGame() {
                   onClick={() => setActiveTab('interactive')}
                   className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-2xl text-xs font-bold transition-all border border-slate-700"
                 >
-                  بازگشت به شبیه‌ساز دیوار خمیری
+                  بازگشت به شبیه‌ساز ۳ تمرین
                 </button>
               </div>
             </div>
