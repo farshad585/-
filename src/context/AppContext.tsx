@@ -44,6 +44,7 @@ interface AppContextType {
   orders: Order[];
   placeOrder: (gateway: 'card-to-card' | 'zarinpal' | 'idpay', shippingAddress: Order['shippingAddress']) => Order;
   updateOrderStatus: (orderId: string, status: Order['status'], trackingCode?: string) => void;
+  deleteOrder: (orderId: string) => Promise<void> | void;
   refreshOrdersAndUsers: () => Promise<void>;
   trackOrderId: string | null;
   setTrackOrderId: (id: string | null) => void;
@@ -573,6 +574,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Delete existing order
+  const deleteOrder = async (orderId: string) => {
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    try {
+      const token = localStorage.getItem('40gates_admin_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      await fetch(`/api/admin/orders/${orderId}`, {
+        method: 'DELETE',
+        headers
+      });
+    } catch (e) {
+      console.warn('Order delete server sync err:', e);
+    }
+  };
+
   // Coupon handling with 1-time check and 1,000,000 Toman minimum threshold
   const applyCoupon = (code: string, currentSubtotal: number = 0): { success: boolean; message: string } => {
     const formatted = code.toUpperCase().trim();
@@ -668,6 +686,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         orders,
         placeOrder,
         updateOrderStatus,
+        deleteOrder,
         refreshOrdersAndUsers,
         trackOrderId,
         setTrackOrderId: (id) => {

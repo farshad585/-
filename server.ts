@@ -280,7 +280,7 @@ export async function sendMailSafely(
 }
 
 // Contact Messages Store
-const contactMessages: Array<{
+export interface ContactMessage {
   id: string;
   name: string;
   email: string;
@@ -290,7 +290,126 @@ const contactMessages: Array<{
   faDate: string;
   faTime: string;
   read: boolean;
-}> = [];
+  replied?: boolean;
+  replyText?: string;
+  replySubject?: string;
+  repliedAt?: string;
+}
+
+const contactMessages: ContactMessage[] = [];
+
+async function syncContactMessagesFromSupabase(): Promise<ContactMessage[]> {
+  const client = getSupabaseClient();
+  if (!client) return contactMessages;
+  try {
+    const { data, error } = await client.from('site_settings').select('value').eq('id', 'contact_messages_store').single();
+    if (!error && data?.value && Array.isArray(data.value)) {
+      for (const msg of data.value) {
+        if (msg && msg.id && !contactMessages.some(m => m.id === msg.id)) {
+          contactMessages.push(msg);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Supabase contact messages sync warn:', e);
+  }
+  return contactMessages;
+}
+
+async function persistContactMessagesToSupabase() {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from('site_settings').upsert({
+      id: 'contact_messages_store',
+      value: contactMessages,
+      updated_at: new Date().toISOString()
+    });
+  } catch (e) {
+    console.warn('Supabase save contact messages warn:', e);
+  }
+}
+
+// Security Alert: Send instant notification email when login fails or wrong password/2FA is entered
+async function sendAdminSecurityAlert(details: {
+  reason: 'FAILED_PASSWORD' | 'FAILED_2FA' | 'LOCKED';
+  clientIp: string;
+  enteredEmail?: string;
+  userAgent?: string;
+  attemptCount: number;
+}) {
+  try {
+    const adminEmail = (runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim();
+    const isLocked = details.reason === 'LOCKED' || details.attemptCount >= 5;
+    const faDate = new Date().toLocaleDateString('fa-IR');
+    const faTime = new Date().toLocaleTimeString('fa-IR');
+
+    const subject = isLocked
+      ? `🚨 [هشدار فوق‌امنیتی] حساب مدیریت آکادمی ۴۰ دروازه مسدود شد (${details.attemptCount} تلاش ناموفق)`
+      : details.reason === 'FAILED_2FA'
+      ? `⚠️ هشدار امنیتی: کد ۲FA اشتباه در ورود به پنل مدیریت (${details.attemptCount} از ۵)`
+      : `⚠️ هشدار امنیتی: تلاش ناموفق برای ورود به پنل مدیریت با رمز اشتباه (${details.attemptCount} از ۵)`;
+
+    const reasonTitle = details.reason === 'FAILED_2FA'
+      ? 'کد تایید دو مرحله‌ای (Authenticator) اشتباه وارد شد'
+      : details.reason === 'LOCKED'
+      ? 'تعداد مجاز تلاش‌ها به پایان رسید و حساب قفل شد'
+      : 'رمز عبور یا ایمیل مدیر اشتباه وارد شد';
+
+    const html = `
+      <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #090d16; padding: 25px; color: #f8fafc;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #0f172a; border-radius: 16px; overflow: hidden; border: 1px solid ${isLocked ? '#ef4444' : '#f59e0b'}; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+          
+          <div style="background: ${isLocked ? 'linear-gradient(135deg, #7f1d1d, #991b1b)' : 'linear-gradient(135deg, #78350f, #92400e)'}; padding: 25px 20px; text-align: center; color: #ffffff;">
+            <h1 style="margin: 0; font-size: 18px;">${isLocked ? '🚨 هشدار امنیتی: مسدودی حساب مدیریت' : '⚠️ گزارش تلاش ناموفق برای ورود به پنل مدیریت'}</h1>
+            <p style="margin: 6px 0 0 0; font-size: 12px; color: #fef3c7;">سیستم امنیت و مانیتورینگ هوشمند وب‌سایت آکادمی ۴۰ دروازه</p>
+          </div>
+
+          <div style="padding: 25px; font-size: 13px; line-height: 1.8; color: #cbd5e1;">
+            <p style="font-size: 14px; color: #f1f5f9; margin-top: 0;">
+              سلام مدیر گرامی؛
+            </p>
+            <p>
+              یک تلاش <strong>ناموفق</strong> برای دسترسی به پنل مدیریت آکادمی ۴۰ دروازه ثبت گردید. اطلاعات این رویداد امنیتی به شرح زیر است:
+            </p>
+
+            <div style="background-color: #1e293b; border-radius: 12px; padding: 18px; margin: 20px 0; border: 1px solid #334155; font-size: 13px; line-height: 1.9;">
+              <p style="margin: 4px 0;"><strong>علت خطا:</strong> <span style="color: #fca5a5; font-weight: bold;">${reasonTitle}</span></p>
+              <p style="margin: 4px 0;"><strong>ایمیل وارد شده:</strong> <span style="font-family: monospace; color: #38bdf8;">${details.enteredEmail || 'خالی'}</span></p>
+              <p style="margin: 4px 0;"><strong>آدرس IP درخواست‌دهنده:</strong> <span style="font-family: monospace; color: #fbbf24; direction: ltr; display: inline-block;">${details.clientIp}</span></p>
+              <p style="margin: 4px 0;"><strong>زمان ثبت رویداد:</strong> ${faDate} ساعت ${faTime}</p>
+              <p style="margin: 4px 0;"><strong>تعداد تلاش‌های ناموفق:</strong> <span style="font-weight: bold; color: ${details.attemptCount >= 4 ? '#ef4444' : '#fbbf24'};">${details.attemptCount} از ۵</span></p>
+              ${isLocked ? '<p style="margin: 8px 0 0 0; color: #ef4444; font-weight: bold;">⛔ پنل مدیریت به مدت ۱۵ دقیقه جهت جلوگیری از نفوذ موقتاً مسدود گردید.</p>' : ''}
+              <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #475569; font-size: 11px; color: #94a3b8;">
+                <strong>مشخصات مرورگر / دستگاه کاربر:</strong><br/>
+                <span style="direction: ltr; display: block; font-family: monospace; margin-top: 4px;">${details.userAgent || 'نامشخص'}</span>
+              </div>
+            </div>
+
+            <div style="background-color: #451a03; border-radius: 10px; padding: 14px; border: 1px solid #78350f; color: #fde68a; font-size: 12px; line-height: 1.7;">
+              🛡️ <strong>اقدامات امنیتی پیشنهادی:</strong><br/>
+              اگر این تلاش توسط خود شما انجام نشده است، احتمال تلاش افراد غیرمجاز برای دسترسی وجود دارد. توصیه می‌شود اطلاعات محرمانه خود را چک نموده و از امنیت کلید احراز هویت دو مرحله‌ای (2FA) اطمینان حاصل نمایید.
+            </div>
+          </div>
+
+          <div style="background-color: #0b1120; padding: 15px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #1e293b;">
+            آکادمی ۴۰ دروازه — پلتفرم تخصصی رویابینی آگاهانه<br/>
+            این پیام به صورت خودکار از سرور امنیتی ارسال شده است.
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    await sendMailSafely({
+      to: adminEmail,
+      subject,
+      html
+    }, 'admin-security-alert');
+  } catch (alertErr) {
+    console.warn('Admin security alert email failed:', alertErr);
+  }
+}
 
 // Admin Authentication & Security State
 interface AdminOTP {
@@ -366,7 +485,7 @@ const registeredUsersStore: Array<{
   }
 ];
 
-const serverOrdersStore: Array<any> = [
+let serverOrdersStore: Array<any> = [
   {
     id: 'IRN-847291',
     date: '۱۴۰۳/۰۵/۱۲',
@@ -825,6 +944,37 @@ app.patch('/api/orders/:id/status', (req, res) => {
   }
 });
 
+// DELETE Order handler (supporting both /api/admin/orders/:id and /api/orders/:id)
+const handleDeleteOrderHandler = async (req: express.Request, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    const initialCount = serverOrdersStore.length;
+    serverOrdersStore = serverOrdersStore.filter(o => o.id !== id);
+
+    // Delete from Supabase Database
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        await client.from('orders').delete().eq('id', id);
+      } catch (dbErr) {
+        console.warn('Supabase delete order error:', dbErr);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `سفارش #${id} با موفقیت حذف گردید.`,
+      orders: serverOrdersStore
+    });
+  } catch (err: any) {
+    console.error('Delete order error:', err);
+    return res.status(500).json({ success: false, error: 'خطا در حذف سفارش' });
+  }
+};
+
+app.delete('/api/admin/orders/:id', requireAdminAuth, handleDeleteOrderHandler);
+app.delete('/api/orders/:id', handleDeleteOrderHandler);
+
 // GET & POST Registered Users API
 app.get('/api/users', (req, res) => {
   res.json({ success: true, users: registeredUsersStore });
@@ -906,6 +1056,15 @@ app.post('/api/admin/login', async (req, res) => {
         status: 'FAILED_PASSWORD',
         email: email || 'نامشخص',
         userAgent: req.headers['user-agent']
+      });
+
+      // Send instant security alert email to admin on wrong password
+      sendAdminSecurityAlert({
+        reason: adminSecurityState.failedPasswordCount >= 5 ? 'LOCKED' : 'FAILED_PASSWORD',
+        clientIp,
+        enteredEmail: email || 'نامشخص',
+        userAgent: req.headers['user-agent'],
+        attemptCount: adminSecurityState.failedPasswordCount
       });
 
       if (adminSecurityState.failedPasswordCount >= 5) {
@@ -1006,6 +1165,9 @@ const handleVerifyTotpHandler = async (req: express.Request, res: express.Respon
     const isValidCode = verifyAdminTotpCode(inputCode, totpInfo.secret);
 
     if (!isValidCode) {
+      const failedCount = (adminSecurityState.failedPasswordCount || 0) + 1;
+      adminSecurityState.failedPasswordCount = failedCount;
+
       adminSecurityState.loginLogs.unshift({
         id: 'LOG-' + Date.now(),
         timestamp: new Date().toISOString(),
@@ -1015,6 +1177,15 @@ const handleVerifyTotpHandler = async (req: express.Request, res: express.Respon
         status: 'FAILED_OTP',
         email: adminEmail,
         userAgent: req.headers['user-agent']
+      });
+
+      // Send instant security alert email to admin on wrong 2FA TOTP code
+      sendAdminSecurityAlert({
+        reason: 'FAILED_2FA',
+        clientIp,
+        enteredEmail: adminEmail,
+        userAgent: req.headers['user-agent'],
+        attemptCount: failedCount
       });
 
       return res.status(401).json({
@@ -1320,9 +1491,138 @@ const handleContactMessage = async (req: express.Request, res: express.Response)
 app.post('/api/contact', handleContactMessage);
 app.post('/api/email/contact', handleContactMessage);
 
-// Protected Contact Messages Endpoint for Admin
-app.get('/api/admin/contact-messages', requireAdminAuth, (req, res) => {
+// Protected Contact Messages Endpoints for Admin
+app.get('/api/admin/contact-messages', requireAdminAuth, async (req, res) => {
+  await syncContactMessagesFromSupabase();
   res.json({ success: true, messages: contactMessages });
+});
+
+app.patch('/api/admin/contact-messages/:id', requireAdminAuth, async (req, res) => {
+  const msg = contactMessages.find(m => m.id === req.params.id);
+  if (msg) {
+    msg.read = true;
+    await persistContactMessagesToSupabase();
+    return res.json({ success: true, message: 'وضعیت پیام به خوانده شده تغییر یافت.', messages: contactMessages });
+  }
+  return res.status(404).json({ success: false, error: 'پیام یافت نشد.' });
+});
+
+// DELETE Contact Message
+app.delete('/api/admin/contact-messages/:id', requireAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const idx = contactMessages.findIndex(m => m.id === id);
+    if (idx >= 0) {
+      contactMessages.splice(idx, 1);
+      await persistContactMessagesToSupabase();
+      return res.json({ success: true, message: 'پیام با موفقیت حذف گردید.', messages: contactMessages });
+    }
+    return res.status(404).json({ success: false, error: 'پیام مورد نظر یافت نشد.' });
+  } catch (err: any) {
+    console.error('Delete message error:', err);
+    return res.status(500).json({ success: false, error: 'خطا در حذف پیام' });
+  }
+});
+
+// POST Reply to Contact Message (Sends formatted email to user)
+app.post('/api/admin/contact-messages/:id/reply', requireAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { replyText, replySubject } = req.body;
+
+    if (!replyText || !replyText.trim()) {
+      return res.status(400).json({ success: false, error: 'لطفاً متن پاسخ را وارد نمایید.' });
+    }
+
+    const msg = contactMessages.find(m => m.id === id);
+    if (!msg) {
+      return res.status(404).json({ success: false, error: 'پیام مورد نظر یافت نشد.' });
+    }
+
+    const subject = replySubject?.trim() || `✨ پاسخ به پیام شما: ${msg.subject || 'پشتیبانی آکادمی ۴۰ دروازه'} (کد: ${msg.id})`;
+    const adminEmail = (runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim();
+    const replyDateFa = new Date().toLocaleDateString('fa-IR');
+    const replyTimeFa = new Date().toLocaleTimeString('fa-IR');
+
+    const emailHtml = `
+      <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+          
+          <div style="background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95); padding: 25px 20px; text-align: center; color: #ffffff;">
+            <h1 style="margin: 0; font-size: 20px; color: #fbbf24;">پاسخ پشتیبانی آکادمی ۴۰ دروازه</h1>
+            <p style="margin: 6px 0 0 0; font-size: 12px; color: #e0e7ff;">فرشاد میرشکاری — مرجع تخصصی رویابینی آگاهانه</p>
+          </div>
+
+          <div style="padding: 30px; font-size: 14px; line-height: 1.8; color: #334155;">
+            <p style="margin-top: 0; font-size: 15px;">
+              جناب آقای / سرکار خانم <strong>${msg.name}</strong> عزیز، با سلام و درود؛
+            </p>
+
+            <p style="color: #475569;">
+              در پاسخ به پیامی که از طریق فرم تماس وب‌سایت با شناسه پیگیری <strong style="font-family: monospace; color: #4338ca;">${msg.id}</strong> ثبت نموده‌اید:
+            </p>
+
+            <!-- Admin Reply Text Box -->
+            <div style="background-color: #f0fdf4; border-right: 4px solid #16a34a; border-radius: 10px; padding: 20px; margin: 20px 0; font-size: 14px; line-height: 1.9; color: #14532d; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+              <h4 style="margin: 0 0 10px 0; color: #166534; font-size: 14px;">
+                ✍️ متن پاسخ مدیریت / فرشاد میرشکاری:
+              </h4>
+              <div style="white-space: pre-wrap;">${replyText.trim().replace(/\n/g, '<br/>')}</div>
+            </div>
+
+            <!-- Original Message Quote Box -->
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin: 20px 0; font-size: 12px; line-height: 1.7; color: #64748b;">
+              <h5 style="margin: 0 0 8px 0; color: #334155; font-size: 13px;">📋 نقل‌قول پیام اولیه شما:</h5>
+              <p style="margin: 3px 0;"><strong>موضوع:</strong> ${msg.subject || 'پشتیبانی'}</p>
+              <p style="margin: 3px 0;"><strong>تاریخ ارسال:</strong> ${msg.faDate} ساعت ${msg.faTime}</p>
+              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; color: #475569;">
+                ${msg.message.replace(/\n/g, '<br/>')}
+              </div>
+            </div>
+
+            <p style="font-size: 13px; color: #64748b; margin-top: 20px;">
+              در صورت وجود هرگونه پرسش یا نیاز به توضیحات بیشتر، می‌توانید مستقیماً به همین ایمیل پاسخ دهید یا از طریق تلگرام با ما در ارتباط باشید:
+            </p>
+
+            <div style="background-color: #eff6ff; border-radius: 10px; padding: 12px 15px; font-size: 12px; color: #1e40af; display: inline-block; margin-top: 5px;">
+              💬 پشتیبانی تلگرام: <a href="https://t.me/Farshad_God" style="color: #2563eb; font-weight: bold; text-decoration: none;">t.me/Farshad_God</a>
+            </div>
+          </div>
+
+          <div style="background-color: #f1f5f9; padding: 15px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+            آکادمی ۴۰ دروازه | ایمیل رسمی: <a href="mailto:${adminEmail}" style="color: #6366f1;">${adminEmail}</a> | وب‌سایت: <a href="https://40gates.ir" style="color: #6366f1;">40gates.ir</a>
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    await sendMailSafely({
+      to: msg.email,
+      subject,
+      html: emailHtml,
+      replyTo: adminEmail
+    }, 'contact-reply');
+
+    msg.read = true;
+    msg.replied = true;
+    msg.replyText = replyText.trim();
+    msg.replySubject = subject;
+    msg.repliedAt = `${replyDateFa} ساعت ${replyTimeFa}`;
+
+    await persistContactMessagesToSupabase();
+
+    return res.json({
+      success: true,
+      message: 'پاسخ با موفقیت به ایمیل کاربر ارسال گردید.',
+      messageItem: msg,
+      messages: contactMessages
+    });
+
+  } catch (err: any) {
+    console.error('Reply contact error:', err);
+    return res.status(500).json({ success: false, error: 'خطا در ارسال پاسخ به ایمیل' });
+  }
 });
 
 // GET /api/supabase/status - Test live connection to Supabase

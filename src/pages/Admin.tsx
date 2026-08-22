@@ -72,12 +72,17 @@ interface ContactMessage {
   faDate: string;
   faTime: string;
   read: boolean;
+  replied?: boolean;
+  replyText?: string;
+  replySubject?: string;
+  repliedAt?: string;
 }
 
 export default function Admin() {
   const { 
     orders, 
     updateOrderStatus, 
+    deleteOrder,
     setCurrentPage, 
     refreshOrdersAndUsers, 
     products, 
@@ -147,6 +152,14 @@ export default function Admin() {
   // Backend fetched data
   const [loginLogs, setLoginLogs] = useState<LoginLog[]>([]);
   const [contactMsgs, setContactMsgs] = useState<ContactMessage[]>([]);
+  
+  // Contact Messages Reply State
+  const [replyingMessage, setReplyingMessage] = useState<ContactMessage | null>(null);
+  const [replySubjectInput, setReplySubjectInput] = useState<string>('');
+  const [replyTextInput, setReplyTextInput] = useState<string>('');
+  const [replySending, setReplySending] = useState<boolean>(false);
+  const [replyStatusMessage, setReplyStatusMessage] = useState<{ success: boolean; text: string } | null>(null);
+
   const [settingsInfo, setSettingsInfo] = useState<any>(null);
   const [serverUsers, setServerUsers] = useState<Array<{ id: string; fullName: string; email: string; phone?: string; registeredAt?: string; faDate?: string }>>([]);
   const [emailSystemLogs, setEmailSystemLogs] = useState<Array<{ id: string; type: string; to: string; subject: string; timestamp: string; status: string; errorDetails?: string }>>([]);
@@ -564,6 +577,94 @@ export default function Admin() {
     }
   };
 
+  // Delete contact message
+  const handleDeleteContactMessage = async (msgId: string) => {
+    if (!adminToken) return;
+    if (!window.confirm('آیا از حذف این پیام اطمینان دارید؟ این عملیات غیرقابل بازگشت است.')) return;
+    try {
+      const res = await fetch(`/api/admin/contact-messages/${msgId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setContactMsgs(prev => prev.filter(m => m.id !== msgId));
+        setRefreshNotification('پیام با موفقیت حذف گردید.');
+        setTimeout(() => setRefreshNotification(null), 3000);
+        if (replyingMessage?.id === msgId) {
+          setReplyingMessage(null);
+        }
+      } else {
+        alert(data.error || 'خطا در حذف پیام');
+      }
+    } catch (err) {
+      alert('خطا در ارتباط با سرور.');
+    }
+  };
+
+  // Open Reply Modal for contact message
+  const handleOpenReplyModal = (msg: ContactMessage) => {
+    setReplyingMessage(msg);
+    setReplySubjectInput(`پاسخ به: ${msg.subject || 'پیام شما در آکادمی ۴۰ دروازه'} (کد: ${msg.id})`);
+    setReplyTextInput(msg.replyText || '');
+    setReplyStatusMessage(null);
+  };
+
+  // Submit reply via email
+  const handleSendReplySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminToken || !replyingMessage) return;
+    if (!replyTextInput.trim()) {
+      setReplyStatusMessage({ success: false, text: 'لطفاً متن پاسخ را وارد نمایید.' });
+      return;
+    }
+
+    setReplySending(true);
+    setReplyStatusMessage(null);
+
+    try {
+      const res = await fetch(`/api/admin/contact-messages/${replyingMessage.id}/reply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          replyText: replyTextInput.trim(),
+          replySubject: replySubjectInput.trim()
+        })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        const replyFaDate = new Date().toLocaleDateString('fa-IR');
+        const replyFaTime = new Date().toLocaleTimeString('fa-IR');
+        setContactMsgs(prev => prev.map(m => m.id === replyingMessage.id ? {
+          ...m,
+          read: true,
+          replied: true,
+          replyText: replyTextInput.trim(),
+          replySubject: replySubjectInput.trim(),
+          repliedAt: `${replyFaDate} ساعت ${replyFaTime}`
+        } : m));
+
+        setReplyStatusMessage({ success: true, text: 'پاسخ با موفقیت به ایمیل کاربر ارسال شد.' });
+        setRefreshNotification(`پاسخ به ایمیل ${replyingMessage.email} با موفقیت ارسال گردید.`);
+        setTimeout(() => {
+          setReplyingMessage(null);
+          setReplyStatusMessage(null);
+        }, 1800);
+      } else {
+        setReplyStatusMessage({ success: false, text: data.error || 'خطا در ارسال پاسخ' });
+      }
+    } catch (err) {
+      setReplyStatusMessage({ success: false, text: 'خطا در برقراری ارتباط با سرور.' });
+    } finally {
+      setReplySending(false);
+    }
+  };
+
   // --- Excel Exporters ---
   const exportOrdersToExcel = () => {
     const data = orders.map((o) => ({
@@ -791,6 +892,20 @@ export default function Admin() {
         customerName: targetOrder.customerInfo?.fullName || 'خریدار محترم',
         customerPhone
       });
+    }
+  };
+
+  // Handle Order deletion
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!window.confirm(`آیا از حذف کامل سفارش #${orderId} اطمینان دارید؟ این عملیات غیرقابل بازگشت است.`)) {
+      return;
+    }
+    try {
+      await deleteOrder(orderId);
+      setRefreshNotification(`سفارش #${orderId} با موفقیت حذف گردید.`);
+      setTimeout(() => setRefreshNotification(null), 3500);
+    } catch (e) {
+      console.warn('Delete order error:', e);
     }
   };
 
@@ -1374,6 +1489,15 @@ export default function Admin() {
                               >
                                 در حال پردازش
                               </button>
+
+                              <button
+                                onClick={() => handleDeleteOrder(order.id)}
+                                className="bg-rose-950/70 hover:bg-rose-900 border border-rose-800/80 text-rose-300 hover:text-rose-100 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                title="حذف کامل این سفارش"
+                              >
+                                <Trash2 size={12} />
+                                <span>حذف</span>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1739,11 +1863,16 @@ export default function Admin() {
             {/* TAB 6: CONTACT MESSAGES */}
             {activeTab === 'messages' && (
               <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4 text-right">
-                <div className="flex justify-between items-center pb-3 border-b border-slate-700">
-                  <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
-                    <MessageSquare className="text-indigo-400" size={18} />
-                    <span>پیام‌های دریافتی از فرم تماس ({contactMsgs.length} پیام)</span>
-                  </h2>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-700">
+                  <div>
+                    <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
+                      <MessageSquare className="text-indigo-400" size={18} />
+                      <span>پیام‌های دریافتی از فرم تماس ({contactMsgs.length} پیام)</span>
+                    </h2>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      امکان مطالعه، ارسال پاسخ رسمی مستقیم به ایمیل کاربر، و حذف پیام‌ها
+                    </p>
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={exportMessagesToExcel}
@@ -1754,10 +1883,10 @@ export default function Admin() {
                     </button>
                     <button
                       onClick={fetchAdminData}
-                      className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
+                      className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700"
                     >
                       <RefreshCw size={12} />
-                      <span>بروزرسانی پیام‌ها</span>
+                      <span>بروزرسانی</span>
                     </button>
                   </div>
                 </div>
@@ -1767,27 +1896,81 @@ export default function Admin() {
                 ) : (
                   <div className="space-y-3">
                     {contactMsgs.map(msg => (
-                      <div key={msg.id} className={`p-4 rounded-2xl border text-xs space-y-2 ${
-                        msg.read ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-900 border-emerald-500/40 text-white'
+                      <div key={msg.id} className={`p-4 rounded-2xl border text-xs space-y-3 ${
+                        msg.read ? 'bg-slate-900/70 border-slate-800 text-slate-300' : 'bg-slate-900 border-indigo-500/40 text-white shadow-md'
                       }`}>
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold">{msg.name}</span>
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800/80 pb-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-indigo-400 font-extrabold text-[11px]">#{msg.id}</span>
+                            <span className="font-bold text-slate-100">{msg.name}</span>
                             <span className="text-[11px] text-slate-400 font-mono">({msg.email})</span>
+                            {msg.replied && (
+                              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1">
+                                <Check size={10} />
+                                <span>پاسخ داده شده</span>
+                              </span>
+                            )}
+                            {!msg.read && (
+                              <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                                جدید
+                              </span>
+                            )}
                           </div>
-                          <span className="text-[10px] text-slate-400 font-mono">{msg.faDate} - {msg.faTime}</span>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                            <span>{msg.subject ? `موضوع: ${msg.subject}` : 'پشتیبانی'}</span>
+                            <span>•</span>
+                            <span>{msg.faDate} - {msg.faTime}</span>
+                          </div>
                         </div>
-                        <p className="text-slate-300 leading-relaxed bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                          {msg.message}
-                        </p>
-                        {!msg.read && (
-                          <button
-                            onClick={() => handleMarkMessageRead(msg.id)}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-lg transition-colors cursor-pointer"
-                          >
-                            علامت‌گذاری به عنوان خوانده شده
-                          </button>
+
+                        {/* Message body */}
+                        <div className="text-slate-300 leading-relaxed bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80">
+                          <p className="whitespace-pre-wrap">{msg.message}</p>
+                        </div>
+
+                        {/* If already replied, show reply quote */}
+                        {msg.replied && msg.replyText && (
+                          <div className="bg-emerald-950/30 border border-emerald-800/40 rounded-xl p-3 text-[11px] space-y-1.5">
+                            <div className="flex justify-between items-center text-emerald-400 font-bold">
+                              <span>✍️ پاسخ ارسال شده توسط ادمین:</span>
+                              {msg.repliedAt && <span className="font-normal text-slate-400 text-[10px]">{msg.repliedAt}</span>}
+                            </div>
+                            <p className="text-slate-300 whitespace-pre-wrap bg-slate-900/60 p-2.5 rounded-lg border border-emerald-900/30">
+                              {msg.replyText}
+                            </p>
+                          </div>
                         )}
+
+                        {/* Action buttons */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => handleOpenReplyModal(msg)}
+                              className="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                            >
+                              <Send size={12} />
+                              <span>{msg.replied ? 'ارسال پاسخ مجدد' : 'پاسخ به پیام'}</span>
+                            </button>
+
+                            {!msg.read && (
+                              <button
+                                onClick={() => handleMarkMessageRead(msg.id)}
+                                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                              >
+                                علامت به عنوان خوانده شده
+                              </button>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => handleDeleteContactMessage(msg.id)}
+                            className="bg-rose-950/60 hover:bg-rose-900 border border-rose-800/70 text-rose-300 hover:text-rose-100 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                            title="حذف این پیام"
+                          >
+                            <Trash2 size={12} />
+                            <span>حذف پیام</span>
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2668,6 +2851,120 @@ export default function Admin() {
                     >
                       <Plus size={16} />
                       <span>ثبت و انتشار محصول</span>
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+        {/* MODAL: REPLY TO CONTACT MESSAGE */}
+        <AnimatePresence>
+          {replyingMessage && (
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto dir-rtl text-right">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-slate-900 border border-slate-700/80 rounded-3xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl text-xs"
+              >
+                <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+                  <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                    <Send className="text-indigo-400" size={18} />
+                    <span>ارسال پاسخ رسمی به {replyingMessage.name}</span>
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setReplyingMessage(null);
+                      setReplyStatusMessage(null);
+                    }}
+                    className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Recipient info & original message quote */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                    <div>
+                      <span className="text-slate-400">گیرنده پاسخ: </span>
+                      <strong className="text-white">{replyingMessage.name}</strong>
+                      <span className="text-indigo-400 font-mono mr-1">({replyingMessage.email})</span>
+                    </div>
+                    <div className="text-slate-400 font-mono text-[10px]">
+                      کد تیکت: #{replyingMessage.id} • {replyingMessage.faDate}
+                    </div>
+                  </div>
+
+                  <div className="text-slate-300 text-[11px] bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <span className="block text-[10px] font-bold text-slate-400">متن پیام ارسالی کاربر:</span>
+                    <p className="whitespace-pre-wrap leading-relaxed">{replyingMessage.message}</p>
+                  </div>
+                </div>
+
+                {/* Reply Form */}
+                <form onSubmit={handleSendReplySubmit} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="block text-slate-300 font-bold">موضوع ایمیل پاسخ:</label>
+                    <input
+                      type="text"
+                      required
+                      value={replySubjectInput}
+                      onChange={e => setReplySubjectInput(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-slate-300 font-bold">متن پاسخ شما به کاربر *:</label>
+                    <textarea
+                      rows={6}
+                      required
+                      value={replyTextInput}
+                      onChange={e => setReplyTextInput(e.target.value)}
+                      placeholder="متن پاسخ و راهنمایی کامل خود برای این کاربر را در اینجا بنویسید (این متن مستقیماً در قالب ایمیل رسمی آکادمی ۴۰ دروازه برای ایشان ارسال می‌گردد)..."
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500 leading-relaxed"
+                    />
+                  </div>
+
+                  {replyStatusMessage && (
+                    <div className={`p-3 rounded-xl border text-xs font-bold ${
+                      replyStatusMessage.success 
+                        ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300' 
+                        : 'bg-rose-950/40 border-rose-500/50 text-rose-300'
+                    }`}>
+                      {replyStatusMessage.text}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplyingMessage(null);
+                        setReplyStatusMessage(null);
+                      }}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                    >
+                      انصراف
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={replySending}
+                      className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold px-5 py-2 rounded-xl transition-colors flex items-center gap-2 cursor-pointer shadow-lg"
+                    >
+                      {replySending ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>در حال ارسال به ایمیل کاربر...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send size={15} />
+                          <span>ارسال پاسخ به ایمیل</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>
