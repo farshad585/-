@@ -5,8 +5,7 @@ import fs from "fs";
 import { Resend } from "resend";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import { generateSecret, generateURI, verifySync } from "otplib";
-import QRCode from "qrcode";
+import { generateSecret, verifySync } from "otplib";
 var app = express();
 var PORT = 3e3;
 app.use(express.json());
@@ -712,29 +711,17 @@ app.post("/api/admin/login", async (req, res) => {
       });
     }
     adminSecurityState.failedPasswordCount = 0;
-    const { secret, isSetup } = await getStoredTotpSecret();
-    if (isSetup && secret) {
-      const tempToken = createTempTotpToken(adminEmail, "", false);
-      return res.json({
-        success: true,
-        require2faSetup: false,
-        tempToken,
-        message: "\u06A9\u062F \u06F6 \u0631\u0642\u0645\u06CC \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631 Google Authenticator \u06CC\u0627 Microsoft Authenticator \u062E\u0648\u062F \u0631\u0627 \u0648\u0627\u0631\u062F \u0646\u0645\u0627\u06CC\u06CC\u062F."
-      });
-    } else {
-      const newSecret = generateSecret();
-      const otpauthUrl = generateURI({ issuer: "40Gates Academy", label: adminEmail, secret: newSecret });
-      const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
-      const tempToken = createTempTotpToken(adminEmail, newSecret, true);
-      return res.json({
-        success: true,
-        require2faSetup: true,
-        tempToken,
-        qrCodeUrl,
-        secretKey: newSecret,
-        message: "\u0628\u0631\u0627\u06CC \u0627\u0648\u0644\u06CC\u0646 \u0648\u0631\u0648\u062F\u060C \u062A\u0635\u0648\u06CC\u0631 QR \u06A9\u062F \u0632\u06CC\u0631 \u0631\u0627 \u0628\u0627 \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631 Google Authenticator \u06CC\u0627 Microsoft Authenticator \u0627\u0633\u06A9\u0646 \u06A9\u0646\u06CC\u062F."
-      });
+    let { secret } = await getStoredTotpSecret();
+    if (!secret) {
+      secret = generateSecret();
+      await saveTotpSecret(secret, true);
     }
+    const tempToken = createTempTotpToken(adminEmail, secret, false);
+    return res.json({
+      success: true,
+      tempToken,
+      message: "\u06A9\u062F \u06F6 \u0631\u0642\u0645\u06CC \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631 Google Authenticator \u06CC\u0627 Microsoft Authenticator \u062E\u0648\u062F \u0631\u0627 \u0648\u0627\u0631\u062F \u0646\u0645\u0627\u06CC\u06CC\u062F."
+    });
   } catch (err) {
     console.error("Admin login error:", err);
     return res.status(500).json({ success: false, error: "\u062E\u0637\u0627 \u062F\u0631 \u0641\u0631\u0622\u06CC\u0646\u062F \u0627\u062D\u0631\u0627\u0632 \u0647\u0648\u06CC\u062A \u0627\u0648\u0644\u06CC\u0647 \u0645\u062F\u06CC\u0631" });
@@ -768,7 +755,7 @@ var handleVerifyTotpHandler = async (req, res) => {
       });
     }
     let secretToVerify = tempSecret;
-    if (!requireSetup) {
+    if (!secretToVerify) {
       const stored = await getStoredTotpSecret();
       secretToVerify = stored.secret;
     }

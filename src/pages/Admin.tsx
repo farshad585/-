@@ -102,10 +102,8 @@ export default function Admin() {
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [otpInput, setOtpInput] = useState<string>('');
   const [tempToken, setTempToken] = useState<string>('');
-  const [require2faSetup, setRequire2faSetup] = useState<boolean>(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
-  const [secretKey, setSecretKey] = useState<string>('');
-  const [secretCopied, setSecretCopied] = useState<boolean>(false);
+  const [requireSetup, setRequireSetup] = useState<boolean>(false);
+  const [setupQrCode, setSetupQrCode] = useState<string | null>(null);
   
   const [authLoading, setAuthLoading] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -430,14 +428,19 @@ export default function Admin() {
 
   const handleReset2FA = async () => {
     if (!adminToken) return;
-    if (!window.confirm('آیا از بازنشانی کلید ۲FA اطمینان دارید؟ پس از این کار، در ورود بعدی QR کد جدیدی نمایش داده می‌شود.')) return;
+    if (!window.confirm('آیا از بازنشانی کلید ۲FA اطمینان دارید؟')) return;
     try {
       const res = await fetch('/api/admin/reset-totp', {
         method: 'POST',
         headers: { Authorization: `Bearer ${adminToken}` }
       });
       const data = await res.json();
-      alert(data.message || 'تنظیمات ۲FA با موفقیت بازنشانی شد.');
+      if (data.isEnvLocked) {
+        alert(data.error || 'کلید ۲FA از طریق متغیر محیطی ADMIN_TOTP_SECRET تعریف شده است و از پنل وب قابل تغییر نیست.');
+      } else {
+        alert(data.message || 'تنظیمات ۲FA با موفقیت بازنشانی شد.');
+      }
+      fetchAdminData();
     } catch (err) {
       alert('خطا در ارتباط با سرور.');
     }
@@ -473,12 +476,11 @@ export default function Admin() {
 
       if (res.ok && data.success) {
         setTempToken(data.tempToken || '');
-        setRequire2faSetup(!!data.require2faSetup);
-        setQrCodeUrl(data.qrCodeUrl || '');
-        setSecretKey(data.secretKey || '');
+        setRequireSetup(Boolean(data.requireSetup));
+        setSetupQrCode(data.qrCode || null);
         setLoginStep('otp');
         setOtpInput('');
-        setAuthMessage(data.message || 'لطفاً کد ۶ رقمی را وارد نمایید.');
+        setAuthMessage(data.message || 'لطفاً کد ۶ رقمی احراز هویت دو مرحله‌ای را وارد نمایید.');
       } else {
         setAuthError(data.error || 'اطلاعات ورود مدیر نادرست است.');
       }
@@ -515,6 +517,8 @@ export default function Admin() {
         localStorage.setItem('40gates_admin_token', data.token);
         setAdminToken(data.token);
         setAdminEmail(data.admin?.email || emailInput.trim());
+        setRequireSetup(false);
+        setSetupQrCode(null);
       } else {
         setAuthError(data.error || 'کد ورود ۲FA اشتباه است.');
       }
@@ -543,6 +547,8 @@ export default function Admin() {
     setEmailInput('');
     setPasswordInput('');
     setOtpInput('');
+    setRequireSetup(false);
+    setSetupQrCode(null);
   };
 
   // Mark contact message as read
@@ -920,56 +926,34 @@ export default function Admin() {
               </form>
             )}
 
-            {/* STEP 2: TOTP 2FA VERIFICATION & SETUP FORM */}
+            {/* STEP 2: TOTP 2FA VERIFICATION FORM */}
             {loginStep === 'otp' && (
               <form onSubmit={handleVerifyOtp} className="space-y-4 text-xs">
-                {require2faSetup ? (
-                  <div className="space-y-3 bg-slate-950/70 p-3.5 rounded-2xl border border-indigo-500/30">
-                    <div className="text-amber-400 font-extrabold flex items-center gap-1.5 text-xs pb-1 border-b border-slate-800">
-                      <Sparkles size={15} />
-                      <span>راه‌اندازی احراز هویت دو عاملی (Google/Microsoft Authenticator)</span>
+                {requireSetup && setupQrCode ? (
+                  <div className="bg-slate-950/80 p-4 rounded-2xl border border-amber-500/30 space-y-3">
+                    <div className="text-amber-300 font-bold flex items-center gap-1.5 text-xs">
+                      <ShieldCheck size={16} className="text-amber-400" />
+                      <span>راه‌اندازی اولیه احراز هویت دو عاملی (Setup 2FA)</span>
                     </div>
-                    
                     <p className="text-slate-300 text-[11px] leading-relaxed">
-                      ۱. اپلیکیشن Google Authenticator یا Microsoft Authenticator را در گوشی همراه خود باز کنید.<br />
-                      ۲. گزینه افزودن (+) را زده و تصویر QR کد زیر را اسکن نمایید:
+                      این حساب برای نخستین بار در حال فعال‌سازی ۲FA است. لطفاً QR کد زیر را یک‌بار در اپلیکیشن <strong>Google Authenticator</strong> یا <strong>Microsoft Authenticator</strong> گوشی خود اسکن نمایید:
                     </p>
-
-                    {qrCodeUrl && (
-                      <div className="bg-white p-3 rounded-2xl w-fit mx-auto shadow-xl border border-slate-700 my-2">
-                        <img src={qrCodeUrl} alt="2FA QR Code" className="w-44 h-44 mx-auto" />
-                      </div>
-                    )}
-
-                    {secretKey && (
-                      <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 space-y-1">
-                        <span className="text-[10px] text-slate-400 block">کلید متنی جهت افزودن دستی در اپلیکیشن:</span>
-                        <div className="flex items-center justify-between text-xs font-mono text-indigo-300 dir-ltr bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
-                          <span className="select-all tracking-wider">{secretKey}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(secretKey);
-                              setSecretCopied(true);
-                              setTimeout(() => setSecretCopied(false), 2000);
-                            }}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0 cursor-pointer dir-rtl transition-colors"
-                          >
-                            {secretCopied ? 'کپی شد! ✓' : 'کپی کلید'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    <p className="text-slate-300 text-[11px] font-bold pt-1">
-                      ۳. کد ۶ رقمی تولیدشده در نرم‌افزار را در کادر زیر وارد نمایید:
+                    <div className="flex justify-center p-3 bg-white rounded-xl max-w-[200px] mx-auto shadow-md">
+                      <img src={setupQrCode} alt="2FA Setup QR Code" className="w-44 h-44 object-contain" />
+                    </div>
+                    <p className="text-slate-400 text-[10px] text-center">
+                      * پس از این مرحله، QR کد دیگر نمایش داده نخواهد شد و در ورودهای بعدی مستقیماً از کدهای اپلیکیشن استفاده خواهید کرد.
                     </p>
                   </div>
                 ) : (
-                  <div>
-                    <label className="block text-slate-300 font-bold mb-1.5">
-                      کد ۶ رقمی نرم‌افزار Authenticator (Google / Microsoft):
-                    </label>
+                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-indigo-500/20 space-y-2">
+                    <div className="text-indigo-300 font-bold flex items-center gap-1.5 text-xs">
+                      <ShieldCheck size={16} className="text-indigo-400" />
+                      <span>احراز هویت دو مرحله‌ای (2FA)</span>
+                    </div>
+                    <p className="text-slate-300 text-[11px] leading-relaxed">
+                      لطفاً کد ۶ رقمی تولیدشده در اپلیکیشن <strong>Google Authenticator</strong> یا <strong>Microsoft Authenticator</strong> گوشی خود را وارد نمایید:
+                    </p>
                   </div>
                 )}
 
@@ -979,8 +963,8 @@ export default function Admin() {
                     maxLength={6}
                     value={otpInput}
                     onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                    placeholder="123456"
-                    className="w-full bg-slate-800/80 border border-indigo-500 rounded-xl px-4 py-3.5 text-center text-2xl font-mono tracking-widest text-indigo-300 focus:outline-none dir-ltr shadow-inner"
+                    placeholder="------"
+                    className="w-full bg-slate-800/80 border border-indigo-500 rounded-xl px-4 py-3.5 text-center text-2xl font-mono tracking-widest text-indigo-300 focus:outline-none dir-ltr shadow-inner placeholder:text-slate-600"
                     autoFocus
                     required
                   />
@@ -997,14 +981,19 @@ export default function Admin() {
                     ) : (
                       <>
                         <ShieldCheck size={16} />
-                        <span>تایید کد و ورود به پنل</span>
+                        <span>{requireSetup ? 'تایید و ثبت نهایی ۲FA' : 'تایید کد و ورود به پنل'}</span>
                       </>
                     )}
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setLoginStep('credentials')}
+                    onClick={() => {
+                      setLoginStep('credentials');
+                      setRequireSetup(false);
+                      setSetupQrCode(null);
+                      setOtpInput('');
+                    }}
                     className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-3 rounded-xl transition-colors cursor-pointer text-xs"
                   >
                     بازگشت
@@ -2000,14 +1989,21 @@ export default function Admin() {
                       <span>امنیت ورود و احراز هویت دو عاملی (TOTP Two-Factor Auth)</span>
                     </h2>
                     <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[10px] font-bold">
-                      🟢 2FA فعال است (Google Authenticator)
+                      {settingsInfo?.isEnvLocked
+                        ? '🟢 2FA فعال است (قفل شده با ADMIN_TOTP_SECRET)'
+                        : '🟢 2FA فعال است (Google Authenticator)'}
                     </span>
                   </div>
 
                   <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 space-y-3 text-xs">
                     <p className="text-[11px] text-slate-300 leading-relaxed">
-                      ورود به پنل مدیریت با الگوریتم استاندارد TOTP (RFC 6238) محافظت می‌شود. در صورت تغییر گوشی همراه یا نیاز به اسکن مجدد QR کد، می‌توانید کلید ۲FA را بازنشانی نمایید.
+                      ورود به پنل مدیریت با الگوریتم استاندارد TOTP (RFC 6238) محافظت می‌شود. کد ورود ۶ رقمی را مستقیماً از اپلیکیشن Authenticator گوشی خود وارد نمایید.
                     </p>
+                    {settingsInfo?.isEnvLocked && (
+                      <p className="text-[11px] text-amber-300 bg-amber-950/40 p-2.5 rounded-lg border border-amber-800/50">
+                        🔒 کلید Secret به صورت پایدار و ایمن از متغیرهای محیطی سرور (<code className="font-mono bg-slate-950 px-1 py-0.5 rounded text-amber-200">ADMIN_TOTP_SECRET</code>) بارگذاری شده است.
+                      </p>
+                    )}
                     <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
                       <button
                         type="button"
@@ -2015,10 +2011,12 @@ export default function Admin() {
                         className="bg-amber-600/80 hover:bg-amber-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
                       >
                         <RefreshCw size={14} />
-                        <span>بازنشانی و ساخت QR کد جدید ۲FA</span>
+                        <span>بازنشانی کلید ۲FA</span>
                       </button>
                       <span className="text-[10px] text-slate-400">
-                        * با این کار کلید فعلی حذف شده و در ورود بعدی QR کد جدیدی ایجاد می‌گردد.
+                        {settingsInfo?.isEnvLocked 
+                          ? '* کلیدهای تعریف‌شده در ENV فقط از طریق تنظیمات سرور قابل تغییر هستند.'
+                          : '* با این کار کلید فعلی حذف شده و در ورود بعدی QR کد جدید نمایش داده خواهد شد.'}
                       </span>
                     </div>
                   </div>

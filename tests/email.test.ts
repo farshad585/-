@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeErrorLog, sendMailSafely } from '../server.ts';
+import { sanitizeErrorLog, sendMailSafely, runtimeResendConfig } from '../server.ts';
 
 test('Email Utility - sanitizeErrorLog redacts secrets and Resend API keys', () => {
   const secretKey = 're_123456789_abcdefSecretKey';
@@ -13,9 +13,11 @@ test('Email Utility - sanitizeErrorLog redacts secrets and Resend API keys', () 
 });
 
 test('Email Utility - sendMailSafely returns simulated status when RESEND_API_KEY is empty', async () => {
-  // Backup process.env
+  // Backup env & runtime config
   const originalKey = process.env.RESEND_API_KEY;
+  const originalRuntimeKey = runtimeResendConfig.apiKey;
   delete process.env.RESEND_API_KEY;
+  runtimeResendConfig.apiKey = '';
 
   const result = await sendMailSafely({
     to: 'test@example.com',
@@ -27,13 +29,15 @@ test('Email Utility - sendMailSafely returns simulated status when RESEND_API_KE
   assert.equal(result.status, 'simulated');
   assert.ok(result.error?.includes('RESEND_API_KEY') || result.error?.includes('فعال نیست'));
 
-  // Restore env
+  // Restore
   if (originalKey) process.env.RESEND_API_KEY = originalKey;
+  runtimeResendConfig.apiKey = originalRuntimeKey;
 });
 
 test('Email Utility - sendMailSafely handles invalid Resend API key gracefully without leaking secrets', async () => {
   const fakeKey = 're_test_fake_api_key_for_testing_purposes_999';
   process.env.RESEND_API_KEY = fakeKey;
+  runtimeResendConfig.apiKey = fakeKey;
 
   const result = await sendMailSafely({
     to: 'recipient@example.com',
@@ -53,3 +57,4 @@ test('Email Utility - sendMailSafely handles invalid Resend API key gracefully w
   assert.equal(sanitizedLog.includes('***REDACTED***'), true, 'Explicit secret in log should be redacted');
   assert.equal(sanitizedLog.includes(fakeKey), false);
 });
+

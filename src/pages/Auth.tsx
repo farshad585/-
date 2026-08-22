@@ -375,8 +375,11 @@ export default function Auth() {
           {mode === 'forgot_password' && (
             <div className="space-y-4 text-xs">
               <form onSubmit={handleForgotPassword} className="space-y-4">
-                <div className="bg-indigo-50/70 p-3.5 rounded-2xl border border-indigo-100 text-[11px] text-indigo-950 leading-relaxed">
-                  آدرس ایمیل ثبت‌شده خود را وارد کنید تا دستورالعمل بازیابی کلمه عبور برای شما ارسال گردد.
+                <div className="bg-indigo-50/70 p-3.5 rounded-2xl border border-indigo-100 text-[11px] text-indigo-950 leading-relaxed space-y-1">
+                  <p>آدرس ایمیل ثبت‌شده خود را وارد کنید تا دستورالعمل بازیابی کلمه عبور برای شما ارسال گردد.</p>
+                  <p className="text-[10px] text-slate-500">
+                    * جهت امنیت حساب‌ها، امکان ارسال حداکثر ۳ بار در ۲۴ ساعت با فاصله ۱۰ دقیقه مقدور می‌باشد.
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">

@@ -4,8 +4,31 @@ import fs from 'fs';
 import { Resend } from 'resend';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { generateSecret, generateURI, verifySync } from 'otplib';
-import QRCode from 'qrcode';
+import {
+  initRateLimiterFromSupabase,
+  checkForgotPasswordRateLimit,
+  recordForgotPasswordSuccess,
+  checkOrderCreationRateLimit,
+  recordOrderCreation,
+  isFreeOrder,
+  hasEmailBeenSent,
+  markEmailAsSent,
+  checkContactRateLimit,
+  recordContactMessage,
+  checkAdminTestEmailRateLimit,
+  recordAdminTestEmail,
+  getRateLimiterState
+} from './src/lib/rateLimiter.ts';
+import {
+  getAdminTotpSecret,
+  persistTotpSecret,
+  resetAdminTotpSecret,
+  generateTotpQrCodeDataUrl,
+  createTempTotpToken,
+  verifyTempTotpToken,
+  verifyAdminTotpCode,
+  createNewTotpSecret
+} from './src/lib/adminTotp.ts';
 
 const app = express();
 const PORT = 3000;
@@ -35,13 +58,13 @@ app.use((req, res, next) => {
 });
 
 // Runtime Supabase Config Store
-const runtimeSupabaseConfig = {
+export const runtimeSupabaseConfig = {
   url: (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim(),
   anonKey: (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim(),
   serviceKey: (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
 };
 
-function getSupabaseClient() {
+export function getSupabaseClient() {
   const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || runtimeSupabaseConfig.url || '').trim();
   const key = (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || runtimeSupabaseConfig.serviceKey || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || runtimeSupabaseConfig.anonKey || '').trim();
   if (!url || !key || url.includes('placeholder')) return null;
@@ -50,6 +73,16 @@ function getSupabaseClient() {
   } catch {
     return null;
   }
+}
+
+// Initialize persistent rate limiter state from Supabase
+if (process.env.NODE_ENV !== 'test' && !process.argv.some(a => a.includes('test'))) {
+  setTimeout(() => {
+    const client = getSupabaseClient();
+    if (client) {
+      initRateLimiterFromSupabase(client).catch(() => {});
+    }
+  }, 500);
 }
 
 // Email Log Model
@@ -84,9 +117,9 @@ export interface SendMailResult {
 }
 
 // Global Memory Stores and Settings for Resend Email Delivery
-const runtimeResendConfig = {
+export const runtimeResendConfig = {
   apiKey: (process.env.RESEND_API_KEY || '').trim(),
-  fromEmail: (process.env.RESEND_FROM_EMAIL || 'آکادمی ۴۰ دروازه <onboarding@resend.dev>').trim(),
+  fromEmail: (process.env.RESEND_FROM_EMAIL || 'Academy 40 Gates <onboarding@resend.dev>').trim(),
   adminEmail: (process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim()
 };
 
@@ -129,7 +162,7 @@ export async function sendMailSafely(
   type: string = 'general'
 ): Promise<SendMailResult> {
   let apiKey = (runtimeResendConfig.apiKey || process.env.RESEND_API_KEY || '').trim();
-  let fromEmail = (runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || 'آکادمی ۴۰ دروازه <onboarding@resend.dev>').trim();
+  let fromEmail = (runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || 'Academy 40 Gates <onboarding@resend.dev>').trim();
   let adminEmail = (runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim();
 
   // On Vercel Serverless, if memory config is missing apiKey, attempt loading from Supabase DB site_settings
@@ -156,7 +189,7 @@ export async function sendMailSafely(
   const cleanTo = toList.map(t => String(t || '').trim()).filter(Boolean);
   const toDisplay = cleanTo.join(', ');
   const subject = String(options.subject || '');
-  const sender = options.from || fromEmail || 'آکادمی ۴۰ دروازه <onboarding@resend.dev>';
+  const sender = options.from || fromEmail || 'Academy 40 Gates <onboarding@resend.dev>';
   const replyTo = options.replyTo || adminEmail;
 
   if (apiKey) {
@@ -296,77 +329,6 @@ function getAdminConfig() {
   const adminEmail = (process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim();
   const adminPassword = (process.env.ADMIN_PASSWORD || '40gates1403').trim();
   return { adminEmail, adminPassword };
-}
-
-// Server-side TOTP Secret Management and Temp Token Helper Functions
-let runtimeTotpSecret = (process.env.ADMIN_TOTP_SECRET || '').trim();
-
-async function getStoredTotpSecret(): Promise<{ secret: string; isSetup: boolean }> {
-  if (runtimeTotpSecret) {
-    return { secret: runtimeTotpSecret, isSetup: true };
-  }
-
-  const client = getSupabaseClient();
-  if (client) {
-    try {
-      const { data } = await client.from('site_settings').select('value').eq('id', 'admin_totp_config').single();
-      if (data && data.value && data.value.secret) {
-        runtimeTotpSecret = String(data.value.secret).trim();
-        return { secret: runtimeTotpSecret, isSetup: data.value.isSetup !== false };
-      }
-    } catch (e) {
-      console.warn('Could not read admin_totp_config from Supabase:', e);
-    }
-  }
-
-  return { secret: '', isSetup: false };
-}
-
-async function saveTotpSecret(secret: string, isSetup: boolean = true) {
-  runtimeTotpSecret = secret;
-  const client = getSupabaseClient();
-  if (client) {
-    try {
-      await client.from('site_settings').upsert({
-        id: 'admin_totp_config',
-        value: {
-          secret,
-          isSetup,
-          updatedAt: new Date().toISOString()
-        }
-      });
-    } catch (e) {
-      console.warn('Could not save admin_totp_config to Supabase:', e);
-    }
-  }
-}
-
-function createTempTotpToken(email: string, tempSecret: string, requireSetup: boolean): string {
-  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
-  const payloadStr = JSON.stringify({ email, tempSecret, requireSetup, expiresAt });
-  const b64Payload = Buffer.from(payloadStr).toString('base64url');
-  const hmac = crypto.createHmac('sha256', ADMIN_SECRET).update(b64Payload).digest('hex');
-  return `tmp_${b64Payload}_${hmac}`;
-}
-
-function verifyTempTotpToken(token: string): { valid: boolean; payload?: { email: string; tempSecret: string; requireSetup: boolean; expiresAt: number } } {
-  if (!token || typeof token !== 'string' || !token.startsWith('tmp_')) return { valid: false };
-  try {
-    const parts = token.split('_');
-    if (parts.length !== 3) return { valid: false };
-    const b64Payload = parts[1];
-    const signature = parts[2];
-    const expectedHmac = crypto.createHmac('sha256', ADMIN_SECRET).update(b64Payload).digest('hex');
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedHmac))) {
-      return { valid: false };
-    }
-    const payloadStr = Buffer.from(b64Payload, 'base64url').toString('utf-8');
-    const payload = JSON.parse(payloadStr);
-    if (Date.now() > payload.expiresAt) return { valid: false };
-    return { valid: true, payload };
-  } catch (e) {
-    return { valid: false };
-  }
 }
 
 // Global Memory Stores for Orders and Registered Users
@@ -661,123 +623,186 @@ app.get('/api/orders', async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   try {
     const { order } = req.body;
-    if (order && order.id) {
-      const existingIdx = serverOrdersStore.findIndex(o => o.id === order.id);
-      if (existingIdx >= 0) {
-        serverOrdersStore[existingIdx] = { ...serverOrdersStore[existingIdx], ...order };
-      } else {
-        serverOrdersStore.unshift(order);
+    if (!order || !order.id) {
+      return res.status(400).json({ success: false, error: 'اطلاعات سفارش نامعتبر است.' });
+    }
+
+    const custEmail = (order.shippingAddress?.email || order.userEmail || '').trim().toLowerCase();
+    const custName = (order.shippingAddress?.fullName || '').trim();
+    const custPhone = (order.shippingAddress?.phone || '').trim();
+    const userIdentifier = custEmail || custPhone || String(order.id);
+
+    const existingIdx = serverOrdersStore.findIndex(o => o.id === order.id);
+    const isNewOrder = existingIdx < 0;
+
+    // 1. Order Creation Rate Limit Check: Max 2 orders in 24 hours per user
+    if (isNewOrder) {
+      const orderRateCheck = checkOrderCreationRateLimit(userIdentifier);
+      if (!orderRateCheck.allowed) {
+        return res.status(429).json({
+          success: false,
+          error: orderRateCheck.message || 'سقف مجاز ثبت سفارش (حداکثر ۲ سفارش در ۲۴ ساعت) تکمیل شده است. در صورت نیاز با پشتیبانی تماس بگیرید.'
+        });
       }
 
-      // Persist to Supabase asynchronously
-      persistOrderToSupabase(order).catch(e => console.warn('Order persist warn:', e));
+      // Also verify within the existing orders store for the past 24 hours
+      const now = Date.now();
+      const past24hCutoff = now - 24 * 60 * 60 * 1000;
+      const recentOrdersByUser = serverOrdersStore.filter(o => {
+        const oEmail = (o.shippingAddress?.email || o.userEmail || '').trim().toLowerCase();
+        const oPhone = (o.shippingAddress?.phone || '').trim();
+        const matchesUser = (custEmail && oEmail === custEmail) || (custPhone && oPhone === custPhone);
+        const orderTime = o.createdAt ? new Date(o.createdAt).getTime() : now;
+        return matchesUser && orderTime >= past24hCutoff;
+      });
 
-      // Sync customer to registeredUsersStore
-      const custEmail = (order.shippingAddress?.email || order.userEmail || '').trim();
-      const custName = order.shippingAddress?.fullName;
-      const custPhone = order.shippingAddress?.phone;
-      if (custEmail) {
-        const existingUser = registeredUsersStore.find(u => u.email.toLowerCase() === custEmail.toLowerCase());
-        if (!existingUser) {
-          registeredUsersStore.unshift({
-            id: 'USR-' + Date.now(),
-            fullName: custName || 'خریدار آکادمی',
-            email: custEmail,
-            phone: custPhone || '',
-            registeredAt: new Date().toISOString(),
-            faDate: new Date().toLocaleDateString('fa-IR')
-          });
-        }
+      if (recentOrdersByUser.length >= 2) {
+        return res.status(429).json({
+          success: false,
+          error: 'سقف مجاز ثبت سفارش (حداکثر ۲ سفارش در ۲۴ ساعت) برای شما تکمیل شده است.'
+        });
       }
 
-      // Send order notification emails (Separately to Customer & Admin)
-      const adminEmail = runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
-      const items = order.items || [];
-      const totalAmount = order.totalAmount || 0;
-      const subtotal = order.subtotal || 0;
-      const shippingFee = order.shippingFee || 0;
+      serverOrdersStore.unshift(order);
+      recordOrderCreation(userIdentifier, order.id, now, getSupabaseClient());
+    } else {
+      serverOrdersStore[existingIdx] = { ...serverOrdersStore[existingIdx], ...order };
+    }
 
-      const itemsHtml = items.map((item: any) => `
-        <tr style="border-bottom: 1px solid #f1f5f9;">
-          <td style="padding: 10px; font-size: 13px;">${item.title || 'محصول'} (${item.quantity || 1} عدد)</td>
-          <td style="padding: 10px; font-size: 13px; text-align: left; font-weight: bold; color: #4338ca;">
-            ${((item.price || 0) * (item.quantity || 1)).toLocaleString('fa-IR')} تومان
-          </td>
-        </tr>
-      `).join('');
+    // Persist to Supabase asynchronously
+    persistOrderToSupabase(order).catch(e => console.warn('Order persist warn:', e));
 
-      // 1. Send confirmation email to Customer (if email is provided)
-      if (custEmail) {
-        try {
-          await sendMailSafely({
-            to: custEmail,
-            subject: `🛒 تایید ثبت سفارش #${order.id} - آکادمی ۴۰ دروازه`,
-            html: `
-              <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
-                <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                  <div style="background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95); padding: 25px 20px; text-align: center; color: #ffffff;">
-                    <h1 style="margin: 0; font-size: 20px; color: #fbbf24;">تایید ثبت سفارش - آکادمی ۴۰ دروازه</h1>
-                    <p style="margin: 6px 0 0 0; font-size: 12px; color: #e0e7ff;">شماره سفارش: ${order.id}</p>
-                  </div>
-                  <div style="padding: 25px; font-size: 13px; line-height: 1.8;">
-                    <p>سلام <strong>${custName || 'هنرجوی گرامی'}</strong> عزیز،</p>
-                    <p>سفارش شما با شماره <strong>#${order.id}</strong> با موفقیت ثبت شد و در مرحله پردازش قرار گرفت.</p>
-                    <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-                      <thead>
-                        <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1;">
-                          <th style="padding: 8px; text-align: right; font-size: 12px; color: #64748b;">محصول</th>
-                          <th style="padding: 8px; text-align: left; font-size: 12px; color: #64748b;">مبلغ</th>
-                        </tr>
-                      </thead>
-                      <tbody>${itemsHtml}</tbody>
-                    </table>
-                    <div style="background-color: #f8fafc; border-radius: 12px; padding: 15px; margin: 15px 0;">
-                      <p style="margin: 4px 0;">جمع کل: <strong>${subtotal.toLocaleString('fa-IR')} تومان</strong></p>
-                      ${shippingFee > 0 ? `<p style="margin: 4px 0;">هزینه ارسال: <strong>${shippingFee.toLocaleString('fa-IR')} تومان</strong></p>` : ''}
-                      <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: bold; color: #1e1b4b; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
-                        مبلغ نهایی پرداختی: ${totalAmount.toLocaleString('fa-IR')} تومان
-                      </p>
-                    </div>
-                    <p style="font-size: 12px; color: #64748b;">وضعیت سفارش از طریق همین ایمیل و پیامک به شما اطلاع‌رسانی خواهد شد.</p>
-                  </div>
-                  <div style="background-color: #f8fafc; padding: 12px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
-                    پشتیبانی آکادمی ۴۰ دروازه
-                  </div>
-                </div>
-              </div>
-            `
-          }, 'order-customer');
-        } catch (e) {
-          console.warn('Customer order email err:', e);
-        }
-      }
-
-      // 2. Send distinct notification email to Admin
-      try {
-        await sendMailSafely({
-          to: adminEmail,
-          subject: `🔔 سفارش جدید ثبت شد #${order.id} - ${totalAmount.toLocaleString('fa-IR')} تومان`,
-          html: `
-            <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 25px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
-              <h2 style="color: #38bdf8; margin-top: 0;">🛒 سفارش جدید در وب‌سایت ثبت شد!</h2>
-              <p><strong>شماره سفارش:</strong> ${order.id}</p>
-              <p><strong>نام خریدار:</strong> ${custName || 'نامشخص'}</p>
-              <p><strong>ایمیل خریدار:</strong> ${custEmail || 'ثبت نشده'}</p>
-              <p><strong>تلفن خریدار:</strong> ${custPhone || '-'}</p>
-              <p><strong>مبلغ کل:</strong> ${totalAmount.toLocaleString('fa-IR')} تومان</p>
-              <p><strong>آدرس:</strong> ${order.shippingAddress?.address || 'دیجیتال / آنلاین'}</p>
-              <hr style="border-color: #334155; margin: 15px 0;"/>
-              <h4 style="color: #fbbf24; margin: 0 0 10px 0;">اقلام سفارش:</h4>
-              <ul>
-                ${items.map((i: any) => `<li>${i.title || 'محصول'} - ${i.quantity || 1} عدد (${((i.price || 0) * (i.quantity || 1)).toLocaleString('fa-IR')} تومان)</li>`).join('')}
-              </ul>
-            </div>
-          `
-        }, 'order-admin-notify');
-      } catch (e) {
-        console.warn('Admin order email err:', e);
+    // Sync customer to registeredUsersStore
+    if (custEmail) {
+      const existingUser = registeredUsersStore.find(u => u.email.toLowerCase() === custEmail);
+      if (!existingUser) {
+        registeredUsersStore.unshift({
+          id: 'USR-' + Date.now(),
+          fullName: custName || 'خریدار آکادمی',
+          email: custEmail,
+          phone: custPhone || '',
+          registeredAt: new Date().toISOString(),
+          faDate: new Date().toLocaleDateString('fa-IR')
+        });
       }
     }
+
+    // 2. Free Order Check: If final amount is 0 (or <= 0), DO NOT send transactional emails
+    const isFree = isFreeOrder(order);
+    if (isFree) {
+      console.log(`ℹ️ [FREE ORDER] Order #${order.id} has total amount <= 0. Skipping transactional emails per anti-abuse rules.`);
+      return res.json({ 
+        success: true, 
+        orders: serverOrdersStore,
+        emailSkipped: true,
+        reason: 'free_order',
+        message: 'سفارش رایگان با موفقیت ثبت شد.'
+      });
+    }
+
+    // 3. Anti-Duplicate Email Check: Exactly 1 email per order creation event
+    const eventKey = `order-created:${order.id}`;
+    if (hasEmailBeenSent(eventKey)) {
+      console.log(`ℹ️ [DUPLICATE EMAIL PREVENTED] Order confirmation email for ${eventKey} was already sent.`);
+      return res.json({ 
+        success: true, 
+        orders: serverOrdersStore,
+        emailSkipped: true,
+        reason: 'already_sent'
+      });
+    }
+
+    // Send order notification emails (Separately to Customer & Admin)
+    const adminEmail = runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
+    const items = order.items || [];
+    const totalAmount = order.totalAmount || 0;
+    const subtotal = order.subtotal || 0;
+    const shippingFee = order.shippingFee || 0;
+
+    const itemsHtml = items.map((item: any) => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 10px; font-size: 13px;">${item.title || 'محصول'} (${item.quantity || 1} عدد)</td>
+        <td style="padding: 10px; font-size: 13px; text-align: left; font-weight: bold; color: #4338ca;">
+          ${((item.price || 0) * (item.quantity || 1)).toLocaleString('fa-IR')} تومان
+        </td>
+      </tr>
+    `).join('');
+
+    // 1. Send confirmation email to Customer (if email is provided)
+    if (custEmail) {
+      try {
+        await sendMailSafely({
+          to: custEmail,
+          subject: `🛒 تایید ثبت سفارش #${order.id} - آکادمی ۴۰ دروازه`,
+          html: `
+            <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                <div style="background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95); padding: 25px 20px; text-align: center; color: #ffffff;">
+                  <h1 style="margin: 0; font-size: 20px; color: #fbbf24;">تایید ثبت سفارش - آکادمی ۴۰ دروازه</h1>
+                  <p style="margin: 6px 0 0 0; font-size: 12px; color: #e0e7ff;">شماره سفارش: ${order.id}</p>
+                </div>
+                <div style="padding: 25px; font-size: 13px; line-height: 1.8;">
+                  <p>سلام <strong>${custName || 'هنرجوی گرامی'}</strong> عزیز،</p>
+                  <p>سفارش شما با شماره <strong>#${order.id}</strong> با موفقیت ثبت شد و در مرحله پردازش قرار گرفت.</p>
+                  <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                    <thead>
+                      <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                        <th style="padding: 8px; text-align: right; font-size: 12px; color: #64748b;">محصول</th>
+                        <th style="padding: 8px; text-align: left; font-size: 12px; color: #64748b;">مبلغ</th>
+                      </tr>
+                    </thead>
+                    <tbody>${itemsHtml}</tbody>
+                  </table>
+                  <div style="background-color: #f8fafc; border-radius: 12px; padding: 15px; margin: 15px 0;">
+                    <p style="margin: 4px 0;">جمع کل: <strong>${subtotal.toLocaleString('fa-IR')} تومان</strong></p>
+                    ${shippingFee > 0 ? `<p style="margin: 4px 0;">هزینه ارسال: <strong>${shippingFee.toLocaleString('fa-IR')} تومان</strong></p>` : ''}
+                    <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: bold; color: #1e1b4b; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
+                      مبلغ نهایی پرداختی: ${totalAmount.toLocaleString('fa-IR')} تومان
+                    </p>
+                  </div>
+                  <p style="font-size: 12px; color: #64748b;">وضعیت سفارش از طریق همین ایمیل و پیامک به شما اطلاع‌رسانی خواهد شد.</p>
+                </div>
+                <div style="background-color: #f8fafc; padding: 12px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+                  پشتیبانی آکادمی ۴۰ دروازه
+                </div>
+              </div>
+            </div>
+          `
+        }, 'order-customer');
+      } catch (e) {
+        console.warn('Customer order email err:', e);
+      }
+    }
+
+    // 2. Send distinct notification email to Admin
+    try {
+      await sendMailSafely({
+        to: adminEmail,
+        subject: `🔔 سفارش جدید ثبت شد #${order.id} - ${totalAmount.toLocaleString('fa-IR')} تومان`,
+        html: `
+          <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 25px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
+            <h2 style="color: #38bdf8; margin-top: 0;">🛒 سفارش جدید در وب‌سایت ثبت شد!</h2>
+            <p><strong>شماره سفارش:</strong> ${order.id}</p>
+            <p><strong>نام خریدار:</strong> ${custName || 'نامشخص'}</p>
+            <p><strong>ایمیل خریدار:</strong> ${custEmail || 'ثبت نشده'}</p>
+            <p><strong>تلفن خریدار:</strong> ${custPhone || '-'}</p>
+            <p><strong>مبلغ کل:</strong> ${totalAmount.toLocaleString('fa-IR')} تومان</p>
+            <p><strong>آدرس:</strong> ${order.shippingAddress?.address || 'دیجیتال / آنلاین'}</p>
+            <hr style="border-color: #334155; margin: 15px 0;"/>
+            <h4 style="color: #fbbf24; margin: 0 0 10px 0;">اقلام سفارش:</h4>
+            <ul>
+              ${items.map((i: any) => `<li>${i.title || 'محصول'} - ${i.quantity || 1} عدد (${((i.price || 0) * (i.quantity || 1)).toLocaleString('fa-IR')} تومان)</li>`).join('')}
+            </ul>
+          </div>
+        `
+      }, 'order-admin-notify');
+    } catch (e) {
+      console.warn('Admin order email err:', e);
+    }
+
+    // Mark email event as sent and sync to Supabase
+    markEmailAsSent(eventKey, Date.now(), getSupabaseClient());
+
     res.json({ success: true, orders: serverOrdersStore });
   } catch (e: any) {
     res.status(500).json({ success: false, error: 'خطا در ثبت سفارش در سرور' });
@@ -900,33 +925,36 @@ app.post('/api/admin/login', async (req, res) => {
     // Credentials match! Reset failed password attempt counter
     adminSecurityState.failedPasswordCount = 0;
 
-    const { secret, isSetup } = await getStoredTotpSecret();
+    let totpInfo = await getAdminTotpSecret(undefined, getSupabaseClient());
 
-    if (isSetup && secret) {
-      // 2FA is already configured! Generate short-lived temporary token for step 2
-      const tempToken = createTempTotpToken(adminEmail, '', false);
+    // If no secret exists in env, DB or memory, generate a single secret and save with isSetup: false
+    if (!totpInfo.secret) {
+      const newSecret = createNewTotpSecret();
+      await persistTotpSecret(newSecret, false, undefined, getSupabaseClient());
+      totpInfo = { secret: newSecret, isSetup: false, source: 'memory' };
+    }
+
+    if (!totpInfo.isSetup) {
+      // First-time Setup: Return QR Code for the one-time scan
+      const { qrCodeDataUrl } = await generateTotpQrCodeDataUrl(adminEmail, totpInfo.secret);
+      const tempToken = createTempTotpToken(adminEmail, true, ADMIN_SECRET);
       return res.json({
         success: true,
-        require2faSetup: false,
+        requireSetup: true,
+        qrCode: qrCodeDataUrl,
         tempToken,
-        message: 'کد ۶ رقمی نرم‌افزار Google Authenticator یا Microsoft Authenticator خود را وارد نمایید.'
-      });
-    } else {
-      // First-time 2FA Setup Flow: Generate a unique secret and QR code
-      const newSecret = generateSecret();
-      const otpauthUrl = generateURI({ issuer: '40Gates Academy', label: adminEmail, secret: newSecret });
-      const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
-      const tempToken = createTempTotpToken(adminEmail, newSecret, true);
-
-      return res.json({
-        success: true,
-        require2faSetup: true,
-        tempToken,
-        qrCodeUrl,
-        secretKey: newSecret,
-        message: 'برای اولین ورود، تصویر QR کد زیر را با نرم‌افزار Google Authenticator یا Microsoft Authenticator اسکن کنید.'
+        message: 'راه‌اندازی اولیه: لطفاً این QR کد را در اپلیکیشن Google Authenticator اسکن نموده و کد ۶ رقمی را وارد کنید.'
       });
     }
+
+    // Normal Login: NO QR code generated or returned! Secret stays on server.
+    const tempToken = createTempTotpToken(adminEmail, false, ADMIN_SECRET);
+    return res.json({
+      success: true,
+      requireSetup: false,
+      tempToken,
+      message: 'کد ۶ رقمی نرم‌افزار Google Authenticator یا Microsoft Authenticator خود را وارد نمایید.'
+    });
 
   } catch (err: any) {
     console.error('Admin login error:', err);
@@ -949,7 +977,7 @@ const handleVerifyTotpHandler = async (req: express.Request, res: express.Respon
     const { adminEmail } = getAdminConfig();
     const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || '127.0.0.1').split(',')[0].trim();
 
-    const verifiedTemp = verifyTempTotpToken(tempToken);
+    const verifiedTemp = verifyTempTotpToken(tempToken, ADMIN_SECRET);
     if (!verifiedTemp.valid || !verifiedTemp.payload) {
       return res.status(401).json({
         success: false,
@@ -957,7 +985,7 @@ const handleVerifyTotpHandler = async (req: express.Request, res: express.Respon
       });
     }
 
-    const { tempSecret, requireSetup } = verifiedTemp.payload;
+    const { requireSetup } = verifiedTemp.payload;
     const inputCode = (code || '').toString().trim().replace(/\s+/g, '');
 
     if (!inputCode || inputCode.length !== 6 || !/^\d{6}$/.test(inputCode)) {
@@ -967,21 +995,15 @@ const handleVerifyTotpHandler = async (req: express.Request, res: express.Respon
       });
     }
 
-    let secretToVerify = tempSecret;
-    if (!requireSetup) {
-      const stored = await getStoredTotpSecret();
-      secretToVerify = stored.secret;
-    }
-
-    if (!secretToVerify) {
+    const totpInfo = await getAdminTotpSecret(undefined, getSupabaseClient());
+    if (!totpInfo.secret) {
       return res.status(400).json({
         success: false,
-        error: 'کلید احراز هویت یافت نشد. لطفاً مجدداً تلاش کنید.'
+        error: 'کلید احراز هویت یافت نشد. لطفاً مجدداً فرآیند ورود را آغاز کنید.'
       });
     }
 
-    const checkResult = verifySync({ token: inputCode, secret: secretToVerify, epochTolerance: 30 });
-    const isValidCode = checkResult && checkResult.valid === true;
+    const isValidCode = verifyAdminTotpCode(inputCode, totpInfo.secret);
 
     if (!isValidCode) {
       adminSecurityState.loginLogs.unshift({
@@ -1001,10 +1023,9 @@ const handleVerifyTotpHandler = async (req: express.Request, res: express.Respon
       });
     }
 
-    // Code is VALID!
-    if (requireSetup) {
-      // Save secret permanently
-      await saveTotpSecret(tempSecret, true);
+    // Code is VALID! Mark as permanently setup if this was the initial setup
+    if (!totpInfo.isSetup || requireSetup) {
+      await persistTotpSecret(totpInfo.secret, true, undefined, getSupabaseClient());
     }
 
     adminSecurityState.failedPasswordCount = 0;
@@ -1049,10 +1070,18 @@ app.post('/api/admin/verify-otp', handleVerifyTotpHandler);
 // Admin Auth: Reset TOTP 2FA secret
 app.post('/api/admin/reset-totp', requireAdminAuth, async (req, res) => {
   try {
-    await saveTotpSecret('', false);
+    const result = await resetAdminTotpSecret(undefined, getSupabaseClient());
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        isEnvLocked: result.isEnvLocked,
+        error: result.message
+      });
+    }
     return res.json({
       success: true,
-      message: 'تنظیمات احراز هویت دو عاملی (TOTP) بازنشانی گردید. در ورود بعدی می‌توانید QR کد جدیدی را اسکن کنید.'
+      isEnvLocked: false,
+      message: result.message
     });
   } catch (e: any) {
     return res.status(500).json({ success: false, error: 'خطا در بازنشانی تنظیمات 2FA' });
@@ -1078,11 +1107,12 @@ app.get('/api/admin/logs', requireAdminAuth, (req, res) => {
 });
 
 // Admin Settings Endpoint
-app.get('/api/admin/settings', requireAdminAuth, (req, res) => {
+app.get('/api/admin/settings', requireAdminAuth, async (req, res) => {
   const { adminEmail } = getAdminConfig();
   const activeAdminEmail = runtimeResendConfig.adminEmail || adminEmail;
   const isResendConfigured = Boolean(runtimeResendConfig.apiKey || process.env.RESEND_API_KEY);
   const fromEmail = runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || 'آکادمی ۴۰ دروازه <onboarding@resend.dev>';
+  const totpInfo = await getAdminTotpSecret(undefined, getSupabaseClient());
 
   res.json({
     success: true,
@@ -1092,6 +1122,10 @@ app.get('/api/admin/settings', requireAdminAuth, (req, res) => {
       resendConfigured: isResendConfigured,
       resendApiKeyMasked: isResendConfigured ? 're_••••••••' : 'تنظیم نشده',
       resendFromEmail: fromEmail,
+      // 2FA TOTP Status (Secret is NEVER sent to frontend)
+      totpConfigured: Boolean(totpInfo.secret && totpInfo.isSetup),
+      totpSource: totpInfo.source,
+      isEnvLocked: totpInfo.source === 'env',
       // Backward compatibility fields
       smtpConfigured: isResendConfigured,
       smtpUser: fromEmail,
@@ -1163,10 +1197,22 @@ const handleContactMessage = async (req: express.Request, res: express.Response)
       return res.status(400).json({ success: false, error: 'نام، ایمیل و متن پیام الزامی است.' });
     }
 
+    const cleanEmail = String(email).trim().toLowerCase();
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || req.ip || '127.0.0.1';
+
+    // 1. Rate Limiting Check: Max 3 contact form submissions per 24 hours per email & IP
+    const rateCheck = checkContactRateLimit({ email: cleanEmail, ip: clientIp });
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        success: false,
+        error: rateCheck.message || 'سقف مجاز ارسال پیام (حداکثر ۳ پیام در ۲۴ ساعت) تکمیل شده است. لطفاً بعداً تلاش کنید یا مستقیماً به ایمیل پشتیبانی پیام دهید.'
+      });
+    }
+
     const newMessage = {
       id: 'MSG-' + Date.now(),
       name: name.trim(),
-      email: email.trim(),
+      email: cleanEmail,
       subject: subject || 'پشتیبانی',
       message: message.trim(),
       timestamp: new Date().toISOString(),
@@ -1191,7 +1237,7 @@ const handleContactMessage = async (req: express.Request, res: express.Response)
             <div style="margin: 20px 0; font-size: 14px; line-height: 1.8;">
               <p><strong>کد تیکت:</strong> <span style="font-family: monospace; color: #4338ca;">${newMessage.id}</span></p>
               <p><strong>نام فرستنده:</strong> ${name.trim()}</p>
-              <p><strong>ایمیل فرستنده:</strong> <a href="mailto:${email.trim()}" style="color: #2563eb;">${email.trim()}</a></p>
+              <p><strong>ایمیل فرستنده:</strong> <a href="mailto:${cleanEmail}" style="color: #2563eb;">${cleanEmail}</a></p>
               <p><strong>موضوع پیام:</strong> ${subject || 'پشتیبانی'}</p>
               <p><strong>تاریخ و زمان:</strong> ${newMessage.faDate} - ساعت ${newMessage.faTime}</p>
             </div>
@@ -1252,10 +1298,13 @@ const handleContactMessage = async (req: express.Request, res: express.Response)
     `;
 
     await sendMailSafely({
-      to: email.trim(),
+      to: cleanEmail,
       subject: `✨ دریافت پیام شما در آکادمی ۴۰ دروازه (کد تیکت: ${newMessage.id})`,
       html: userHtml
     }, 'contact-user-autoreply');
+
+    // Record contact message in rate limiter and sync to Supabase
+    recordContactMessage({ email: cleanEmail, ip: clientIp }, Date.now(), getSupabaseClient());
 
     return res.json({ 
       success: true, 
@@ -1374,6 +1423,17 @@ app.get('/api/email/logs', (req, res) => {
 // Admin & Developer Test Email Endpoint (with Resend API)
 const handleTestEmail = async (req: express.Request, res: express.Response) => {
   try {
+    const adminIdentifier = (req as any).adminSession?.email || (req as any).adminSession?.token || 'admin-user';
+
+    // 1. Check Rate Limit: Max 5 test emails per 10 minutes
+    const rateCheck = checkAdminTestEmailRateLimit(adminIdentifier);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        success: false,
+        error: rateCheck.message || 'سقف مجاز ارسال ایمیل تست (۵ ایمیل در ۱۰ دقیقه) تکمیل شده است. لطفاً چند دقیقه صبر کنید.'
+      });
+    }
+
     const { testEmail, to } = req.body;
     const target = (testEmail || to || runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com').trim();
 
@@ -1386,7 +1446,7 @@ const handleTestEmail = async (req: express.Request, res: express.Response) => {
           <h2 style="color: #38bdf8; margin-top: 0;">✅ تست ارسال ایمیل Resend API موفقیت‌آمیز بود!</h2>
           <p>این ایمیل جهت تست سرویس ارسال ایمیل مدرن آکادمی ۴۰ دروازه از طریق <strong>Resend API</strong> ارسال گردیده است.</p>
           <div style="background: #1e293b; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 13px;">
-            <p style="margin: 4px 0;"><strong>فرستنده:</strong> ${runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || 'آکادمی ۴۰ دروازه <onboarding@resend.dev>'}</p>
+            <p style="margin: 4px 0;"><strong>فرستنده:</strong> ${runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || 'Academy 40 Gates <onboarding@resend.dev>'}</p>
             <p style="margin: 4px 0;"><strong>گیرنده:</strong> ${target}</p>
             <p style="margin: 4px 0;"><strong>زمان ارسال:</strong> ${new Date().toLocaleString('fa-IR')}</p>
           </div>
@@ -1394,6 +1454,9 @@ const handleTestEmail = async (req: express.Request, res: express.Response) => {
         </div>
       `
     }, 'test-email');
+
+    // Record test email in rate limiter
+    recordAdminTestEmail(adminIdentifier, Date.now(), getSupabaseClient());
 
     return res.json({
       success: result.success,
@@ -1412,20 +1475,33 @@ const handleTestEmail = async (req: express.Request, res: express.Response) => {
 };
 
 app.post('/api/admin/test-email', requireAdminAuth, handleTestEmail);
-app.post('/api/email/test', handleTestEmail);
+app.post('/api/email/test', requireAdminAuth, handleTestEmail);
 
-// API Endpoint: Password Reset Email
+// API Endpoint: Password Reset Email (Rate limited to 3 per 24h & 10m cooldown)
 app.post('/api/email/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email || !email.includes('@')) {
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
       return res.status(400).json({ success: false, error: 'آدرس ایمیل معتبر الزامی است.' });
     }
 
     const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Rate Limiting Check: Max 3 requests in 24 hours per email + 10-minute cooldown
+    const rateCheck = checkForgotPasswordRateLimit(cleanEmail);
+    if (!rateCheck.allowed) {
+      console.warn(`[FORGOT_PASSWORD_BLOCKED] Rate limit blocked for ${cleanEmail}: ${rateCheck.reason}`);
+      return res.status(429).json({
+        success: false,
+        error: rateCheck.message,
+        reason: rateCheck.reason,
+        waitMinutes: rateCheck.waitMinutes
+      });
+    }
+
     const adminEmail = runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || '40gates.main@gmail.com';
 
-    // 1. Send instruction email to the requesting user
+    // 2. Send instruction email to the requesting user
     const userResetHtml = `
       <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
@@ -1456,7 +1532,7 @@ app.post('/api/email/forgot-password', async (req, res) => {
       html: userResetHtml,
     }, 'forgot-password');
 
-    // 2. Notify site admin about password reset request
+    // 3. Notify site admin about password reset request
     try {
       await sendMailSafely({
         to: adminEmail,
@@ -1472,6 +1548,9 @@ app.post('/api/email/forgot-password', async (req, res) => {
     } catch (e) {
       console.warn('Admin password reset notify err:', e);
     }
+
+    // Record success in rate limiter and sync to Supabase
+    recordForgotPasswordSuccess(cleanEmail, Date.now(), getSupabaseClient());
 
     return res.json({
       success: true,
@@ -1582,7 +1661,30 @@ app.post('/api/email/order-created', async (req, res) => {
       return res.status(400).json({ success: false, error: 'اطلاعات سفارش و ایمیل نامعتبر است' });
     }
 
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER || '40gates.main@gmail.com';
+    // 1. Free Order Guard: Do not send transactional emails for free orders
+    if (isFreeOrder(order)) {
+      console.log(`ℹ️ [FREE ORDER] /api/email/order-created - Order #${order.id} is free. Skipping email.`);
+      return res.json({ 
+        success: true, 
+        message: 'سفارش رایگان با موفقیت ثبت شد (برای سفارش‌های رایگان ایمیل ارسال نمی‌شود).',
+        emailSkipped: true,
+        reason: 'free_order'
+      });
+    }
+
+    // 2. Anti-Duplicate Email Guard: Exactly 1 email per order creation
+    const eventKey = `order-created:${order.id}`;
+    if (hasEmailBeenSent(eventKey)) {
+      console.log(`ℹ️ [DUPLICATE EMAIL SKIPPED] Email for order event ${eventKey} has already been sent.`);
+      return res.json({ 
+        success: true, 
+        message: 'ایمیل سفارش قبلاً ارسال شده است.',
+        emailSkipped: true,
+        reason: 'already_sent'
+      });
+    }
+
+    const adminEmail = runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || process.env.GMAIL_USER || '40gates.main@gmail.com';
 
     const items = order.items || [];
     const subtotal = order.subtotal || 0;
@@ -1692,6 +1794,9 @@ app.post('/api/email/order-created', async (req, res) => {
       html: ownerHtml,
     }, 'order-admin');
 
+    // Mark email event as sent
+    markEmailAsSent(eventKey, Date.now(), getSupabaseClient());
+
     // Store order in server memory store
     if (order && order.id) {
       const existingIdx = serverOrdersStore.findIndex(o => o.id === order.id);
@@ -1720,6 +1825,18 @@ app.post('/api/email/order-status', async (req, res) => {
     const { orderId, newStatus, trackingCode, customerEmail, customerName } = req.body;
     if (!orderId || !customerEmail) {
       return res.status(400).json({ success: false, error: 'پارامترهای تغییر وضعیت سفارش نامعتبر است' });
+    }
+
+    // Anti-duplicate status email check
+    const statusEventKey = `order-status:${orderId}:${newStatus || 'updated'}`;
+    if (hasEmailBeenSent(statusEventKey)) {
+      console.log(`ℹ️ [DUPLICATE EMAIL SKIPPED] Status update email for ${statusEventKey} already sent.`);
+      return res.json({
+        success: true,
+        message: 'ایمیل تغییر وضعیت برای این مرحله قبلاً ارسال شده است.',
+        emailSkipped: true,
+        reason: 'already_sent'
+      });
     }
 
     // Update in server store
@@ -1782,6 +1899,9 @@ app.post('/api/email/order-status', async (req, res) => {
       html: htmlContent,
     }, 'order-status');
 
+    // Mark email event as sent
+    markEmailAsSent(statusEventKey, Date.now(), getSupabaseClient());
+
     return res.json({ 
       success: true, 
       message: 'بروزرسانی وضعیت سفارش پردازش شد.',
@@ -1815,7 +1935,7 @@ async function startServer() {
   });
 }
 
-if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test' && !process.argv.some(a => a.includes('test'))) {
   startServer();
 }
 

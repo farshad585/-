@@ -64,15 +64,15 @@ export default function AtariDreamOverOverlay({ onRestart }: AtariDreamOverProps
       {/* Main Container */}
       <div 
         onClick={onRestart}
-        className="relative z-10 flex flex-col items-center justify-center text-center cursor-pointer select-none"
+        className="relative z-10 w-full max-w-lg mx-auto px-4 flex flex-col items-center justify-center text-center cursor-pointer select-none"
       >
         {/* Main "DREAM OVER" Atari Title */}
         <h2 
-          className="text-5xl sm:text-7xl md:text-8xl font-black tracking-widest text-[#ff0055] drop-shadow-[0_0_25px_#ff0055] animate-pulse"
+          className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl font-black tracking-wider sm:tracking-widest text-[#ff0055] drop-shadow-[0_0_20px_#ff0055] animate-pulse max-w-full break-words leading-tight"
           style={{
-            textShadow: '4px 4px 0px #ffe600, -3px -3px 0px #00ffff, 0 0 35px #ff0055',
+            textShadow: '3px 3px 0px #ffe600, -2px -2px 0px #00ffff, 0 0 25px #ff0055',
             fontFamily: '"Courier New", Courier, monospace',
-            letterSpacing: '0.22em'
+            letterSpacing: '0.12em'
           }}
         >
           DREAM OVER
