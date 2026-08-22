@@ -576,16 +576,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Delete existing order
   const deleteOrder = async (orderId: string) => {
-    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    setOrders((prev) => {
+      const updated = prev.filter((o) => o.id !== orderId);
+      try {
+        localStorage.setItem('40gates_orders', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     try {
       const token = localStorage.getItem('40gates_admin_token');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      await fetch(`/api/admin/orders/${orderId}`, {
+      const res = await fetch(`/api/admin/orders/${orderId}`, {
         method: 'DELETE',
         headers
       });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.orders)) {
+        setOrders(data.orders);
+        localStorage.setItem('40gates_orders', JSON.stringify(data.orders));
+      }
     } catch (e) {
       console.warn('Order delete server sync err:', e);
     }

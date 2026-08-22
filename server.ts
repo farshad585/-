@@ -451,90 +451,16 @@ function getAdminConfig() {
 }
 
 // Global Memory Stores for Orders and Registered Users
-const registeredUsersStore: Array<{
+let registeredUsersStore: Array<{
   id: string;
   fullName: string;
   email: string;
   phone?: string;
   registeredAt: string;
   faDate: string;
-}> = [
-  {
-    id: 'USR-101',
-    fullName: 'فرشاد میرشکاری',
-    email: '40gates.main@gmail.com',
-    phone: '09121112233',
-    registeredAt: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString(),
-    faDate: '۱۴۰۳/۰۴/۱۵'
-  },
-  {
-    id: 'USR-102',
-    fullName: 'سارا احمدی',
-    email: 'sara.ahmadi@gmail.com',
-    phone: '09351234567',
-    registeredAt: new Date(Date.now() - 12 * 24 * 3600 * 1000).toISOString(),
-    faDate: '۱۴۰۳/۰۵/۰۱'
-  },
-  {
-    id: 'USR-103',
-    fullName: 'علی رضایی',
-    email: 'ali.rezaei@yahoo.com',
-    phone: '09129876543',
-    registeredAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-    faDate: '۱۴۰۳/۰۵/۱۰'
-  }
-];
+}> = [];
 
-let serverOrdersStore: Array<any> = [
-  {
-    id: 'IRN-847291',
-    date: '۱۴۰۳/۰۵/۱۲',
-    status: 'processing',
-    items: [
-      { productId: 'book-40gates-print', title: 'کتاب چاپی ۴۰ دروازه رویابینی آگاهانه', quantity: 1, price: 580000, type: 'printed' },
-      { productId: 'audio-dream-course', title: 'دوره جامع صوتی گام به گام رویابینی', quantity: 1, price: 890000, type: 'audio' }
-    ],
-    subtotal: 1470000,
-    discountAmount: 294000,
-    vatAmount: 117600,
-    shippingFee: 0,
-    totalAmount: 1293600,
-    shippingAddress: {
-      fullName: 'سارا احمدی',
-      phone: '09351234567',
-      province: 'تهران',
-      city: 'تهران',
-      postalCode: '1987654321',
-      address: 'خیابان ولیعصر، نرسیده به میدان ونک، پلاک ۱۲'
-    },
-    userEmail: 'sara.ahmadi@gmail.com',
-    paymentGateway: 'zarinpal'
-  },
-  {
-    id: 'IRN-392018',
-    date: '۱۴۰۳/۰۵/۱۰',
-    status: 'shipped',
-    trackingCode: '298371029384729103847261',
-    items: [
-      { productId: 'book-lucid-dream-pdf', title: 'نسخه دیجیتال PDF شاهکلید رویا', quantity: 1, price: 340000, type: 'pdf' }
-    ],
-    subtotal: 340000,
-    discountAmount: 0,
-    vatAmount: 34000,
-    shippingFee: 0,
-    totalAmount: 374000,
-    shippingAddress: {
-      fullName: 'علی رضایی',
-      phone: '09129876543',
-      province: 'اصفهان',
-      city: 'اصفهان',
-      postalCode: '8123456789',
-      address: 'خیابان چهارباغ عباسی، کوچه بهار، پلاک ۵'
-    },
-    userEmail: 'ali.rezaei@yahoo.com',
-    paymentGateway: 'card-to-card'
-  }
-];
+let serverOrdersStore: Array<any> = [];
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET || process.env.ADMIN_PASSWORD || '40gates-master-key-2026';
 
@@ -602,18 +528,81 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
   next();
 }
 
+const DATA_DIR = path.join(process.cwd(), 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (e) {
+    // Ignore error if already created
+  }
+}
+
+const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const CONTACT_FILE = path.join(DATA_DIR, 'contacts.json');
+
+// Initialize local stores from disk if existing
+try {
+  if (fs.existsSync(ORDERS_FILE)) {
+    const raw = fs.readFileSync(ORDERS_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) serverOrdersStore = parsed;
+  }
+} catch (e) {}
+
+try {
+  if (fs.existsSync(USERS_FILE)) {
+    const raw = fs.readFileSync(USERS_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) registeredUsersStore = parsed;
+  }
+} catch (e) {}
+
+try {
+  if (fs.existsSync(CONTACT_FILE)) {
+    const raw = fs.readFileSync(CONTACT_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      contactMessages.length = 0;
+      contactMessages.push(...parsed);
+    }
+  }
+} catch (e) {}
+
+function saveOrdersToDisk() {
+  try {
+    fs.writeFileSync(ORDERS_FILE, JSON.stringify(serverOrdersStore, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Orders file save error:', e);
+  }
+}
+
+function saveUsersToDisk() {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(registeredUsersStore, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Users file save error:', e);
+  }
+}
+
+function saveContactsToDisk() {
+  try {
+    fs.writeFileSync(CONTACT_FILE, JSON.stringify(contactMessages, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Contacts file save error:', e);
+  }
+}
+
 async function syncOrdersFromSupabase(): Promise<any[]> {
   const client = getSupabaseClient();
-  if (!client) return serverOrdersStore;
+  if (!client) {
+    return serverOrdersStore;
+  }
   try {
     const { data, error } = await client.from('orders').select('*').order('created_at', { ascending: false });
-    if (!error && Array.isArray(data) && data.length > 0) {
-      const dbOrders = data.map(item => item.data || item);
-      for (const order of dbOrders) {
-        if (order && order.id && !serverOrdersStore.some(o => o.id === order.id)) {
-          serverOrdersStore.push(order);
-        }
-      }
+    if (!error && Array.isArray(data)) {
+      serverOrdersStore = data.map(item => item.data || item);
+      saveOrdersToDisk();
     }
   } catch (e) {
     console.warn('Supabase orders sync warn:', e);
@@ -622,6 +611,7 @@ async function syncOrdersFromSupabase(): Promise<any[]> {
 }
 
 async function persistOrderToSupabase(order: any) {
+  saveOrdersToDisk();
   const client = getSupabaseClient();
   if (!client || !order || !order.id) return;
   try {
@@ -633,6 +623,36 @@ async function persistOrderToSupabase(order: any) {
     });
   } catch (e) {
     console.warn('Supabase save order warn:', e);
+  }
+}
+
+async function syncUsersFromSupabase(): Promise<any[]> {
+  const client = getSupabaseClient();
+  if (!client) return registeredUsersStore;
+  try {
+    const { data, error } = await client.from('site_settings').select('value').eq('id', 'registered_users_store').single();
+    if (!error && data?.value && Array.isArray(data.value)) {
+      registeredUsersStore = data.value;
+      saveUsersToDisk();
+    }
+  } catch (e) {
+    console.warn('Supabase users sync warn:', e);
+  }
+  return registeredUsersStore;
+}
+
+async function persistUsersToSupabase() {
+  saveUsersToDisk();
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from('site_settings').upsert({
+      id: 'registered_users_store',
+      value: registeredUsersStore,
+      updated_at: new Date().toISOString()
+    });
+  } catch (e) {
+    console.warn('Supabase save users warn:', e);
   }
 }
 
