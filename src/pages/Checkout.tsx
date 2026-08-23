@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import SEO from '../components/SEO';
+import ShimmerButton from '../components/ShimmerButton';
 import { sendOrderCreatedEmail } from '../utils/emailApi';
 import { 
   CreditCard, 
@@ -581,14 +582,14 @@ export default function Checkout() {
             </div>
 
             {/* Action Payment Trigger */}
-            <button
+            <ShimmerButton
               id="checkout-payment-btn"
               onClick={handleCreateCardOrder}
-              className="w-full geom-button-primary text-white font-bold text-xs py-4 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-98 transition-all shadow-md"
+              className="w-full py-4 text-xs"
             >
               <CreditCard size={16} />
               <span>ثبت سفارش و دریافت شماره کارت</span>
-            </button>
+            </ShimmerButton>
 
             <div className="flex gap-2 justify-center pt-2 text-[10px] text-slate-500">
               <ShieldCheck size={14} className="text-indigo-600" />

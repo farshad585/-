@@ -8,6 +8,10 @@ import { PRODUCTS } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import TestimonialsSection from '../components/TestimonialsSection';
 import SEO from '../components/SEO';
+import StarfieldBeams from '../components/StarfieldBeams';
+import ShimmerButton from '../components/ShimmerButton';
+import NumberTicker from '../components/NumberTicker';
+import TextBlurReveal from '../components/TextBlurReveal';
 import { 
   BookOpen, 
   Headphones, 
@@ -68,6 +72,9 @@ export default function Home() {
 
       {/* Hero Section */}
       <section className="relative min-h-[70vh] md:min-h-[75vh] flex flex-col justify-center py-6 md:py-16 px-3 sm:px-4 overflow-hidden max-w-7xl mx-auto rounded-3xl border border-[#EEEAF9] mt-3 bg-gradient-to-b from-white via-[#EEEAF9]/30 to-[#F7F5FC] shadow-sm text-slate-900">
+        {/* Interactive Starfield & Cosmic Beams Effect */}
+        <StarfieldBeams particleCount={70} />
+
         {/* Soft Ambient Radial Background */}
         <div className="absolute inset-0 pointer-events-none z-0">
           <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#EEEAF9] rounded-full blur-3xl opacity-70" />
@@ -99,17 +106,20 @@ export default function Home() {
                 <span className="text-[#5243B2] text-xs uppercase tracking-[0.2em] font-semibold font-mono">مرجع تخصصی رویابینی آگاهانه</span>
                 <span className="h-[1px] w-8 bg-[#7062C4]/40"></span>
               </div>
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight"
-              >
-                <span className="block mb-2">تبدیل شدن به آفریدگار رویا،</span>
-                <span className="block">
-                  <span className="text-[#5243B2] font-black">دروازه چهلم</span> خودشناسی
+              <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight">
+                <TextBlurReveal 
+                  text="تبدیل شدن به آفریدگار رویا،" 
+                  delay={0.1}
+                  className="block mb-2 text-slate-900 font-extrabold"
+                />
+                <span className="block mt-1">
+                  <TextBlurReveal 
+                    text="دروازه چهلم خودشناسی" 
+                    delay={0.4}
+                    className="text-[#5243B2] font-black"
+                  />
                 </span>
-              </motion.h1>
+              </h1>
             </div>
 
             <motion.p
@@ -137,14 +147,14 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="flex justify-center items-center gap-4 pt-2"
             >
-              <button
+              <ShimmerButton
                 id="hero-shop-cta"
                 onClick={() => setCurrentPage('shop')}
-                className="bg-[#5243B2] hover:bg-[#42349A] text-white flex items-center justify-center gap-2.5 shadow-md shadow-[#5243B2]/20 text-sm font-bold px-8 py-3.5 rounded-xl transition-all cursor-pointer"
+                className="px-8 py-3.5 text-sm"
               >
                 <span>ورود به فروشگاه محصولات</span>
                 <ArrowLeft size={18} />
-              </button>
+              </ShimmerButton>
               <button
                 id="hero-about-cta"
                 onClick={() => setCurrentPage('blog')}
@@ -155,7 +165,7 @@ export default function Home() {
               </button>
             </motion.div>
 
-            {/* Quick Stats Grid */}
+            {/* Quick Stats Grid with Interactive Dynamic Number Ticker */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -163,19 +173,27 @@ export default function Home() {
               className="grid grid-cols-4 gap-4 max-w-3xl mx-auto pt-8 border-t border-[#EEEAF9] text-center"
             >
               <div className="space-y-1 p-2 rounded-xl bg-white/70 backdrop-blur-xs">
-                <span className="block text-2xl font-bold font-display text-[#5243B2]">+۵۰,۰۰۰</span>
+                <span className="block text-2xl font-bold font-display text-[#5243B2]">
+                  +<NumberTicker value={50000} delay={0.2} />
+                </span>
                 <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">هنرجوی خواب شفاف</span>
               </div>
               <div className="space-y-1 p-2 rounded-xl bg-white/70 backdrop-blur-xs">
-                <span className="block text-2xl font-bold font-display text-[#5243B2]">۲۰+</span>
+                <span className="block text-2xl font-bold font-display text-[#5243B2]">
+                  +<NumberTicker value={20} delay={0.3} />
+                </span>
                 <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">کتاب، پادکست و پکیج</span>
               </div>
               <div className="space-y-1 p-2 rounded-xl bg-white/70 backdrop-blur-xs">
-                <span className="block text-2xl font-bold font-display text-[#5243B2]">۳ ماه</span>
+                <span className="block text-2xl font-bold font-display text-[#5243B2]">
+                  <NumberTicker value={3} delay={0.4} /> ماه
+                </span>
                 <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">پشتیبانی اختصاصی</span>
               </div>
               <div className="space-y-1 p-2 rounded-xl bg-white/70 backdrop-blur-xs">
-                <span className="block text-2xl font-bold font-display text-[#5243B2]">۱۰۰٪</span>
+                <span className="block text-2xl font-bold font-display text-[#5243B2]">
+                  <NumberTicker value={100} delay={0.5} />٪
+                </span>
                 <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">تضمین کارایی تکنیک‌ها</span>
               </div>
             </motion.div>
@@ -211,17 +229,20 @@ export default function Home() {
               </div>
 
               {/* Main Heading - Larger size, strictly on the left side */}
-              <motion.h1
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5 }}
-                className="text-xl xs:text-[22px] sm:text-[26px] font-black text-slate-900 leading-[1.25] tracking-tight text-right"
-              >
-                <span className="block whitespace-nowrap">تبدیل شدن به</span>
-                <span className="block whitespace-nowrap">آفریدگار رویا،</span>
-                <span className="block text-[#5243B2] font-black whitespace-nowrap">دروازه چهلم</span>
-                <span className="block whitespace-nowrap">خودشناسی</span>
-              </motion.h1>
+              <h1 className="text-xl xs:text-[22px] sm:text-[26px] font-black text-slate-900 leading-[1.25] tracking-tight text-right">
+                <TextBlurReveal 
+                  text="تبدیل شدن به آفریدگار رویا،" 
+                  delay={0.1}
+                  className="block whitespace-nowrap"
+                  wordClassName="font-black text-slate-900"
+                />
+                <TextBlurReveal 
+                  text="دروازه چهلم خودشناسی" 
+                  delay={0.35}
+                  className="block text-[#5243B2] font-black whitespace-nowrap"
+                  wordClassName="font-black text-[#5243B2]"
+                />
+              </h1>
             </div>
           </div>
 
@@ -258,14 +279,14 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="relative z-10 space-y-2.5 pt-1"
           >
-            <button
+            <ShimmerButton
               id="hero-shop-cta-mobile"
               onClick={() => setCurrentPage('shop')}
-              className="w-full bg-[#5243B2] active:bg-[#42349A] text-white flex items-center justify-center gap-2 shadow-md shadow-[#5243B2]/20 text-xs sm:text-sm font-bold py-3.5 rounded-xl transition-all cursor-pointer"
+              className="w-full py-3.5 text-xs sm:text-sm"
             >
               <span>ورود به فروشگاه محصولات</span>
               <ArrowLeft size={16} />
-            </button>
+            </ShimmerButton>
 
             <button
               id="hero-about-cta-mobile"
@@ -277,22 +298,30 @@ export default function Home() {
             </button>
           </motion.div>
 
-          {/* Mobile Quick Stats Grid */}
+          {/* Mobile Quick Stats Grid with Interactive Dynamic Number Ticker */}
           <div className="relative z-10 grid grid-cols-2 gap-2 pt-3 border-t border-[#EEEAF9] text-center">
             <div className="p-2 rounded-xl bg-white/80 backdrop-blur-xs">
-              <span className="block text-base font-bold font-display text-[#5243B2]">+۵۰,۰۰۰</span>
+              <span className="block text-base font-bold font-display text-[#5243B2]">
+                +<NumberTicker value={50000} delay={0.2} />
+              </span>
               <span className="text-[10px] font-bold text-slate-600">هنرجوی خواب شفاف</span>
             </div>
             <div className="p-2 rounded-xl bg-white/80 backdrop-blur-xs">
-              <span className="block text-base font-bold font-display text-[#5243B2]">۲۰+</span>
+              <span className="block text-base font-bold font-display text-[#5243B2]">
+                +<NumberTicker value={20} delay={0.3} />
+              </span>
               <span className="text-[10px] font-bold text-slate-600">کتاب، پادکست و پکیج</span>
             </div>
             <div className="p-2 rounded-xl bg-white/80 backdrop-blur-xs">
-              <span className="block text-base font-bold font-display text-[#5243B2]">۳ ماه</span>
+              <span className="block text-base font-bold font-display text-[#5243B2]">
+                <NumberTicker value={3} delay={0.4} /> ماه
+              </span>
               <span className="text-[10px] font-bold text-slate-600">پشتیبانی اختصاصی</span>
             </div>
             <div className="p-2 rounded-xl bg-white/80 backdrop-blur-xs">
-              <span className="block text-base font-bold font-display text-[#5243B2]">۱۰۰٪</span>
+              <span className="block text-base font-bold font-display text-[#5243B2]">
+                <NumberTicker value={100} delay={0.5} />٪
+              </span>
               <span className="text-[10px] font-bold text-slate-600">تضمین کارایی تکنیک‌ها</span>
             </div>
           </div>
@@ -410,13 +439,13 @@ export default function Home() {
           </div>
 
           <div className="flex-shrink-0 relative z-10 w-full md:w-auto">
-            <button
+            <ShimmerButton
               id="promo-pack-cta"
               onClick={() => setSelectedProductId('45363')}
-              className="w-full md:w-auto bg-[#5243B2] hover:bg-[#42349A] text-white font-extrabold text-xs sm:text-sm px-8 py-4 rounded-xl transition-all shadow-md shadow-[#5243B2]/20 cursor-pointer"
+              className="w-full md:w-auto px-8 py-4 text-xs sm:text-sm"
             >
               مشاهده مجموعه چهارجلدی
-            </button>
+            </ShimmerButton>
           </div>
         </div>
       </section>

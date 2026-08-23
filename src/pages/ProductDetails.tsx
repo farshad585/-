@@ -9,6 +9,7 @@ import { PRODUCTS, REVIEWS } from '../data/products';
 import { Product, Review } from '../types';
 import SEO from '../components/SEO';
 import ProductCard from '../components/ProductCard';
+import ShimmerButton from '../components/ShimmerButton';
 import { 
   Star, 
   ShoppingCart, 
@@ -517,7 +518,7 @@ export default function ProductDetails() {
                 <span>دانلود مستقیم فایل PDF کتاب</span>
               </a>
             ) : product.stock > 0 ? (
-              <button
+              <ShimmerButton
                 id="details-add-to-cart-btn"
                 disabled={isAddingToCart}
                 onClick={() => {
@@ -536,7 +537,7 @@ export default function ProductDetails() {
 
                   handleAddToCartWithDelay(customProduct, finalFormatLabel);
                 }}
-                className="flex-1 geom-button-primary hover:opacity-90 active:scale-98 transition-all text-white font-bold text-xs py-4 rounded-xl flex items-center justify-center gap-2 shadow-md disabled:opacity-80 cursor-pointer"
+                className="flex-1 py-4 text-xs"
               >
                 {isAddingToCart ? (
                   <>
@@ -549,7 +550,7 @@ export default function ProductDetails() {
                     <span>افزودن این محصول به سبد خرید</span>
                   </>
                 )}
-              </button>
+              </ShimmerButton>
             ) : (
               <button className="flex-1 bg-slate-100 text-slate-400 font-bold text-xs py-4 rounded-xl cursor-not-allowed">
                 در حال حاضر ناموجود است
