@@ -6,6 +6,8 @@ interface TextBlurRevealProps {
   className?: string;
   delay?: number;
   wordClassName?: string;
+  duration?: number;
+  stagger?: number;
 }
 
 export default function TextBlurReveal({
@@ -13,6 +15,8 @@ export default function TextBlurReveal({
   className = '',
   delay = 0,
   wordClassName = '',
+  duration = 1.1, // Half the speed (slower, smoother reveal)
+  stagger = 0.16,
 }: TextBlurRevealProps) {
   const words = text.split(' ');
 
@@ -21,7 +25,7 @@ export default function TextBlurReveal({
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.08,
+        staggerChildren: stagger,
         delayChildren: delay,
       },
     },
@@ -30,15 +34,15 @@ export default function TextBlurReveal({
   const wordVariants = {
     hidden: {
       opacity: 0,
-      filter: 'blur(10px)',
-      y: 12,
+      filter: 'blur(12px)',
+      y: 14,
     },
     visible: {
       opacity: 1,
       filter: 'blur(0px)',
       y: 0,
       transition: {
-        duration: 0.6,
+        duration: duration,
         ease: [0.2, 0.65, 0.3, 0.9],
       },
     },
@@ -49,7 +53,7 @@ export default function TextBlurReveal({
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className={`inline-flex flex-wrap justify-center items-center gap-x-2 gap-y-1 ${className}`}
+      className={`inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 ${className}`}
     >
       {words.map((word, index) => (
         <motion.span

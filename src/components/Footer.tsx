@@ -96,13 +96,18 @@ export default function Footer() {
           <h4 className="text-sm font-bold text-slate-900 border-r-4 border-indigo-600 pr-2">دسترسی سریع</h4>
           <ul className="space-y-2.5 text-xs text-slate-600">
             <li>
-              <button onClick={() => setCurrentPage('dream-game')} className="hover:text-indigo-600 transition-colors font-bold text-indigo-700">🎮 بازی شبیه‌ساز کنترل رویا</button>
+              <button onClick={() => setCurrentPage('vip')} className="hover:text-amber-600 transition-colors font-bold text-amber-700 flex items-center gap-1.5 cursor-pointer">
+                <span>👑 مشاوره VIP استاد</span>
+              </button>
             </li>
             <li>
-              <button onClick={() => setCurrentPage('shop')} className="hover:text-indigo-600 transition-colors">فروشگاه</button>
+              <button onClick={() => setCurrentPage('dream-game')} className="hover:text-indigo-600 transition-colors font-bold text-indigo-700 cursor-pointer">🎮 بازی شبیه‌ساز کنترل رویا</button>
             </li>
             <li>
-              <button onClick={() => setCurrentPage('blog')} className="hover:text-indigo-600 transition-colors">مجله آموزشی رویابینی</button>
+              <button onClick={() => setCurrentPage('shop')} className="hover:text-indigo-600 transition-colors cursor-pointer">فروشگاه محصولات</button>
+            </li>
+            <li>
+              <button onClick={() => setCurrentPage('blog')} className="hover:text-indigo-600 transition-colors cursor-pointer">مقالات آموزشی رویابینی</button>
             </li>
             <li>
               <button onClick={() => setCurrentPage('faq')} className="hover:text-indigo-600 transition-colors">پاسخ به سوالات متداول</button>

@@ -307,7 +307,7 @@ export default function ProductDetails() {
         <div className="lg:col-span-7 space-y-6">
           <div className="space-y-2">
             <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-full w-fit block font-bold">
-              {product.type === 'printed' ? 'محصول فیزیکی گرانبها' : 'محصول دیجیتال با دسترسی آنی'}
+              {product.id === '45398' ? 'خدمت مشاوره و همراهی اختصاصی VIP' : product.type === 'printed' ? 'محصول فیزیکی گرانبها' : 'محصول دیجیتال با دسترسی آنی'}
             </span>
             <h1 className="text-2xl md:text-3xl font-black text-slate-900 leading-normal">{product.title}</h1>
             <p dir="ltr" className="text-xs font-mono text-slate-400 uppercase tracking-widest text-right">{product.englishTitle}</p>
@@ -363,8 +363,14 @@ export default function ProductDetails() {
               )}
             </div>
 
-            {/* Inventory / Stock Status Badge */}
-            {product.stock > 0 ? (
+            {/* Inventory / Stock Status Badge (Hidden for VIP Service) */}
+            {product.id === '45398' ? (
+              <div className="flex items-center gap-2 bg-purple-50 text-purple-950 border border-purple-200 px-3.5 py-3 rounded-2xl text-xs font-bold shadow-xs">
+                <Sparkles size={15} className="text-purple-600 animate-pulse" />
+                <span>ظرفیت پذیرش:</span>
+                <span className="text-purple-700 font-black">پذیرش فعال ماه جاری</span>
+              </div>
+            ) : product.stock > 0 ? (
               <div className="flex items-center gap-2 bg-emerald-50/90 text-emerald-950 border border-emerald-200 px-3.5 py-3 rounded-2xl text-xs font-bold shadow-xs">
                 <span className="relative flex h-2.5 w-2.5 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -455,7 +461,7 @@ export default function ProductDetails() {
               <div className="flex items-center gap-2">
                 <Sparkles size={18} className="text-amber-600 shrink-0 animate-bounce" />
                 <span className="block text-xs font-black text-slate-900">
-                  انتخاب مدت زمان مشاوره VIP:
+                  انتخاب پلن مشاوره VIP:
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 leading-relaxed">

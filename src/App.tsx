@@ -26,6 +26,7 @@ import Auth from './pages/Auth';
 import Legal from './pages/Legal';
 import Admin from './pages/Admin';
 import DreamGame from './pages/DreamGame';
+import VipConsultation from './pages/VipConsultation';
 
 function MainAppContent() {
   const { currentPage, isAuthenticated } = useApp();
@@ -42,6 +43,9 @@ function MainAppContent() {
         return <Home />;
       case 'shop':
         return <Shop />;
+      case 'vip':
+      case 'vip-consultation':
+        return <VipConsultation />;
       case 'product-details':
         return <ProductDetails />;
       case 'blog':

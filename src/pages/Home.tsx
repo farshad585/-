@@ -22,7 +22,9 @@ import {
   Quote,
   ShieldCheck,
   Zap,
-  RotateCcw
+  RotateCcw,
+  Crown,
+  CheckCircle2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -108,15 +110,23 @@ export default function Home() {
               </div>
               <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight">
                 <TextBlurReveal 
-                  text="تبدیل شدن به آفریدگار رویا،" 
+                  text="تبدیل شدن به آفریدگار رویاها،" 
                   delay={0.1}
                   className="block mb-2 text-slate-900 font-extrabold"
+                  wordClassName="text-slate-900 font-extrabold"
                 />
-                <span className="block mt-1">
+                <span className="inline-flex items-center justify-center gap-2 mt-1">
                   <TextBlurReveal 
-                    text="دروازه چهلم خودشناسی" 
-                    delay={0.4}
-                    className="text-[#5243B2] font-black"
+                    text="دروازه چهلم" 
+                    delay={0.9}
+                    className="inline-flex"
+                    wordClassName="text-[#5243B2] font-black"
+                  />
+                  <TextBlurReveal 
+                    text="خودشناسی" 
+                    delay={1.3}
+                    className="inline-flex"
+                    wordClassName="text-slate-900 font-extrabold"
                   />
                 </span>
               </h1>
@@ -141,28 +151,42 @@ export default function Home() {
               حقیقت اینه که ما هر شب رویا می‌بینیم؛ چه دلمون بخواد، چه نخواد... پس چه بهتر که به‌جای سرگردان بودن در خواب‌های خسته‌کننده، آستین همت رو بالا بزنیم و از دنیای رویامون یه بهشت شخصی بسازیم! 💖
             </motion.p>
 
+            {/* Desktop Hero Action Buttons Stack */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex justify-center items-center gap-4 pt-2"
+              className="flex flex-col items-center gap-3 pt-2"
             >
-              <ShimmerButton
-                id="hero-shop-cta"
-                onClick={() => setCurrentPage('shop')}
-                className="px-8 py-3.5 text-sm"
-              >
-                <span>ورود به فروشگاه محصولات</span>
-                <ArrowLeft size={18} />
-              </ShimmerButton>
+              {/* Primary VIP Consultation Button on Top */}
               <button
-                id="hero-about-cta"
-                onClick={() => setCurrentPage('blog')}
-                className="bg-[#EEEAF9] hover:bg-[#E3DDF7] text-[#42349A] border border-[#D1C7F0] flex items-center justify-center gap-2.5 text-sm font-bold px-8 py-3.5 rounded-xl transition-all cursor-pointer"
+                id="hero-vip-cta-desktop"
+                onClick={() => setCurrentPage('vip')}
+                className="group relative overflow-hidden bg-gradient-to-r from-amber-500 via-[#5243B2] to-[#7062C4] hover:from-amber-600 hover:via-[#42349A] hover:to-[#5E50B5] text-white font-black text-sm px-9 py-3.5 rounded-2xl transition-all duration-300 shadow-lg shadow-[#5243B2]/25 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer border border-amber-300/40"
               >
-                <Compass size={18} className="text-[#7062C4]" />
-                <span>مطالعه مقالات آموزشی</span>
+                <Crown size={18} className="text-amber-300 animate-pulse" />
+                <span>مشاوره VIP استاد (همراهی اختصاصی فرشاد میرشکاری)</span>
+                <ArrowLeft size={17} className="text-amber-200 group-hover:-translate-x-1 transition-transform" />
               </button>
+
+              <div className="flex justify-center items-center gap-4">
+                <ShimmerButton
+                  id="hero-shop-cta"
+                  onClick={() => setCurrentPage('shop')}
+                  className="px-8 py-3.5 text-sm"
+                >
+                  <span>ورود به فروشگاه محصولات</span>
+                  <ArrowLeft size={18} />
+                </ShimmerButton>
+                <button
+                  id="hero-about-cta"
+                  onClick={() => setCurrentPage('blog')}
+                  className="bg-[#EEEAF9] hover:bg-[#E3DDF7] text-[#42349A] border border-[#D1C7F0] flex items-center justify-center gap-2.5 text-sm font-bold px-8 py-3.5 rounded-xl transition-all cursor-pointer"
+                >
+                  <Compass size={18} className="text-[#7062C4]" />
+                  <span>مطالعه مقالات آموزشی</span>
+                </button>
+              </div>
             </motion.div>
 
             {/* Quick Stats Grid with Interactive Dynamic Number Ticker */}
@@ -218,30 +242,50 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-t from-[#F7F5FC]/80 via-transparent to-transparent" />
 
             {/* Text Content strictly placed on the LEFT side of the screen (Left half) */}
-            <div className="absolute left-3 xs:left-3.5 top-0 bottom-0 w-[39%] sm:w-[36%] max-w-[200px] flex flex-col justify-center text-right space-y-2.5 z-10" dir="rtl">
+            <div className="absolute left-2.5 xs:left-3 top-0 bottom-0 w-[44%] xs:w-[41%] sm:w-[38%] max-w-[210px] flex flex-col justify-center text-right space-y-1.5 xs:space-y-2 z-10" dir="rtl">
               {/* Eyebrow - Single Line with dashes on both sides */}
               <div className="flex items-center gap-0.5 justify-start">
-                <span className="text-[#5243B2] text-[10px] xs:text-[11px] sm:text-xs font-bold">—</span>
-                <span className="text-[#5243B2] text-[10px] xs:text-[11px] sm:text-xs font-extrabold whitespace-nowrap">
+                <span className="text-[#5243B2] text-[9px] xs:text-[10px] sm:text-xs font-bold">—</span>
+                <span className="text-[#5243B2] text-[9px] xs:text-[10px] sm:text-xs font-extrabold whitespace-nowrap">
                   مرجع تخصصی رویابینی آگاهانه
                 </span>
-                <span className="text-[#5243B2] text-[10px] xs:text-[11px] sm:text-xs font-bold">—</span>
+                <span className="text-[#5243B2] text-[9px] xs:text-[10px] sm:text-xs font-bold">—</span>
               </div>
 
-              {/* Main Heading - Larger size, strictly on the left side */}
-              <h1 className="text-xl xs:text-[22px] sm:text-[26px] font-black text-slate-900 leading-[1.25] tracking-tight text-right">
-                <TextBlurReveal 
-                  text="تبدیل شدن به آفریدگار رویا،" 
-                  delay={0.1}
-                  className="block whitespace-nowrap"
-                  wordClassName="font-black text-slate-900"
-                />
-                <TextBlurReveal 
-                  text="دروازه چهلم خودشناسی" 
-                  delay={0.35}
-                  className="block text-[#5243B2] font-black whitespace-nowrap"
-                  wordClassName="font-black text-[#5243B2]"
-                />
+              {/* Main Heading - Exactly 4 separate lines as requested */}
+              <h1 className="text-[14px] xs:text-[16px] sm:text-[19px] font-black text-slate-900 leading-[1.3] tracking-tight text-right flex flex-col items-start gap-0.5 xs:gap-1">
+                <div className="whitespace-nowrap">
+                  <TextBlurReveal 
+                    text="تبدیل شدن به" 
+                    delay={0.1}
+                    className="justify-start whitespace-nowrap"
+                    wordClassName="font-black text-slate-900"
+                  />
+                </div>
+                <div className="whitespace-nowrap">
+                  <TextBlurReveal 
+                    text="آفریدگار رویاها،" 
+                    delay={0.4}
+                    className="justify-start whitespace-nowrap"
+                    wordClassName="font-black text-slate-900"
+                  />
+                </div>
+                <div className="whitespace-nowrap">
+                  <TextBlurReveal 
+                    text="دروازه چهلم" 
+                    delay={0.7}
+                    className="justify-start whitespace-nowrap"
+                    wordClassName="text-[#5243B2] font-black"
+                  />
+                </div>
+                <div className="whitespace-nowrap">
+                  <TextBlurReveal 
+                    text="خودشناسی" 
+                    delay={1.0}
+                    className="justify-start whitespace-nowrap"
+                    wordClassName="font-black text-slate-900"
+                  />
+                </div>
               </h1>
             </div>
           </div>
@@ -272,13 +316,24 @@ export default function Home() {
             </p>
           </motion.div>
 
-          {/* Full Width Buttons Stack */}
+          {/* Full Width Buttons Stack (VIP on top, then Shop, then Blog) */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
             className="relative z-10 space-y-2.5 pt-1"
           >
+            {/* VIP Consultation Button on Top */}
+            <button
+              id="hero-vip-cta-mobile"
+              onClick={() => setCurrentPage('vip')}
+              className="w-full bg-gradient-to-r from-amber-500 via-[#5243B2] to-[#7062C4] text-white font-black text-xs sm:text-sm py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#5243B2]/20 active:scale-[0.98] transition-all cursor-pointer border border-amber-300/40"
+            >
+              <Crown size={16} className="text-amber-300 animate-pulse" />
+              <span>مشاوره VIP استاد (همراهی اختصاصی)</span>
+              <ArrowLeft size={15} className="text-amber-200" />
+            </button>
+
             <ShimmerButton
               id="hero-shop-cta-mobile"
               onClick={() => setCurrentPage('shop')}
@@ -418,6 +473,70 @@ export default function Home() {
           {bestSellers.map((prod) => (
             <ProductCard key={prod.id} product={prod} />
           ))}
+        </div>
+      </section>
+
+      {/* VIP Consultation Exclusive Service Section */}
+      <section className="max-w-7xl mx-auto px-4 py-12">
+        <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 text-white p-8 md:p-14 overflow-hidden shadow-xl border border-indigo-500/30">
+          {/* Subtle background glow */}
+          <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#5243B2]/30 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-10 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-8 space-y-5 text-right">
+              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-400/20 to-purple-400/20 border border-amber-400/40 rounded-full px-4 py-1.5 text-xs font-bold text-amber-300 shadow-xs">
+                <Crown size={15} className="text-amber-400 animate-pulse" />
+                <span>خدمت اختصاصی و ممتاز</span>
+              </div>
+
+              <div className="space-y-2">
+                <h2 className="text-2xl md:text-4xl font-black text-white leading-tight">
+                  مشاوره VIP استاد فرشاد میرشکاری
+                </h2>
+                <p className="text-sm md:text-base font-medium text-purple-200">
+                  همراهی اختصاصی با فرشاد میرشکاری در مسیر رویابینی آگاهانه
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="flex items-center gap-2.5 text-xs text-slate-200">
+                  <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                  <span>تحلیل روزانه تمرینات و رویاهای شما</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-xs text-slate-200">
+                  <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                  <span>ارائه راهکارهای کلیدی و اصلاح متد تمرینی</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-xs text-slate-200">
+                  <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                  <span>پاسخگویی اختصاصی به تمامی پرسش‌ها در تلگرام</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-xs text-slate-200">
+                  <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                  <span>پلن‌های ۳۰، ۶۰ و ۹۰ روزه اختصاصی</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-4 flex flex-col items-center lg:items-end justify-center gap-4">
+              <div className="w-full bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/15 text-center space-y-2">
+                <span className="text-xs text-purple-200 block">شروع پلن‌ها از:</span>
+                <div className="text-2xl md:text-3xl font-black text-amber-300">
+                  ۸,۹۰۰,۰۰۰ <span className="text-xs text-white">تومان</span>
+                </div>
+                <span className="text-[11px] text-slate-300 block">ظرفیت محدود ماه جاری</span>
+              </div>
+
+              <ShimmerButton
+                id="home-vip-section-cta"
+                onClick={() => setCurrentPage('vip')}
+                className="w-full py-4 text-xs md:text-sm font-black"
+              >
+                مشاهده و ثبت‌نام مشاوره VIP
+              </ShimmerButton>
+            </div>
+          </div>
         </div>
       </section>
 

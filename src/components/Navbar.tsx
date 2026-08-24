@@ -27,6 +27,7 @@ import {
   Home as HomeIcon,
   ShoppingBag as ShopIcon,
   Gamepad2,
+  Crown,
   Smartphone,
   Download
 } from 'lucide-react';
@@ -70,10 +71,10 @@ export default function Navbar() {
   };
 
   const navLinks = [
-    { id: 'home', label: 'صفحه اصلی', icon: HomeIcon },
-    { id: 'shop', label: 'فروشگاه', icon: ShopIcon },
+    { id: 'shop', label: 'فروشگاه محصولات', icon: ShopIcon },
+    { id: 'vip', label: 'مشاوره VIP استاد', icon: Crown, highlight: true },
+    { id: 'blog', label: 'مقالات آموزشی', icon: BookOpen },
     { id: 'dream-game', label: 'بازی کنترل رویا 🎮', icon: Gamepad2 },
-    { id: 'blog', label: 'مجله آگاهی', icon: BookOpen },
     { id: 'faq', label: 'سوالات متداول', icon: HelpCircle },
     { id: 'about', label: 'درباره من', icon: Info },
     { id: 'contact', label: 'تماس با من', icon: PhoneCall },
@@ -128,19 +129,22 @@ export default function Navbar() {
           </div>
 
           {/* Center Section: Main Desktop Navigation links */}
-          <nav className="hidden lg:flex items-center gap-8 text-sm font-medium">
+          <nav className="hidden lg:flex items-center gap-7 text-sm font-medium">
             {navLinks.map((link) => (
               <button
                 key={link.id}
                 id={`nav-link-${link.id}`}
                 onClick={() => setCurrentPage(link.id)}
-                className={`relative py-2 px-1 transition-all ${
+                className={`relative py-2 px-1 transition-all flex items-center gap-1.5 cursor-pointer ${
                   currentPage === link.id 
                     ? 'text-indigo-600 font-bold' 
+                    : (link as any).highlight
+                    ? 'text-amber-700 font-bold hover:text-amber-800'
                     : 'text-slate-600 hover:text-indigo-600'
                 }`}
               >
-                {link.label}
+                {(link as any).highlight && <Crown size={15} className="text-amber-500 animate-pulse" />}
+                <span>{link.label}</span>
                 {currentPage === link.id && (
                   <motion.div 
                     layoutId="activeNavTab"
