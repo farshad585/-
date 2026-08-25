@@ -728,6 +728,28 @@ async function persistProductsToSupabase(productsList: any[]) {
   }
 }
 
+// VIP Capacity In-Memory & Persistence Store
+let serverVipCapacity = { enrolled: 17, capacity: 40 };
+
+app.get('/api/settings/vip-capacity', (req, res) => {
+  res.json({ success: true, ...serverVipCapacity });
+});
+
+app.post('/api/settings/vip-capacity', (req, res) => {
+  try {
+    const { enrolled, capacity } = req.body;
+    if (typeof enrolled === 'number') {
+      serverVipCapacity.enrolled = Math.max(0, Math.min(capacity || 40, enrolled));
+    }
+    if (typeof capacity === 'number' && capacity > 0) {
+      serverVipCapacity.capacity = capacity;
+    }
+    res.json({ success: true, ...serverVipCapacity });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e?.message });
+  }
+});
+
 // GET & POST Products API
 app.get('/api/products', async (req, res) => {
   let products = await syncProductsFromSupabase();

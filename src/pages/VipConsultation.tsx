@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { PRODUCTS } from '../data/products';
+import { ALL_REVIEWS } from '../data/reviewsData';
+import { Review } from '../types';
 import SEO from '../components/SEO';
 import ShimmerButton from '../components/ShimmerButton';
 import StarfieldBeams from '../components/StarfieldBeams';
 import TextBlurReveal from '../components/TextBlurReveal';
-import NumberTicker from '../components/NumberTicker';
 import { 
   Sparkles, 
   CheckCircle2, 
@@ -22,12 +28,23 @@ import {
   Award,
   ChevronLeft,
   ArrowRight,
-  UserCheck
+  UserCheck,
+  Star,
+  MessageSquare,
+  Users,
+  AlertCircle,
+  ThumbsUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function VipConsultation() {
-  const { setCurrentPage, setSelectedProductId, addToCart, products } = useApp();
+  const { 
+    setCurrentPage, 
+    addToCart, 
+    products, 
+    vipCapacity = 40, 
+    vipEnrolledCount = 17 
+  } = useApp();
 
   // Find the exact VIP product (ID: 45398)
   const vipProduct = (products || PRODUCTS).find(p => p.id === '45398') || PRODUCTS.find(p => p.id === '45398')!;
@@ -36,6 +53,18 @@ export default function VipConsultation() {
   const [selectedPlan, setSelectedPlan] = useState<'30days' | '60days' | '90days'>('30days');
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(null);
+
+  // Reviews State
+  const initialVipReviews = useMemo(() => {
+    return ALL_REVIEWS.filter(r => r.productId === '45398');
+  }, []);
+  
+  const [reviewsList, setReviewsList] = useState<Review[]>(initialVipReviews);
+  const [newReviewAuthor, setNewReviewAuthor] = useState('');
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [newReviewComment, setNewReviewComment] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewSuccessMessage, setReviewSuccessMessage] = useState<string | null>(null);
 
   // VIP consultation plans configuration
   const plans = [
@@ -92,6 +121,10 @@ export default function VipConsultation() {
   // Active selected plan details
   const activePlanData = plans.find(p => p.id === selectedPlan) || plans[0];
 
+  // Capacity calculations
+  const remainingSeats = Math.max(0, vipCapacity - vipEnrolledCount);
+  const percentFilled = Math.min(100, Math.round((vipEnrolledCount / vipCapacity) * 100));
+
   const handleEnrollInPlan = (planId: '30days' | '60days' | '90days') => {
     setIsEnrolling(true);
     const chosenPlan = plans.find(p => p.id === planId) || activePlanData;
@@ -112,6 +145,35 @@ export default function VipConsultation() {
     setTimeout(() => {
       setIsEnrolling(false);
       setCurrentPage('cart');
+    }, 400);
+  };
+
+  const handleAddReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newReviewAuthor.trim() || !newReviewComment.trim()) return;
+
+    setIsSubmittingReview(true);
+    setTimeout(() => {
+      const newRev: Review = {
+        id: `rev-vip-${Date.now()}`,
+        productId: '45398',
+        authorName: newReviewAuthor.trim(),
+        rating: newReviewRating,
+        date: new Intl.DateTimeFormat('fa-IR').format(new Date()),
+        comment: newReviewComment.trim(),
+        verifiedPurchase: true
+      };
+
+      setReviewsList(prev => [newRev, ...prev]);
+      setNewReviewAuthor('');
+      setNewReviewComment('');
+      setNewReviewRating(5);
+      setIsSubmittingReview(false);
+      setReviewSuccessMessage('دیدگاه و تجربه شما با موفقیت ثبت شد و نمایش داده می‌شود.');
+
+      setTimeout(() => {
+        setReviewSuccessMessage(null);
+      }, 5000);
     }, 400);
   };
 
@@ -145,7 +207,7 @@ export default function VipConsultation() {
       <div className="relative min-h-screen text-slate-900 overflow-hidden pb-16">
         
         {/* Hero Section */}
-        <section className="relative pt-8 pb-16 md:py-20 max-w-6xl mx-auto px-4">
+        <section className="relative pt-8 pb-12 md:py-16 max-w-6xl mx-auto px-4">
           <StarfieldBeams />
 
           <div className="relative z-10 text-center space-y-6 max-w-3xl mx-auto">
@@ -161,13 +223,15 @@ export default function VipConsultation() {
               <Sparkles size={13} className="text-amber-500" />
             </motion.div>
 
-            {/* Main Headings */}
+            {/* Main Headings with Half-Speed Reveal */}
             <div className="space-y-3">
               <h1 className="text-3xl md:text-5xl font-black text-slate-900 leading-tight">
                 <TextBlurReveal 
                   text="مشاوره VIP استاد" 
-                  delay={0.1}
-                  className="block text-slate-900 font-black"
+                  delay={0.2}
+                  duration={2.2}
+                  stagger={0.32}
+                  className="block text-slate-900 font-black justify-center"
                   wordClassName="font-black"
                 />
               </h1>
@@ -176,11 +240,51 @@ export default function VipConsultation() {
               </p>
             </div>
 
+            {/* Modern & Minimal 40-Cell Segmented Capacity Lifebar */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="bg-white/85 backdrop-blur-md rounded-2xl border border-slate-200/90 p-4 md:p-5 shadow-xs max-w-xl mx-auto text-right space-y-2.5"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs md:text-sm font-black text-slate-900">
+                    ظرفیت این ماه:
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-xs md:text-sm font-black font-sans">
+                  <span className="text-emerald-600 font-bold text-sm md:text-base">{vipEnrolledCount.toLocaleString('fa-IR')}</span>
+                  <span className="text-slate-400">/</span>
+                  <span className="text-slate-600">{vipCapacity.toLocaleString('fa-IR')}</span>
+                </div>
+              </div>
+
+              {/* 40 Modern Minimal Segment Cells */}
+              <div className="flex gap-1 items-center w-full h-3 md:h-3.5" dir="ltr">
+                {Array.from({ length: vipCapacity }).map((_, idx) => {
+                  const isFilled = idx < vipEnrolledCount;
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex-1 h-full rounded-[3px] transition-all duration-300 ${
+                        isFilled
+                          ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.35)]'
+                          : 'bg-slate-100 border border-slate-200/70'
+                      }`}
+                      title={`جایگاه ${idx + 1}`}
+                    />
+                  );
+                })}
+              </div>
+            </motion.div>
+
             {/* 3 Core Value Props */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
+              transition={{ delay: 0.5 }}
               className="bg-white/90 backdrop-blur-md rounded-3xl border border-[#EEEAF9] p-6 md:p-8 shadow-sm text-right space-y-4 max-w-2xl mx-auto"
             >
               <div className="flex items-start gap-3.5">
@@ -307,7 +411,7 @@ export default function VipConsultation() {
             })}
           </div>
 
-          {/* Sticky Fast Enroll Bar for Selected Plan */}
+          {/* Fast Enroll Action Bar for Selected Plan */}
           <div className="p-6 rounded-3xl bg-gradient-to-r from-[#EEEAF9] via-white to-[#EAF2FA] border border-[#D1C7F0] shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
             <div className="space-y-1 text-right">
               <div className="flex items-center gap-2">
@@ -317,7 +421,7 @@ export default function VipConsultation() {
                 </span>
               </div>
               <p className="text-xs text-slate-600">
-                شهریه کل: <strong className="text-[#5243B2] font-black">{activePlanData.price.toLocaleString('fa-IR')} تومان</strong> • شروع بلافاصله پس از تکمیل سفارش
+                شهریه کل: <strong className="text-[#5243B2] font-black">{activePlanData.price.toLocaleString('fa-IR')} تومان</strong> • شروع بلافاصله پس از تکمیل سفارش در چت تلگرام
               </p>
             </div>
 
@@ -367,6 +471,180 @@ export default function VipConsultation() {
             </div>
 
           </div>
+        </section>
+
+        {/* 22 Authentic Reviews Section */}
+        <section id="vip-reviews" className="max-w-6xl mx-auto px-4 py-12 space-y-8">
+          
+          {/* Reviews Header */}
+          <div className="bg-white rounded-3xl border border-[#EEEAF9] p-6 md:p-8 shadow-xs flex flex-col md:flex-row items-center justify-between gap-6 text-right">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-black border border-amber-300/80">
+                  رضایت ۱۰۰٪ شرکت‌کنندگان
+                </span>
+                <span className="text-xs text-slate-500 font-bold">
+                  {reviewsList.length.toLocaleString('fa-IR')} تجربه ثبت شده
+                </span>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-black text-slate-900">
+                نظرات و تجربیات همراهان دوره VIP
+              </h2>
+              <p className="text-xs md:text-sm text-slate-600">
+                گزارش‌های واقعی و بی‌واسطه هنرجویان از ارتباط تلگرامی و تحلیل رویا با استاد فرشاد میرشکاری
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="flex items-center gap-4 bg-slate-50 border border-slate-200/80 p-4 rounded-2xl shrink-0">
+              <div className="text-center">
+                <div className="text-3xl md:text-4xl font-black text-amber-500 font-sans">۵.۰</div>
+                <div className="flex items-center justify-center gap-0.5 text-amber-400 mt-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} size={15} fill="currentColor" />
+                  ))}
+                </div>
+              </div>
+              <div className="border-r border-slate-300 pr-4 text-xs text-slate-600 space-y-0.5">
+                <div className="font-extrabold text-slate-900">کیفیت پاسخگویی: عالی</div>
+                <div>سرعت پاسخ در تلگرام: ۲۴ ساعته</div>
+                <div>اثربخشی تکنیک‌ها: ۱۰۰٪</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Reviews Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {reviewsList.map((rev) => (
+              <div 
+                key={rev.id}
+                className="bg-white rounded-2xl border border-slate-100 p-5 shadow-2xs hover:shadow-md transition-shadow text-right space-y-3 relative flex flex-col justify-between"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-indigo-50 text-[#5243B2] font-black text-xs flex items-center justify-center shrink-0 border border-indigo-100">
+                        {rev.authorName.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="text-xs md:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                          <span>{rev.authorName}</span>
+                          {rev.verifiedPurchase && (
+                            <span className="inline-flex items-center gap-0.5 bg-emerald-50 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-emerald-200">
+                              <Check size={10} />
+                              <span>دانشجوی تاییدشده VIP</span>
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono">{rev.date}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-0.5 text-amber-400 shrink-0">
+                      {[...Array(rev.rating)].map((_, i) => (
+                        <Star key={i} size={13} fill="currentColor" />
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-700 leading-relaxed pt-1">
+                    {rev.comment}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] text-slate-400">
+                  <span className="text-[#5243B2] font-bold">پشتیبانی تلگرام با استاد میرشکاری</span>
+                  <span className="flex items-center gap-1 text-slate-500">
+                    <ThumbsUp size={11} className="text-indigo-400" />
+                    <span>تجربه تایید شده</span>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add New Review Form */}
+          <div className="bg-white rounded-3xl border border-[#EEEAF9] p-6 md:p-8 shadow-xs text-right space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <MessageSquare size={18} className="text-[#5243B2]" />
+                <span>ثبت نظر و تجربه شما از مشاوره VIP استاد</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                اگر تجربه شرکت در دوره مشاوره VIP را دارید، دیدگاه ارزشمند خود را با سایر همراهان به اشتراک بگذارید.
+              </p>
+            </div>
+
+            {reviewSuccessMessage && (
+              <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200 flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-600" />
+                <span>{reviewSuccessMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAddReview} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">نام و نام‌خانوادگی شما *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newReviewAuthor}
+                    onChange={(e) => setNewReviewAuthor(e.target.value)}
+                    placeholder="مثلاً: علی رضایی"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-[#5243B2] focus:bg-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">امتیاز شما به مشاوره VIP *</label>
+                  <div className="flex items-center gap-2 pt-1.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setNewReviewRating(star)}
+                        className="text-amber-400 focus:outline-none cursor-pointer"
+                      >
+                        <Star 
+                          size={22} 
+                          fill={star <= newReviewRating ? "currentColor" : "none"} 
+                          stroke="currentColor" 
+                        />
+                      </button>
+                    ))}
+                    <span className="text-xs font-black text-slate-700 mr-2">
+                      {newReviewRating} ستاره
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-700">متن تجربه و دیدگاه شما *</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={newReviewComment}
+                  onChange={(e) => setNewReviewComment(e.target.value)}
+                  placeholder="از تجربه همراهی و ارتباط مستقیم با استاد فرشاد میرشکاری و نتایج خود بنویسید..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-[#5243B2] focus:bg-white leading-relaxed"
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={isSubmittingReview}
+                  className="bg-[#5243B2] hover:bg-[#42349A] text-white font-bold text-xs py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-[#5243B2]/20"
+                >
+                  <Send size={14} />
+                  <span>{isSubmittingReview ? 'در حال ثبت...' : 'ارسال و ثبت دیدگاه'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
         </section>
 
         {/* Frequently Asked Questions */}

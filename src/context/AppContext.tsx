@@ -62,6 +62,10 @@ interface AppContextType {
   addProduct: (newProduct: Product) => void;
   deleteProduct: (id: string) => void;
   resetProducts: () => void;
+
+  vipCapacity: number;
+  vipEnrolledCount: number;
+  updateVipEnrolledCount: (count: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -268,6 +272,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [couponCode, setCouponCode] = useState<string | null>(null);
   const [discountPercentage, setDiscountPercentage] = useState<number>(0);
 
+  // VIP Monthly Capacity State (Total: 40 seats, default enrolled: 17)
+  const vipCapacity = 40;
+  const [vipEnrolledCount, setVipEnrolledCount] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('40gates_vip_enrolled');
+      if (saved !== null) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 0) return parsed;
+      }
+    } catch {
+      // fallback
+    }
+    return 17;
+  });
+
+  const updateVipEnrolledCount = (count: number) => {
+    const clamped = Math.max(0, Math.min(vipCapacity, count));
+    setVipEnrolledCount(clamped);
+    try {
+      localStorage.setItem('40gates_vip_enrolled', clamped.toString());
+      fetch('/api/settings/vip-capacity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enrolled: clamped, capacity: vipCapacity })
+      }).catch(e => console.warn('VIP capacity server sync error:', e));
+    } catch (e) {
+      console.warn('Failed to save VIP capacity:', e);
+    }
+  };
+
   // Synchronized URL-hash router
   const setCurrentPage = (page: string) => {
     setCurrentPageReal(page);
@@ -292,10 +326,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       if (hash) {
         // Parse simple sub-arguments
-        if (hash.startsWith('product/')) {
+        if (hash === 'vip' || hash === 'vip-consultation' || hash === 'product/45398') {
+          setSelectedProductId('45398');
+          setCurrentPageReal('vip');
+        } else if (hash.startsWith('product/')) {
           const pid = hash.split('product/')[1];
           setSelectedProductId(pid);
-          setCurrentPageReal('product-details');
+          if (pid === '45398') {
+            setCurrentPageReal('vip');
+          } else {
+            setCurrentPageReal('product-details');
+          }
         } else if (hash.startsWith('blog/')) {
           const aid = hash.split('blog/')[1];
           setSelectedArticleId(aid);
@@ -660,6 +701,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         selectedProductId,
         setSelectedProductId: (id) => {
           setSelectedProductId(id);
+          if (id === '45398') {
+            setCurrentPageReal('vip');
+            window.location.hash = 'vip';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+          }
           if (id) {
             setCurrentPageReal('product-details');
             window.location.hash = `product/${id}`;
@@ -716,7 +763,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateProduct,
         addProduct,
         deleteProduct,
-        resetProducts
+        resetProducts,
+        vipCapacity,
+        vipEnrolledCount,
+        updateVipEnrolledCount
       }}
     >
       {children}

@@ -29,7 +29,7 @@ import DreamGame from './pages/DreamGame';
 import VipConsultation from './pages/VipConsultation';
 
 function MainAppContent() {
-  const { currentPage, isAuthenticated } = useApp();
+  const { currentPage, isAuthenticated, selectedProductId } = useApp();
 
   // Protected Admin Route (standalone full screen interface)
   if (currentPage === 'admin') {
@@ -47,6 +47,9 @@ function MainAppContent() {
       case 'vip-consultation':
         return <VipConsultation />;
       case 'product-details':
+        if (selectedProductId === '45398') {
+          return <VipConsultation />;
+        }
         return <ProductDetails />;
       case 'blog':
       case 'blog-details':

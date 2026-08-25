@@ -40,7 +40,8 @@ import {
   Trash2,
   Save,
   X,
-  Check
+  Check,
+  Flame
 } from 'lucide-react';
 import SEO from '../components/SEO';
 import { useApp } from '../context/AppContext';
@@ -89,10 +90,23 @@ export default function Admin() {
     updateProduct, 
     addProduct, 
     deleteProduct, 
-    resetProducts 
+    resetProducts,
+    vipCapacity = 40,
+    vipEnrolledCount = 17,
+    updateVipEnrolledCount
   } = useApp();
 
   const productsList = products || PRODUCTS;
+
+  // VIP Capacity State in Admin
+  const [vipCapacityInput, setVipCapacityInput] = useState<number>(vipEnrolledCount || 17);
+  const [vipSavedSuccess, setVipSavedSuccess] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (vipEnrolledCount !== undefined) {
+      setVipCapacityInput(vipEnrolledCount);
+    }
+  }, [vipEnrolledCount]);
 
   // Authentication State
   const [adminToken, setAdminToken] = useState<string | null>(() => {
@@ -2038,6 +2052,136 @@ export default function Admin() {
             {/* TAB 8: SETTINGS & SECURITY LOGS */}
             {activeTab === 'settings' && (
               <div className="space-y-6 text-right">
+
+                {/* VIP Consultation Monthly Capacity Lifebar Setting */}
+                <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-3 border-b border-slate-700">
+                    <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
+                      <Flame className="text-amber-400" size={18} />
+                      <span>تنظیم لایف‌بار ظرفیت ماهانه «مشاوره VIP استاد»</span>
+                    </h2>
+                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-black">
+                      سقف ماهانه: {vipCapacity} نفر
+                    </span>
+                  </div>
+
+                  <div className="space-y-4">
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      لایف‌بار در صفحه «مشاوره VIP استاد» نشان‌دهنده تعداد ثبت‌نام‌های انجام شده از سقف {vipCapacity} نفره هر ماه است. می‌توانید هر زمان این عدد را برای ایجاد هیجان خرید و نمایش سهمیه باقی‌مانده تغییر دهید.
+                    </p>
+
+                    {/* Interactive Slider & Input Form */}
+                    <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 space-y-4">
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="space-y-1 w-full sm:w-auto">
+                          <label className="block text-slate-300 font-bold text-xs">
+                            تعداد ثبت‌نام‌های انجام شده این ماه (از {vipCapacity} نفر):
+                          </label>
+                          <span className="text-[11px] text-slate-400">
+                            جایگاه باقی‌مانده در سایت: <strong className="text-emerald-400 font-black font-sans">{Math.max(0, vipCapacity - vipCapacityInput)} نفر</strong>
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                          <input
+                            type="number"
+                            min={0}
+                            max={vipCapacity}
+                            value={vipCapacityInput}
+                            onChange={(e) => setVipCapacityInput(Math.max(0, Math.min(vipCapacity, Number(e.target.value))))}
+                            className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-center font-black text-lg focus:outline-none focus:border-amber-400"
+                          />
+                          <span className="text-xs font-bold text-slate-400">از {vipCapacity} نفر</span>
+                        </div>
+                      </div>
+
+                      {/* Range Slider */}
+                      <div className="space-y-2">
+                        <input
+                          type="range"
+                          min={0}
+                          max={vipCapacity}
+                          value={vipCapacityInput}
+                          onChange={(e) => setVipCapacityInput(Number(e.target.value))}
+                          className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                        />
+                        <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                          <span>۰ (شروع ماه)</span>
+                          <span>۱۰</span>
+                          <span>۲۰ (نیمه)</span>
+                          <span>۳۰</span>
+                          <span>{vipCapacity} (تکمیل ظرفیت)</span>
+                        </div>
+                      </div>
+
+                      {/* Quick Presets */}
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
+                        <span className="text-[11px] text-slate-400 font-bold">انتخاب سریع:</span>
+                        {[10, 17, 25, 32, 37, 40].map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setVipCapacityInput(val)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                              vipCapacityInput === val
+                                ? 'bg-amber-500 text-slate-950 font-black'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                            }`}
+                          >
+                            {val} نفر
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Live Preview Bar */}
+                      <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="font-bold text-slate-300">پیش‌نمایش زنده نوار ۴۰ سلولی در سایت:</span>
+                          <span className="text-emerald-400 font-black font-mono">
+                            {vipCapacityInput} / {vipCapacity} سلول سبز ({Math.round((vipCapacityInput / vipCapacity) * 100)}٪)
+                          </span>
+                        </div>
+                        <div className="flex gap-1 items-center w-full h-3.5 p-1 bg-slate-900 rounded-lg border border-slate-800" dir="ltr">
+                          {Array.from({ length: vipCapacity }).map((_, idx) => {
+                            const isFilled = idx < vipCapacityInput;
+                            return (
+                              <div
+                                key={idx}
+                                className={`flex-1 h-full rounded-[2px] transition-all duration-200 ${
+                                  isFilled
+                                    ? 'bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.5)]'
+                                    : 'bg-slate-800 border border-slate-700/60'
+                                }`}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Save Button & Feedback */}
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateVipEnrolledCount(vipCapacityInput);
+                            setVipSavedSuccess(true);
+                            setTimeout(() => setVipSavedSuccess(false), 4000);
+                          }}
+                          className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-2.5 rounded-xl transition-all shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <CheckCircle2 size={16} />
+                          <span>ذخیره و اعمال در صفحه مشاوره VIP</span>
+                        </button>
+
+                        {vipSavedSuccess && (
+                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                            ✓ ظرفیت ماهانه با موفقیت در سایت بروزرسانی و ذخیره شد!
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Supabase Database Connection Diagnostics & Configuration */}
                 <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 space-y-4">
