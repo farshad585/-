@@ -27,6 +27,8 @@ export interface Product {
   author: string;         // e.g. "Farshad" or "چهل دروازه"
   downloadUrl?: string;    // Direct downloadable file URL
   tableOfContents?: string[]; // Table of contents
+  isPreOrder?: boolean;    // Pre-order item flag
+  preOrderDeliveryDate?: string; // Pre-order expected delivery date (e.g. 'آذر ۱۴۰۵')
 }
 
 export interface Review {
@@ -70,12 +72,16 @@ export interface Order {
   id: string;
   date: string;
   status: 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled';
+  isPreOrder?: boolean;
+  preOrderDeliveryDate?: string;
   items: {
     productId: string;
     title: string;
     quantity: number;
     price: number;
     type: Product['type'];
+    isPreOrder?: boolean;
+    format?: string;
   }[];
   subtotal?: number;
   discountAmount?: number;

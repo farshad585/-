@@ -60,6 +60,10 @@ export default function Cart() {
     item => item.product.type === 'pdf' || item.product.type === 'audio' || item.product.type === 'course'
   );
 
+  const hasPreOrderItem = cart.some(
+    item => item.product.isPreOrder || item.product.id === '45363' || item.isPreOrder
+  );
+
   const shippingFee = (amountAfterDiscount >= 2000000 || isOnlyDigital || cart.length === 0) ? 0 : 290000;
 
   const grandTotal = amountAfterDiscount + vatAmount + shippingFee;
@@ -109,6 +113,18 @@ export default function Cart() {
         
         {/* Items List (Span 8) */}
         <div className="lg:col-span-8 space-y-4">
+          {hasPreOrderItem && (
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-4 text-right space-y-1.5 shadow-xs">
+              <div className="flex items-center gap-2 text-amber-950 font-black text-xs">
+                <span className="text-base">📦</span>
+                <span>توجه: سبد خرید شما شامل محصول پیش‌فروش است</span>
+              </div>
+              <p className="text-[11px] text-amber-900 leading-relaxed font-medium">
+                چاپ جدید مجموعه ۴ جلدی چهل دروازه در <strong>آذرماه ۱۴۰۵</strong> برای شما ارسال خواهد شد و هدیه ۵۰٪ تخفیف دوره‌های صوتی پس از نهایی‌سازی سفارش در اختیارتان قرار می‌گیرد.
+              </p>
+            </div>
+          )}
+
           {cart.length === 0 ? (
             <div className="p-16 rounded-3xl border border-indigo-100 bg-white text-center space-y-6 shadow-xs">
               <ShoppingBag size={56} className="text-slate-300 mx-auto stroke-1" />
@@ -128,11 +144,14 @@ export default function Cart() {
             </div>
           ) : (
             cart.map((item, index) => {
+              const isItemPreOrder = item.product.isPreOrder || item.product.id === '45363' || item.isPreOrder;
               const price = item.product.salePrice || item.product.price;
               return (
                 <div 
                   key={`${item.product.id}-${item.selectedFormat}-${index}`}
-                  className="p-5 rounded-2xl bg-white border border-indigo-100 hover:border-purple-300 transition-all shadow-xs flex flex-col sm:flex-row gap-5 items-center justify-between"
+                  className={`p-5 rounded-2xl bg-white border transition-all shadow-xs flex flex-col sm:flex-row gap-5 items-center justify-between ${
+                    isItemPreOrder ? 'border-amber-300 bg-amber-50/20' : 'border-indigo-100 hover:border-purple-300'
+                  }`}
                 >
                   {/* Left segment: image and title details */}
                   <div className="flex gap-4 items-center w-full sm:w-auto">
@@ -147,9 +166,16 @@ export default function Cart() {
                     <div className="space-y-1 text-right">
                       <h4 className="text-xs font-bold text-slate-900 leading-relaxed line-clamp-1">{item.product.title}</h4>
                       <p dir="ltr" className="text-[10px] text-indigo-600 font-mono tracking-widest uppercase text-right">{item.product.englishTitle}</p>
-                      <span className="inline-block text-[9px] bg-slate-100 border border-slate-200 text-slate-600 px-2.5 py-0.5 rounded-full mt-1.5 font-medium">
-                        قالب: {item.selectedFormat}
-                      </span>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <span className="inline-block text-[9px] bg-slate-100 border border-slate-200 text-slate-600 px-2.5 py-0.5 rounded-full font-medium">
+                          قالب: {item.selectedFormat}
+                        </span>
+                        {isItemPreOrder && (
+                          <span className="inline-block text-[9px] bg-amber-100 border border-amber-300 text-amber-900 px-2.5 py-0.5 rounded-full font-bold">
+                            📦 پیش‌فروش چاپ جدید (تحویل: آذرماه ۱۴۰۵)
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

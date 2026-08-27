@@ -149,19 +149,16 @@ export default function ProductDetails() {
 
   // Calculate dynamic price based on print quality or format selection
   const getQualityPricing = () => {
-    if (product.stock === 0) {
+    if (product.stock === 0 && !product.isPreOrder && product.id !== '45363') {
       return { originalPrice: 0, finalPrice: 0, discountPercent: 0 };
     }
 
-    if (product.id === '45363') { // 4-volume set
-      let baseOrig = 3599000;
-      let baseFinal = 3059150;
+    if (product.id === '45363') { // 4-volume set (Pre-order with no discount)
+      let basePrice = 3900000;
       if (selectedFormat.includes('تمام رنگی')) {
-        baseOrig = 3999000;
-        baseFinal = 3399150;
+        basePrice = 4400000;
       }
-      const disc = Math.round(((baseOrig - baseFinal) / baseOrig) * 100);
-      return { originalPrice: baseOrig, finalPrice: baseFinal, discountPercent: disc };
+      return { originalPrice: basePrice, finalPrice: basePrice, discountPercent: 0 };
     }
 
     if (product.id === '45398') { // Standalone VIP Consultation product
@@ -337,38 +334,49 @@ export default function ProductDetails() {
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-indigo-100 rounded-2xl p-4 shadow-xs">
               <div className="flex flex-col">
-                {product.stock === 0 ? (
+                {product.stock === 0 && !product.isPreOrder && product.id !== '45363' ? (
                   <span className="text-lg font-black text-slate-500 font-sans">
-                    ۰ تومان
+                    ناموجود
                   </span>
                 ) : originalPrice > finalPrice ? (
                   <>
                     <span className="text-xs text-slate-400 line-through font-mono">
-                      {originalPrice === 0 ? 'رایگان' : originalPrice.toLocaleString('fa-IR') + ' تومان'}
+                      {originalPrice === 0 ? '۰ تومان' : originalPrice.toLocaleString('fa-IR') + ' تومان'}
                     </span>
                     <span className="text-lg font-black text-indigo-900 font-sans">
-                      {finalPrice === 0 ? 'رایگان' : finalPrice.toLocaleString('fa-IR') + ' تومان'}
+                      {finalPrice.toLocaleString('fa-IR') + ' تومان'}
                     </span>
                   </>
                 ) : (
                   <span className="text-lg font-black text-slate-900 font-sans">
-                    {finalPrice === 0 ? 'رایگان' : finalPrice.toLocaleString('fa-IR') + ' تومان'}
+                    {finalPrice === 0 && product.type === 'pdf' && product.downloadUrl
+                      ? 'رایگان' 
+                      : (finalPrice || 3900000).toLocaleString('fa-IR') + ' تومان'}
                   </span>
                 )}
               </div>
-              {product.stock > 0 && discountPercent > 0 && (
+              {(product.stock > 0 || product.isPreOrder || product.id === '45363') && discountPercent > 0 && (
                 <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-xs">
                   {discountPercent.toLocaleString('fa-IR')}٪ تخفیف
                 </span>
               )}
             </div>
 
-            {/* Inventory / Stock Status Badge (Hidden for VIP Service) */}
+            {/* Inventory / Stock Status Badge */}
             {product.id === '45398' ? (
               <div className="flex items-center gap-2 bg-purple-50 text-purple-950 border border-purple-200 px-3.5 py-3 rounded-2xl text-xs font-bold shadow-xs">
                 <Sparkles size={15} className="text-purple-600 animate-pulse" />
                 <span>ظرفیت پذیرش:</span>
                 <span className="text-purple-700 font-black">پذیرش فعال ماه جاری</span>
+              </div>
+            ) : product.isPreOrder || product.id === '45363' ? (
+              <div className="flex items-center gap-2 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-950 border border-amber-300 px-3.5 py-3 rounded-2xl text-xs font-bold shadow-xs">
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                </span>
+                <span>وضعیت محصول:</span>
+                <span className="text-amber-800 font-black">پیش‌فروش چاپ جدید</span>
               </div>
             ) : product.stock > 0 ? (
               <div className="flex items-center gap-2 bg-emerald-50/90 text-emerald-950 border border-emerald-200 px-3.5 py-3 rounded-2xl text-xs font-bold shadow-xs">
@@ -390,6 +398,47 @@ export default function ProductDetails() {
             )}
           </div>
 
+          {/* Pre-Order Information & Special Offer Modules */}
+          {(product.isPreOrder || product.id === '45363') && (
+            <div className="space-y-3.5 pt-1">
+              {/* Delivery notice */}
+              <div className="bg-gradient-to-br from-amber-50/95 via-orange-50/50 to-amber-50/95 border-2 border-amber-300 rounded-2xl p-4.5 space-y-2 text-right shadow-xs">
+                <div className="flex items-center gap-2 text-amber-950 font-black text-sm">
+                  <span className="text-lg">📦</span>
+                  <span>تحویل چاپ جدید: آذرماه ۱۴۰۵</span>
+                </div>
+                <p className="text-xs text-amber-950 font-medium leading-relaxed">
+                  نسخه فیزیکی این مجموعه در حال حاضر موجود نیست. با ثبت پیش‌خرید، سفارش شما در اولویت چاپ جدید قرار می‌گیرد و آذرماه ۱۴۰۵ برای شما ارسال خواهد شد.
+                </p>
+              </div>
+
+              {/* Special Gift Box */}
+              <div className="bg-gradient-to-br from-indigo-50/90 via-purple-50/60 to-blue-50/90 border-2 border-indigo-200 rounded-2xl p-4.5 space-y-2 text-right shadow-xs">
+                <div className="flex items-center gap-2 text-indigo-950 font-black text-sm">
+                  <span className="text-lg">🎁</span>
+                  <span>هدیه ویژه پیش‌خرید:</span>
+                </div>
+                <p className="text-xs text-slate-800 leading-relaxed font-medium">
+                  به عنوان هدیه همراهی، به خریداران این مرحله، <strong className="text-indigo-700 font-extrabold">تخفیف ویژه ۵۰٪ برای خرید دوره‌های صوتی چهل دروازه</strong> تعلق می‌گیرد.
+                </p>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  (اطلاعات دسترسی به هدیه پس از ثبت سفارش در اختیار شما قرار خواهد گرفت.)
+                </p>
+              </div>
+
+              {/* Deadline & Limit Info Box */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-1.5 text-right">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
+                  <span className="text-base">⏳</span>
+                  <span>مهلت پیش‌خرید این مرحله: تا پایان شهریور ۱۴۰۵</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  ظرفیت چاپ این مرحله محدود است و اولویت ارسال با خریدارانی است که زودتر سفارش خود را نهایی کنند.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Product variations / Print Quality selector */}
           {product.id !== '45398' && (
             <div className="space-y-3">
@@ -403,7 +452,7 @@ export default function ProductDetails() {
                     <button 
                       type="button"
                       onClick={() => setSelectedFormat('کیفیت معمولی')}
-                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[140px] ${
                         selectedFormat.includes('معمولی')
                           ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
                           : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
@@ -411,6 +460,9 @@ export default function ProductDetails() {
                     >
                       <span className="block font-bold">کیفیت معمولی</span>
                       <span className="text-[10px] text-slate-500 mt-1 block">چاپ استاندارد کاغذ سوئدی</span>
+                      {product.id === '45363' && (
+                        <span className="text-[11px] text-indigo-700 font-black mt-1.5 block">۳,۹۰۰,۰۰۰ تومان</span>
+                      )}
                     </button>
 
                     {/* Quality Bulk for 45322 */}
@@ -434,14 +486,17 @@ export default function ProductDetails() {
                       <button 
                         type="button"
                         onClick={() => setSelectedFormat('کیفیت تمام رنگی')}
-                        className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                        className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[140px] ${
                           selectedFormat.includes('تمام رنگی')
                             ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
                             : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
                         }`}
                       >
                         <span className="block font-bold">کیفیت تمام رنگی</span>
-                        <span className="text-[10px] text-slate-500 mt-1 block">چاپ رنگی ویژه</span>
+                        <span className="text-[10px] text-slate-500 mt-1 block">چاپ تمام‌رنگی ویژه نفیس</span>
+                        {product.id === '45363' && (
+                          <span className="text-[11px] text-indigo-700 font-black mt-1.5 block">۴,۴۰۰,۰۰۰ تومان</span>
+                        )}
                       </button>
                     )}
                   </>
@@ -523,6 +578,34 @@ export default function ProductDetails() {
                 <Download size={18} />
                 <span>دانلود مستقیم فایل PDF کتاب</span>
               </a>
+            ) : (product.isPreOrder || product.id === '45363') ? (
+              <ShimmerButton
+                id="details-preorder-btn"
+                disabled={isAddingToCart}
+                onClick={() => {
+                  const customProduct: typeof product = {
+                    ...product,
+                    price: originalPrice,
+                    salePrice: finalPrice,
+                    isPreOrder: true
+                  };
+                  const finalFormatLabel = `${selectedFormat || 'کیفیت معمولی'} (پیش‌فروش چاپ جدید - ارسال: آذرماه ۱۴۰۵)`;
+                  handleAddToCartWithDelay(customProduct, finalFormatLabel);
+                }}
+                className="flex-1 py-4 text-xs font-black shadow-md"
+              >
+                {isAddingToCart ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin text-white" />
+                    <span>در حال ثبت پیش‌خرید...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={16} />
+                    <span>پیش‌خرید چاپ جدید</span>
+                  </>
+                )}
+              </ShimmerButton>
             ) : product.stock > 0 ? (
               <ShimmerButton
                 id="details-add-to-cart-btn"

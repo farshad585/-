@@ -537,11 +537,18 @@ export default function Dashboard() {
                           <span className="block font-bold text-slate-900">سفارش شماره {order.id}</span>
                           <span className="block text-[10px] text-slate-500 font-mono">تاریخ ثبت: {order.date}</span>
                         </div>
-                        <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full text-[10px] font-bold">
-                          {order.status === 'pending' ? 'در انتظار پرداخت' : 
-                           order.status === 'processing' ? 'آماده‌سازی ارسال' : 
-                           order.status === 'shipped' ? 'ارسال شده پستی' : 'تحویل نهایی'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {order.isPreOrder && (
+                            <span className="bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                              📦 پیش‌فروش (تحویل: {order.preOrderDeliveryDate || 'آذرماه ۱۴۰۵'})
+                            </span>
+                          )}
+                          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                            {order.status === 'pending' ? 'در انتظار پرداخت' : 
+                             order.status === 'processing' ? 'آماده‌سازی ارسال' : 
+                             order.status === 'shipped' ? 'ارسال شده پستی' : 'تحویل نهایی'}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Items row */}

@@ -18,8 +18,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { addToCart, wishlist, toggleWishlist, setSelectedProductId } = useApp();
 
   const isWishlisted = wishlist.includes(product.id);
-  const isOutOfStock = product.stock === 0;
-  const discountPercent = (product.salePrice && !isOutOfStock)
+  const isPreOrder = product.isPreOrder || product.id === '45363';
+  const isOutOfStock = product.stock === 0 && !isPreOrder;
+  const discountPercent = (product.salePrice && !isOutOfStock && !isPreOrder)
     ? Math.round(((product.price - product.salePrice) / product.price) * 100) 
     : 0;
 
@@ -36,7 +37,8 @@ export default function ProductCard({ product }: ProductCardProps) {
     if (isAdding) return;
     setIsAdding(true);
     setTimeout(() => {
-      addToCart(product, 1);
+      const format = isPreOrder ? 'پیش‌فروش چاپ جدید (ارسال: آذرماه ۱۴۰۵)' : undefined;
+      addToCart(product, 1, format);
       setIsAdding(false);
     }, 850);
   };
@@ -85,17 +87,20 @@ export default function ProductCard({ product }: ProductCardProps) {
           </span>
         )}
 
-        {/* Stock warning */}
-        {product.stock > 0 && product.stock <= 5 && (
+        {/* Stock warning or Pre-order */}
+        {isPreOrder ? (
+          <span className="absolute top-3 left-3 z-10 bg-amber-500 text-slate-950 font-black text-[9px] px-2.5 py-0.5 rounded-full shadow-xs">
+            آغاز پیش‌فروش چاپ جدید
+          </span>
+        ) : product.stock > 0 && product.stock <= 5 ? (
           <span className="absolute top-3 left-3 z-10 bg-amber-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold shadow-xs">
             فقط {product.stock.toLocaleString('fa-IR')} عدد باقی مانده!
           </span>
-        )}
-        {product.stock === 0 && (
+        ) : product.stock === 0 ? (
           <span className="absolute top-3 left-3 z-10 bg-slate-600 text-slate-100 text-[9px] px-2 py-0.5 rounded-full font-medium">
             ناموجود
           </span>
-        )}
+        ) : null}
 
         {/* Image Container with Hover zoom */}
         <div className="relative aspect-3/4 overflow-hidden bg-[#F7F5FC] border-b border-[#EEEAF9]">
@@ -115,11 +120,11 @@ export default function ProductCard({ product }: ProductCardProps) {
             >
               <Eye size={16} />
             </button>
-            {product.stock > 0 && (
+            {(product.stock > 0 || isPreOrder) && (
               <button
                 onClick={handleQuickAdd}
                 className="p-2.5 bg-white hover:bg-[#6557B8] hover:text-white rounded-full text-[#25243A] transition-colors shadow-md"
-                title="افزودن سریع به سبد"
+                title={isPreOrder ? "پیش‌خرید چاپ جدید" : "افزودن سریع به سبد"}
               >
                 <ShoppingCart size={16} />
               </button>
@@ -195,12 +200,12 @@ export default function ProductCard({ product }: ProductCardProps) {
                 <Heart size={13} className={isWishlisted ? 'fill-[#6557B8] text-[#6557B8]' : ''} />
               </button>
               
-              {product.stock > 0 && (
+              {(product.stock > 0 || isPreOrder) && (
                 <button
                   onClick={handleQuickAdd}
                   disabled={isAdding}
                   className="p-1.5 bg-[#EEEAF9] text-[#6557B8] border border-[#DCD5F3] hover:bg-[#6557B8] hover:text-white rounded-lg transition-all disabled:opacity-80 cursor-pointer"
-                  title="خرید"
+                  title={isPreOrder ? "پیش‌خرید چاپ جدید" : "خرید"}
                 >
                   {isAdding ? (
                     <Loader2 size={13} className="animate-spin text-[#6557B8]" />

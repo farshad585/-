@@ -55,6 +55,7 @@ export default function Checkout() {
   const [postalCode, setPostalCode] = useState(userProfile.postalCode || '');
   const [address, setAddress] = useState(userProfile.address || '');
   const [paymentGateway, setPaymentGateway] = useState<'zarinpal' | 'idpay'>('zarinpal');
+  const [preOrderAgreed, setPreOrderAgreed] = useState(false);
 
   // Gateway screen simulation
   const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
@@ -69,6 +70,10 @@ export default function Checkout() {
   const [generatedOrder, setGeneratedOrder] = useState<any>(null);
 
   const cartCount = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
+
+  const hasPreOrderItem = cart.some(
+    item => item.product?.isPreOrder || item.product?.id === '45363' || item.isPreOrder
+  );
 
   // Totals calculations
   const totalOriginalPrice = cart.reduce((acc, item) => {
@@ -116,6 +121,11 @@ export default function Checkout() {
 
       if (!targetEmail || !targetEmail.includes('@')) {
         showNotification('لطفاً آدرس ایمیل معتبر جهت دریافت فاکتور و اطلاع‌رسانی را وارد کنید.');
+        return;
+      }
+
+      if (hasPreOrderItem && !preOrderAgreed) {
+        showNotification('لطفاً تاییدیه شرایط پیش‌فروش را در انتهای فرم فعال (تیک) نمایید.');
         return;
       }
 
@@ -202,6 +212,34 @@ export default function Checkout() {
             شماره پیگیری سفارش شما: <strong className="text-indigo-900 font-mono text-sm">{generatedOrder?.id}</strong>
           </p>
         </div>
+
+        {/* Pre-order notification box if order contains pre-order items */}
+        {(generatedOrder?.isPreOrder || hasPreOrderItem || generatedOrder?.items?.some((i: any) => i.isPreOrder || i.productId === '45363')) && (
+          <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-300 rounded-3xl p-6 text-right space-y-3 shadow-xs">
+            <div className="flex items-center gap-2 text-amber-950 font-black text-sm border-b border-amber-200 pb-2.5">
+              <Sparkles size={18} className="text-amber-600" />
+              <span>اطلاعات پیش‌خرید چاپ جدید</span>
+            </div>
+            <div className="space-y-2 text-xs text-amber-950">
+              <p className="font-bold flex items-center gap-2">
+                <span className="text-base">📦</span>
+                <span>تحویل چاپ جدید: آذرماه ۱۴۰۵</span>
+              </p>
+              <p className="text-[11px] text-amber-900 leading-relaxed font-medium">
+                سفارش شما در اولویت چاپ جدید قرار گرفته و به محض چاپ در آذرماه ۱۴۰۵ به نشانی شما ارسال خواهد گردید.
+              </p>
+              <div className="bg-white/80 p-3 rounded-xl border border-amber-200 mt-2 space-y-1">
+                <p className="font-bold text-indigo-900 flex items-center gap-1.5 text-xs">
+                  <span>🎁</span>
+                  <span>هدیه ویژه پیش‌خرید: ۵۰٪ تخفیف دوره‌های صوتی</span>
+                </p>
+                <p className="text-[10px] text-slate-600 leading-relaxed">
+                  تخفیف ۵۰٪ برای خرید دوره‌های صوتی چهل دروازه برای حساب شما در نظر گرفته شده است و پس از تایید فیش واریزی در تلگرام پشتیبانی نیز راهنمایی کامل ارائه خواهد شد.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Card to card required notice box */}
         <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-50 border-2 border-indigo-200 rounded-3xl p-6 text-right space-y-4 shadow-sm relative overflow-hidden">
@@ -506,6 +544,33 @@ export default function Checkout() {
                 </div>
 
               </form>
+            )}
+
+            {/* Pre-order confirmation checkbox */}
+            {hasPreOrderItem && (
+              <div className="p-4.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 space-y-2.5 text-right shadow-xs">
+                <div className="flex items-center gap-2 text-amber-950 font-black text-xs">
+                  <span className="text-base">📦</span>
+                  <span>تایید شرایط پیش‌فروش اثر</span>
+                </div>
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    id="checkout-preorder-agreement"
+                    type="checkbox"
+                    checked={preOrderAgreed}
+                    onChange={(e) => setPreOrderAgreed(e.target.checked)}
+                    className="mt-1 w-4.5 h-4.5 rounded border-amber-400 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <div className="space-y-1">
+                    <span className="block text-xs font-bold text-amber-950 leading-relaxed">
+                      می‌دانم که این سفارش به صورت پیش‌فروش است و چاپ جدید در آذرماه ۱۴۰۵ ارسال خواهد شد.
+                    </span>
+                    <span className="block text-[11px] text-amber-900 leading-relaxed font-medium">
+                      نسخه فیزیکی قبلی به اتمام رسیده و با ثبت سفارش در اولویت چاپ جدید و دریافت هدیه تخفیف ۵۰٪ دوره‌های صوتی قرار می‌گیرید.
+                    </span>
+                  </div>
+                </label>
+              </div>
             )}
 
             {/* Payment Method Section */}

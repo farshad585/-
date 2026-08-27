@@ -541,16 +541,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Generate order ID
     const randomId = 'IRN-' + Math.floor(100000 + Math.random() * 900000);
 
+    const hasPreOrderItem = cart.some(
+      item => item.product?.isPreOrder || item.product?.id === '45363' || item.isPreOrder
+    );
+
     const newOrder: Order = {
       id: randomId,
       date: new Date().toLocaleDateString('fa-IR'),
       status: 'pending',
+      isPreOrder: hasPreOrderItem ? true : undefined,
+      preOrderDeliveryDate: hasPreOrderItem ? 'آذرماه ۱۴۰۵' : undefined,
       items: cart.map((item) => ({
         productId: item.product?.id || ('prod-' + Date.now()),
         title: item.product?.title || 'محصول',
         quantity: item.quantity || 1,
         price: item.product?.salePrice || item.product?.price || 0,
-        type: item.product?.type || 'printed'
+        type: item.product?.type || 'printed',
+        isPreOrder: (item.product?.isPreOrder || item.product?.id === '45363' || item.isPreOrder) ? true : undefined,
+        preOrderDeliveryDate: (item.product?.isPreOrder || item.product?.id === '45363' || item.isPreOrder) ? 'آذرماه ۱۴۰۵' : undefined
       })),
       subtotal,
       discountAmount,
