@@ -533,7 +533,11 @@ export default function ProductDetails() {
                       : 'border-slate-200 bg-white/70 text-slate-700 hover:border-indigo-300'
                   }`}
                 >
-                  <span className="block font-bold">مشاوره ۳۰ روزه VIP</span>
+                  <span className="block font-bold inline-flex items-center gap-1">
+                    <span>مشاوره</span>
+                    <span className="font-sans font-bold">VIP</span>
+                    <span>۳۰ روزه</span>
+                  </span>
                   <span className="text-[11px] text-indigo-700 font-black mt-1 block">۸,۹۰۰,۰۰۰ تومان</span>
                 </button>
 
@@ -546,7 +550,11 @@ export default function ProductDetails() {
                       : 'border-slate-200 bg-white/70 text-slate-700 hover:border-indigo-300'
                   }`}
                 >
-                  <span className="block font-bold">مشاوره ۶۰ روزه VIP</span>
+                  <span className="block font-bold inline-flex items-center gap-1">
+                    <span>مشاوره</span>
+                    <span className="font-sans font-bold">VIP</span>
+                    <span>۶۰ روزه</span>
+                  </span>
                   <span className="text-[11px] text-indigo-700 font-black mt-1 block">۱۴,۹۰۰,۰۰۰ تومان</span>
                 </button>
 
@@ -559,7 +567,11 @@ export default function ProductDetails() {
                       : 'border-slate-200 bg-white/70 text-slate-700 hover:border-indigo-300'
                   }`}
                 >
-                  <span className="block font-bold">مشاوره ۹۰ روزه VIP</span>
+                  <span className="block font-bold inline-flex items-center gap-1">
+                    <span>مشاوره</span>
+                    <span className="font-sans font-bold">VIP</span>
+                    <span>۹۰ روزه</span>
+                  </span>
                   <span className="text-[11px] text-indigo-700 font-black mt-1 block">۱۹,۹۰۰,۰۰۰ تومان</span>
                 </button>
               </div>

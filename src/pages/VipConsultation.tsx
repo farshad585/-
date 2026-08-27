@@ -94,7 +94,7 @@ export default function VipConsultation() {
       features: [
         'تمام امکانات پلن ۳۰ روزه',
         'تمرینات شخصی‌سازی شده برای کنترل و ثبات رویا',
-        'بررسی تکنیک‌های پیشرفته ورود مستقیم (WILD / FILD)',
+        'بررسی تکنیک‌های پیشرفته ورود مستقیم (دروازه‌های رویایی)',
         'تحلیل رویاهای لایه‌ای و گذر از موانع ذهنی ناخودآگاه',
         'اولویت پاسخگویی سریع‌تر توسط استاد',
       ],
@@ -360,13 +360,17 @@ export default function VipConsultation() {
 
                   <div className="space-y-4">
                     <div className="space-y-1">
-                      <h3 className="text-lg md:text-xl font-black text-slate-900">{plan.title}</h3>
+                      <h3 className="text-lg md:text-xl font-black text-slate-900 flex items-center gap-1.5 justify-start">
+                        <span>مشاوره</span>
+                        <span className="font-sans font-black text-[#5243B2]">VIP</span>
+                        <span>{plan.days === 30 ? '۳۰' : plan.days === 60 ? '۶۰' : '۹۰'} روزه</span>
+                      </h3>
                       <p className="text-xs text-slate-600">{plan.subtitle}</p>
                     </div>
 
                     {/* Price Tag */}
                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-right">
-                      <span className="text-xs text-slate-500 block mb-1">شهریه پلن {plan.days} روزه:</span>
+                      <span className="text-xs text-slate-500 block mb-1">شهریه پلن {plan.days === 30 ? '۳۰' : plan.days === 60 ? '۶۰' : '۹۰'} روزه:</span>
                       <div className="flex items-baseline gap-1">
                         <span className="text-2xl md:text-3xl font-black text-slate-900 font-sans">
                           {plan.price.toLocaleString('fa-IR')}
@@ -416,8 +420,10 @@ export default function VipConsultation() {
             <div className="space-y-1 text-right">
               <div className="flex items-center gap-2">
                 <Crown size={18} className="text-[#5243B2]" />
-                <span className="text-sm md:text-base font-extrabold text-slate-900">
-                  پلن انتخابی شما: {activePlanData.title}
+                <span className="text-sm md:text-base font-extrabold text-slate-900 inline-flex items-center gap-1.5">
+                  <span>پلن انتخابی شما: مشاوره</span>
+                  <span className="font-sans font-black text-[#5243B2]">VIP</span>
+                  <span>{activePlanData.days === 30 ? '۳۰' : activePlanData.days === 60 ? '۶۰' : '۹۰'} روزه</span>
                 </span>
               </div>
               <p className="text-xs text-slate-600">

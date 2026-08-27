@@ -584,16 +584,15 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 py-12">
         <div className="bg-gradient-to-r from-[#EAF2FA] via-[#EEEAF9] to-[#F7F5FC] border border-[#D1C7F0] rounded-3xl p-8 md:p-12 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 shadow-xs">
           <div className="space-y-4 text-right max-w-xl relative z-10">
-            <span className="text-[11px] text-[#5243B2] border border-[#7062C4]/30 rounded-full px-3 py-1 font-mono font-bold uppercase bg-white w-fit block shadow-2xs">LIMITED PACKAGE</span>
+            <span className="text-[11px] text-amber-900 bg-amber-100 border border-amber-300 rounded-full px-3 py-1 font-bold block w-fit shadow-2xs">آغاز پیش‌فروش چاپ جدید</span>
             <h3 className="text-xl md:text-2xl font-extrabold text-slate-900 leading-normal">
               مجموعه چهارجلدی چهل دروازه به ماورا
             </h3>
             <p className="text-xs md:text-sm text-slate-700 leading-relaxed">
-              اگر مصمم هستید تا مهارت رویابینی آگاهانه را زیر نظر مستقیم استاد فرا بگیرید، مجموعه کامل چهارجلدی چهل دروازه به ماورا همراه با مشاوره اختصاصی تلگرام بهترین گزینه است. رویاها و تمرینات روزانه شما تحلیل شده و نکات کلیدی به شما آموزش داده می‌شود.
+              این دوره آموزشی حاصل بیست سال تجربه، آموزش و پژوهش بر موضوع برنامه‌ریزی ذهن و رویابینی آگاهانه است. با ثبت پیش‌خرید در اولویت چاپ جدید (ارسال: آذرماه ۱۴۰۵) و دریافت هدیه ویژه ۵۰٪ تخفیف دوره‌های صوتی قرار گیرید.
             </p>
             <div className="flex gap-4 items-center pt-2">
-              <span className="text-sm text-slate-500 line-through">۱,۹۹۹,۰۰۰ تومان</span>
-              <span className="text-lg font-bold text-[#5243B2]">۱,۶۹۹,۰۰۰ تومان</span>
+              <span className="text-lg font-bold text-[#5243B2]">۳,۹۰۰,۰۰۰ تومان</span>
             </div>
           </div>
 
@@ -603,7 +602,7 @@ export default function Home() {
               onClick={() => setSelectedProductId('45363')}
               className="w-full md:w-auto px-8 py-4 text-xs sm:text-sm"
             >
-              مشاهده مجموعه چهارجلدی
+              مشاهده و پیش‌خرید مجموعه
             </ShimmerButton>
           </div>
         </div>

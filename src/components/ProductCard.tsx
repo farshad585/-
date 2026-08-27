@@ -20,8 +20,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   const isWishlisted = wishlist.includes(product.id);
   const isPreOrder = product.isPreOrder || product.id === '45363';
   const isOutOfStock = product.stock === 0 && !isPreOrder;
-  const discountPercent = (product.salePrice && !isOutOfStock && !isPreOrder)
-    ? Math.round(((product.price - product.salePrice) / product.price) * 100) 
+  const currentPrice = product.id === '45363' ? 3900000 : product.price;
+  const currentSalePrice = (isPreOrder || product.id === '45363') ? undefined : product.salePrice;
+  const discountPercent = (currentSalePrice && !isOutOfStock && !isPreOrder)
+    ? Math.round(((currentPrice - currentSalePrice) / currentPrice) * 100) 
     : 0;
 
   const [isAdding, setIsAdding] = useState(false);
@@ -38,7 +40,10 @@ export default function ProductCard({ product }: ProductCardProps) {
     setIsAdding(true);
     setTimeout(() => {
       const format = isPreOrder ? 'پیش‌فروش چاپ جدید (ارسال: آذرماه ۱۴۰۵)' : undefined;
-      addToCart(product, 1, format);
+      const targetProduct = product.id === '45363' 
+        ? { ...product, price: 3900000, salePrice: undefined, isPreOrder: true } 
+        : product;
+      addToCart(targetProduct, 1, format);
       setIsAdding(false);
     }, 850);
   };
@@ -170,18 +175,18 @@ export default function ProductCard({ product }: ProductCardProps) {
                 <span className="text-xs font-bold text-[#6D6A7C] font-sans">
                   ۰ تومان
                 </span>
-              ) : product.salePrice ? (
+              ) : currentSalePrice ? (
                 <>
                   <span className="text-[10px] text-[#6D6A7C] line-through font-mono">
-                    {formatPrice(product.price)}
+                    {formatPrice(currentPrice)}
                   </span>
                   <span className="text-xs font-bold text-[#6557B8] font-sans">
-                    {formatPrice(product.salePrice)}
+                    {formatPrice(currentSalePrice)}
                   </span>
                 </>
               ) : (
                 <span className="text-xs font-bold text-[#25243A] font-sans">
-                  {formatPrice(product.price)}
+                  {formatPrice(currentPrice)}
                 </span>
               )}
             </div>

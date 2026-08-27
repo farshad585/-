@@ -120,6 +120,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (savedItem) {
               return {
                 ...savedItem,
+                price: catalogItem.price,
+                salePrice: catalogItem.salePrice,
+                isPreOrder: catalogItem.isPreOrder,
+                preOrderDeliveryDate: catalogItem.preOrderDeliveryDate,
                 stock: catalogItem.stock === 0 ? 0 : (savedItem.stock ?? catalogItem.stock),
                 title: catalogItem.title,
                 englishTitle: catalogItem.englishTitle,
@@ -156,6 +160,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (serverItem) {
               return {
                 ...serverItem,
+                price: catalogItem.price,
+                salePrice: catalogItem.salePrice,
+                isPreOrder: catalogItem.isPreOrder,
+                preOrderDeliveryDate: catalogItem.preOrderDeliveryDate,
                 stock: catalogItem.stock === 0 ? 0 : (serverItem.stock ?? catalogItem.stock),
                 title: catalogItem.title,
                 englishTitle: catalogItem.englishTitle,
