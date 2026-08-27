@@ -30,6 +30,8 @@ import { motion } from 'motion/react';
 
 import desktopHeroImg from '../assets/images/desktop.jpg';
 import phoneHeroImg from '../assets/images/phone1.jpg';
+import heroMobileDanceVideo from '../assets/images/hero-mobile-dance.mp4';
+import MobileHeroMedia from '../components/MobileHeroMedia';
 
 export default function Home() {
   const { setCurrentPage, setSelectedProductId, products } = useApp();
@@ -249,14 +251,11 @@ export default function Home() {
         <div className="block md:hidden relative z-10 space-y-4">
           {/* Top Hero Artwork + Left Title Area */}
           <div className="relative min-h-[320px] sm:min-h-[360px] rounded-2xl overflow-hidden shadow-2xs border border-[#EEEAF9]">
-            {/* Background phone image (Girl & Gate on Right) */}
-            <img 
-              src={phoneHeroImg} 
-              alt="چهل دروازه آگاهی - نسخه موبایل" 
-              className="absolute inset-0 w-full h-full object-cover object-right opacity-95"
-              loading="eager"
-              width={941}
-              height={1672}
+            {/* Background phone image & smooth video transition (Girl & Gate on Right) */}
+            <MobileHeroMedia
+              imageSrc={phoneHeroImg}
+              videoSrc={heroMobileDanceVideo}
+              alt="چهل دروازه آگاهی - نسخه موبایل"
             />
             {/* Gradient overlay for contrast on left side */}
             <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white/50 to-white/95" />
