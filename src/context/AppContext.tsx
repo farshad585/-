@@ -62,6 +62,8 @@ interface AppContextType {
   addProduct: (newProduct: Product) => void;
   deleteProduct: (id: string) => void;
   resetProducts: () => void;
+  reorderProducts: (newProducts: Product[]) => void;
+  moveProductOrder: (productId: string, direction: 'up' | 'down' | 'top' | 'bottom') => void;
 
   vipCapacity: number;
   vipEnrolledCount: number;
@@ -115,16 +117,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const merged = PRODUCTS.map((catalogItem) => {
-            const savedItem = parsed.find((item: any) => item.id === catalogItem.id);
-            if (savedItem) {
-              return {
-                ...savedItem,
+          const orderedList: Product[] = [];
+          const seenIds = new Set<string>();
+
+          for (const item of parsed) {
+            if (!item || !item.id) continue;
+            const catalogItem = PRODUCTS.find((p) => p.id === item.id);
+            if (catalogItem) {
+              orderedList.push({
+                ...catalogItem,
+                ...item,
                 price: catalogItem.price,
                 salePrice: catalogItem.salePrice,
                 isPreOrder: catalogItem.isPreOrder,
                 preOrderDeliveryDate: catalogItem.preOrderDeliveryDate,
-                stock: catalogItem.stock === 0 ? 0 : (savedItem.stock ?? catalogItem.stock),
+                stock: catalogItem.stock === 0 ? 0 : (item.stock ?? catalogItem.stock),
                 title: catalogItem.title,
                 englishTitle: catalogItem.englishTitle,
                 description: catalogItem.description,
@@ -134,13 +141,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 duration: catalogItem.duration,
                 format: catalogItem.format,
                 author: catalogItem.author
-              };
+              });
+            } else {
+              orderedList.push(item);
             }
-            return catalogItem;
-          }).concat(parsed.filter((item: any) => !PRODUCTS.some((p) => p.id === item.id)));
+            seenIds.add(item.id);
+          }
 
-          localStorage.setItem('40gates_products', JSON.stringify(merged));
-          return merged;
+          // Add any remaining catalog items at the end if not yet present
+          for (const catalogItem of PRODUCTS) {
+            if (!seenIds.has(catalogItem.id)) {
+              orderedList.push(catalogItem);
+            }
+          }
+
+          localStorage.setItem('40gates_products', JSON.stringify(orderedList));
+          return orderedList;
         }
       }
     } catch (e) {
@@ -155,16 +171,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.products) && data.products.length > 0) {
-          const merged = PRODUCTS.map((catalogItem) => {
-            const serverItem = data.products.find((item: any) => item.id === catalogItem.id);
-            if (serverItem) {
-              return {
-                ...serverItem,
+          const orderedList: Product[] = [];
+          const seenIds = new Set<string>();
+
+          for (const item of data.products) {
+            if (!item || !item.id) continue;
+            const catalogItem = PRODUCTS.find((p) => p.id === item.id);
+            if (catalogItem) {
+              orderedList.push({
+                ...catalogItem,
+                ...item,
                 price: catalogItem.price,
                 salePrice: catalogItem.salePrice,
                 isPreOrder: catalogItem.isPreOrder,
                 preOrderDeliveryDate: catalogItem.preOrderDeliveryDate,
-                stock: catalogItem.stock === 0 ? 0 : (serverItem.stock ?? catalogItem.stock),
+                stock: catalogItem.stock === 0 ? 0 : (item.stock ?? catalogItem.stock),
                 title: catalogItem.title,
                 englishTitle: catalogItem.englishTitle,
                 description: catalogItem.description,
@@ -174,13 +195,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 duration: catalogItem.duration,
                 format: catalogItem.format,
                 author: catalogItem.author
-              };
+              });
+            } else {
+              orderedList.push(item);
             }
-            return catalogItem;
-          }).concat(data.products.filter((item: any) => !PRODUCTS.some((p) => p.id === item.id)));
+            seenIds.add(item.id);
+          }
 
-          setProducts(merged);
-          localStorage.setItem('40gates_products', JSON.stringify(merged));
+          for (const catalogItem of PRODUCTS) {
+            if (!seenIds.has(catalogItem.id)) {
+              orderedList.push(catalogItem);
+            }
+          }
+
+          setProducts(orderedList);
+          localStorage.setItem('40gates_products', JSON.stringify(orderedList));
         }
       })
       .catch((err) => console.warn('Failed to fetch products from server:', err));
@@ -215,6 +244,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const resetProducts = () => {
     setProducts(PRODUCTS);
     localStorage.removeItem('40gates_products');
+  };
+
+  const reorderProducts = (newProducts: Product[]) => {
+    setProducts(newProducts);
+  };
+
+  const moveProductOrder = (productId: string, direction: 'up' | 'down' | 'top' | 'bottom') => {
+    setProducts((prev) => {
+      const list = [...prev];
+      const currentIndex = list.findIndex(p => p.id === productId);
+      if (currentIndex === -1) return prev;
+
+      if (direction === 'top') {
+        if (currentIndex === 0) return prev;
+        const [item] = list.splice(currentIndex, 1);
+        list.unshift(item);
+      } else if (direction === 'bottom') {
+        if (currentIndex === list.length - 1) return prev;
+        const [item] = list.splice(currentIndex, 1);
+        list.push(item);
+      } else if (direction === 'up') {
+        if (currentIndex === 0) return prev;
+        const temp = list[currentIndex];
+        list[currentIndex] = list[currentIndex - 1];
+        list[currentIndex - 1] = temp;
+      } else if (direction === 'down') {
+        if (currentIndex === list.length - 1) return prev;
+        const temp = list[currentIndex];
+        list[currentIndex] = list[currentIndex + 1];
+        list[currentIndex + 1] = temp;
+      }
+      return list;
+    });
   };
 
   const login = (email: string, password?: string): boolean => {
@@ -780,6 +842,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addProduct,
         deleteProduct,
         resetProducts,
+        reorderProducts,
+        moveProductOrder,
         vipCapacity,
         vipEnrolledCount,
         updateVipEnrolledCount

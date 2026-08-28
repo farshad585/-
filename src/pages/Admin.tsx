@@ -41,7 +41,15 @@ import {
   Save,
   X,
   Check,
-  Flame
+  Flame,
+  ArrowUp,
+  ArrowDown,
+  ChevronsUp,
+  ChevronsDown,
+  MoveVertical,
+  ListOrdered,
+  LayoutGrid,
+  GripVertical
 } from 'lucide-react';
 import SEO from '../components/SEO';
 import { useApp } from '../context/AppContext';
@@ -91,6 +99,8 @@ export default function Admin() {
     addProduct, 
     deleteProduct, 
     resetProducts,
+    reorderProducts,
+    moveProductOrder,
     vipCapacity = 40,
     vipEnrolledCount = 17,
     updateVipEnrolledCount
@@ -138,6 +148,9 @@ export default function Admin() {
   const [isAddingProduct, setIsAddingProduct] = useState<boolean>(false);
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
+  const [productViewMode, setProductViewMode] = useState<'grid' | 'reorder'>('grid');
+  const [draggedProductIndex, setDraggedProductIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const [newProductForm, setNewProductForm] = useState<Partial<Product>>({
     title: '',
@@ -891,6 +904,32 @@ export default function Admin() {
     }
   };
 
+  const handleMoveProduct = (productId: string, direction: 'up' | 'down' | 'top' | 'bottom', title: string) => {
+    moveProductOrder(productId, direction);
+    const actionText = 
+      direction === 'top' ? 'به ابتدای لیست (بالاترین اولویت نمایش در فروشگاه) منتقل شد.' :
+      direction === 'bottom' ? 'به انتهای لیست محصولات منتقل شد.' :
+      direction === 'up' ? 'یک رتبه بالاتر قرار گرفت.' : 'یک رتبه پایین‌تر قرار گرفت.';
+    setRefreshNotification(`ترتیب «${title}» تغییر یافت: ${actionText}`);
+    setTimeout(() => setRefreshNotification(null), 3000);
+  };
+
+  const handleProductDrop = (targetIndex: number) => {
+    if (draggedProductIndex === null || draggedProductIndex === targetIndex) {
+      setDraggedProductIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    const updated = [...productsList];
+    const [moved] = updated.splice(draggedProductIndex, 1);
+    updated.splice(targetIndex, 0, moved);
+    reorderProducts(updated);
+    setDraggedProductIndex(null);
+    setDragOverIndex(null);
+    setRefreshNotification(`ترتیب کالا «${moved.title}» با موفقیت جابجا شد و ذخیره گردید.`);
+    setTimeout(() => setRefreshNotification(null), 3000);
+  };
+
   // Handle Order status update
   const handleUpdateStatus = (orderId: string, newStatus: Order['status']) => {
     const trackingCode = trackingInputs[orderId];
@@ -1528,10 +1567,10 @@ export default function Admin() {
                   <div>
                     <h2 className="text-base font-extrabold text-white flex items-center gap-2">
                       <Package className="text-indigo-400" size={20} />
-                      <span>مدیریت کاتالوگ محصولات ({productsList.length} اثر و دوره)</span>
+                      <span>مدیریت کاتالوگ و چینش محصولات ({productsList.length} اثر و دوره)</span>
                     </h2>
                     <p className="text-xs text-slate-400 mt-1">
-                      تنظیم قیمت اصلی، قیمت تخفیف‌دار، موجودی انبار، عنوان و ویرایش کامل ویژگی‌ها
+                      تنظیم قیمت، موجودی، ویرایش مشخصات، و تعیین ترتیب اولویت نمایش کالاها در فروشگاه
                     </p>
                   </div>
 
@@ -1541,7 +1580,7 @@ export default function Admin() {
                       className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
                     >
                       <FileSpreadsheet size={16} />
-                      <span>خروجی اکسل محصولات</span>
+                      <span>خروجی اکسل</span>
                     </button>
 
                     <button
@@ -1554,169 +1593,420 @@ export default function Admin() {
 
                     <button
                       onClick={() => {
-                        if (confirm('آیا می‌خواهید کاتالوگ محصولات به حالت اولیه بازگردد؟')) {
+                        if (confirm('آیا می‌خواهید کاتالوگ محصولات و چینش آن‌ها به حالت اولیه بازگردد؟')) {
                           resetProducts();
-                          setRefreshNotification('کاتالوگ محصولات بازنشانی شد.');
+                          setRefreshNotification('کاتالوگ محصولات و چینش آن‌ها بازنشانی شد.');
                           setTimeout(() => setRefreshNotification(null), 3000);
                         }
                       }}
                       className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl transition-colors cursor-pointer"
-                      title="بازنشانی به کاتالوگ اولیه"
+                      title="بازنشانی به کاتالوگ و ترتیب اولیه"
                     >
                       <RefreshCw size={14} />
                     </button>
                   </div>
                 </div>
 
-                {/* Search and Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="relative md:col-span-2">
-                    <Search className="absolute right-3 top-2.5 text-slate-400" size={16} />
-                    <input
-                      type="text"
-                      placeholder="جستجو در عنوان، نویسنده، تگ‌ها..."
-                      value={productSearchQuery}
-                      onChange={e => setProductSearchQuery(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pr-9 pl-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
-                    />
+                {/* View Mode Switcher & Filter Controls */}
+                <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 bg-slate-900/80 p-3 rounded-2xl border border-slate-800">
+                  {/* Mode Buttons */}
+                  <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800 self-start">
+                    <button
+                      onClick={() => setProductViewMode('grid')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        productViewMode === 'grid'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      <LayoutGrid size={15} />
+                      <span>نمایش کارت‌ها (ویرایش سریع)</span>
+                    </button>
+
+                    <button
+                      onClick={() => setProductViewMode('reorder')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        productViewMode === 'reorder'
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-amber-300 hover:bg-slate-800'
+                      }`}
+                    >
+                      <ListOrdered size={15} />
+                      <span>مرتب‌سازی و چینش کالاها</span>
+                      <span className="bg-amber-400/20 text-amber-300 text-[10px] px-1.5 py-0.2 rounded-full border border-amber-400/30">
+                        اولویت فروشگاه
+                      </span>
+                    </button>
                   </div>
 
-                  <select
-                    value={productCategoryFilter}
-                    onChange={e => setProductCategoryFilter(e.target.value)}
-                    className="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="all">همه دسته‌بندی‌ها</option>
-                    <option value="books">کتاب‌های چاپی و PDF</option>
-                    <option value="audiobooks">کتاب‌های صوتی</option>
-                    <option value="courses">دوره‌های جامع و ویدیویی</option>
-                  </select>
+                  {/* Search and Category Filter */}
+                  <div className="flex items-center gap-2 flex-grow md:max-w-md">
+                    <div className="relative flex-grow">
+                      <Search className="absolute right-3 top-2.5 text-slate-400" size={15} />
+                      <input
+                        type="text"
+                        placeholder="جستجو در عنوان، شناسه یا نویسنده..."
+                        value={productSearchQuery}
+                        onChange={e => setProductSearchQuery(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700/70 rounded-xl pr-9 pl-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <select
+                      value={productCategoryFilter}
+                      onChange={e => setProductCategoryFilter(e.target.value)}
+                      className="bg-slate-950 border border-slate-700/70 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="all">همه دسته‌ها</option>
+                      <option value="books">کتاب‌های چاپی</option>
+                      <option value="audiobooks">صوتی</option>
+                      <option value="courses">دوره‌ها</option>
+                    </select>
+                  </div>
                 </div>
 
-                {/* Products Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {productsList
-                    .filter(p => {
-                      if (productCategoryFilter !== 'all' && p.category !== productCategoryFilter) return false;
-                      if (productSearchQuery.trim()) {
-                        const q = productSearchQuery.toLowerCase();
-                        return p.title.toLowerCase().includes(q) || (p.englishTitle && p.englishTitle.toLowerCase().includes(q));
-                      }
-                      return true;
-                    })
-                    .map(product => {
-                      const isStockAvailable = product.stock > 0;
-                      const discountPercent = product.salePrice && product.salePrice < product.price
-                        ? Math.round(((product.price - product.salePrice) / product.price) * 100)
-                        : 0;
+                {/* MODE 1: REORDER MODE */}
+                {productViewMode === 'reorder' && (
+                  <div className="space-y-3">
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-200 flex items-start gap-2.5">
+                      <ListOrdered className="text-amber-400 shrink-0 mt-0.5" size={18} />
+                      <div className="leading-relaxed">
+                        <span className="font-bold">راهنمای چینش کالاها:</span> ترتیبی که در این لیست مشاهده می‌کنید، <strong className="text-white">دقیقاً ترتیب نمایش محصولات در صفحه فروشگاه</strong> است. می‌توانید با استفاده از دکمه‌های انتقال (🔝 انتقال به بالا، 🔼 یک پله بالاتر، 🔽 یک پله پایین‌تر، 🔻 انتقال به انتها) یا با <strong className="text-white">کشیدن و رها کردن (Drag & Drop)</strong>، کالاها را به موقعیت دلخواه منتقل کنید. تغییرات بلافاصله ذخیره می‌شوند.
+                      </div>
+                    </div>
 
-                      return (
-                        <div key={product.id} className="bg-slate-900 border border-slate-700/80 rounded-2xl p-4 flex flex-col justify-between space-y-3 hover:border-indigo-500/50 transition-colors">
-                          <div className="flex gap-3">
-                            <img
-                              src={product.images?.[0] || product.image || defaultProductImg}
-                              alt={product.title}
-                              className="w-20 h-24 object-cover rounded-xl border border-slate-700/80 shrink-0 shadow-sm"
-                            />
-                            <div className="space-y-1.5 text-xs flex-grow">
-                              <div className="flex justify-between items-start gap-1">
-                                <h3 className="font-bold text-white text-xs leading-snug">{product.title}</h3>
-                                <span className={`px-2 py-0.5 rounded text-[10px] shrink-0 font-bold ${
-                                  isStockAvailable ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                }`}>
-                                  {isStockAvailable ? `${product.stock} موجود` : 'ناموجود'}
-                                </span>
+                    <div className="space-y-2">
+                      {productsList
+                        .map((product, originalIndex) => ({ product, originalIndex }))
+                        .filter(({ product }) => {
+                          if (productCategoryFilter !== 'all' && product.category !== productCategoryFilter) return false;
+                          if (productSearchQuery.trim()) {
+                            const q = productSearchQuery.toLowerCase();
+                            return product.title.toLowerCase().includes(q) || (product.englishTitle && product.englishTitle.toLowerCase().includes(q));
+                          }
+                          return true;
+                        })
+                        .map(({ product, originalIndex }, displayIdx) => {
+                          const isFirst = originalIndex === 0;
+                          const isLast = originalIndex === productsList.length - 1;
+                          const isDragged = draggedProductIndex === originalIndex;
+                          const isOver = dragOverIndex === originalIndex;
+
+                          return (
+                            <div
+                              key={product.id}
+                              draggable
+                              onDragStart={(e) => {
+                                setDraggedProductIndex(originalIndex);
+                                e.dataTransfer.setData('text/plain', String(originalIndex));
+                              }}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                if (dragOverIndex !== originalIndex) {
+                                  setDragOverIndex(originalIndex);
+                                }
+                              }}
+                              onDragLeave={() => {
+                                if (dragOverIndex === originalIndex) {
+                                  setDragOverIndex(null);
+                                }
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                handleProductDrop(originalIndex);
+                              }}
+                              className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
+                                isDragged
+                                  ? 'opacity-40 bg-slate-900 border-dashed border-indigo-500 scale-[0.99]'
+                                  : isOver
+                                  ? 'bg-indigo-950/60 border-indigo-400 shadow-lg ring-2 ring-indigo-500/30'
+                                  : 'bg-slate-900/90 border-slate-700/80 hover:border-slate-600 hover:bg-slate-900'
+                              }`}
+                            >
+                              {/* Left Info (Rank + Drag Handle + Image + Title) */}
+                              <div className="flex items-center gap-3 min-w-0 flex-grow">
+                                <div 
+                                  className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-amber-400 p-1 rounded transition-colors hidden sm:block shrink-0" 
+                                  title="برای جابجایی بکشید و رها کنید"
+                                >
+                                  <GripVertical size={20} />
+                                </div>
+
+                                <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 text-amber-400 font-extrabold text-xs shrink-0 shadow-inner">
+                                  #{originalIndex + 1}
+                                </div>
+
+                                <img
+                                  src={product.images?.[0] || product.image || defaultProductImg}
+                                  alt={product.title}
+                                  className="w-12 h-14 object-cover rounded-lg border border-slate-700/80 shrink-0 shadow-sm"
+                                />
+
+                                <div className="min-w-0 space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className="font-bold text-white text-xs sm:text-sm truncate max-w-xs">{product.title}</h4>
+                                    <span className="bg-slate-800 text-slate-300 text-[10px] px-2 py-0.5 rounded-md border border-slate-700">
+                                      {product.type === 'printed' ? 'کتاب چاپی' : product.type === 'pdf' ? 'PDF' : product.type === 'audio' ? 'صوتی' : 'دوره آنلاین'}
+                                    </span>
+                                    {originalIndex === 0 && (
+                                      <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-md border border-emerald-500/30 font-bold flex items-center gap-1">
+                                        <Sparkles size={11} />
+                                        <span>اولین کالا در فروشگاه</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                                    <span>قیمت: <strong className="text-amber-300 font-mono">{(product.salePrice || product.price).toLocaleString('fa-IR')}</strong> تومان</span>
+                                    <span>•</span>
+                                    <span>موجودی: <strong className={product.stock > 0 ? 'text-emerald-400 font-mono' : 'text-rose-400 font-mono'}>{product.stock > 0 ? product.stock : 'ناموجود'}</strong></span>
+                                  </div>
+                                </div>
                               </div>
 
-                              <p dir="ltr" className="text-[10px] text-indigo-300 text-right">{product.englishTitle || product.author}</p>
+                              {/* Right Controls: Move Buttons */}
+                              <div className="flex items-center justify-end gap-1.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
+                                <button
+                                  onClick={() => handleMoveProduct(product.id, 'top', product.title)}
+                                  disabled={isFirst}
+                                  className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                    isFirst
+                                      ? 'opacity-30 text-slate-600 bg-slate-800 cursor-not-allowed'
+                                      : 'bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/30'
+                                  }`}
+                                  title="انتقال مستقیم به ابتدای لیست (بالاترین اولویت)"
+                                >
+                                  <ChevronsUp size={16} />
+                                  <span className="text-[11px] hidden lg:inline">ابتدا</span>
+                                </button>
 
-                              <div className="flex flex-wrap gap-1 text-[9px] pt-1">
-                                <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
-                                  {product.type === 'printed' ? 'کتاب چاپی' : product.type === 'pdf' ? 'فایل PDF' : product.type === 'audio' ? 'کتاب صوتی' : 'دوره آنلاین'}
+                                <button
+                                  onClick={() => handleMoveProduct(product.id, 'up', product.title)}
+                                  disabled={isFirst}
+                                  className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                    isFirst
+                                      ? 'opacity-30 text-slate-600 bg-slate-800 cursor-not-allowed'
+                                      : 'bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-amber-300 border border-slate-700'
+                                  }`}
+                                  title="یک رتبه بالاتر"
+                                >
+                                  <ArrowUp size={16} />
+                                  <span className="text-[11px] hidden md:inline">بالا</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleMoveProduct(product.id, 'down', product.title)}
+                                  disabled={isLast}
+                                  className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                    isLast
+                                      ? 'opacity-30 text-slate-600 bg-slate-800 cursor-not-allowed'
+                                      : 'bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-amber-300 border border-slate-700'
+                                  }`}
+                                  title="یک رتبه پایین‌تر"
+                                >
+                                  <ArrowDown size={16} />
+                                  <span className="text-[11px] hidden md:inline">پایین</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleMoveProduct(product.id, 'bottom', product.title)}
+                                  disabled={isLast}
+                                  className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                    isLast
+                                      ? 'opacity-30 text-slate-600 bg-slate-800 cursor-not-allowed'
+                                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700'
+                                  }`}
+                                  title="انتقال به انتهای لیست"
+                                >
+                                  <ChevronsDown size={16} />
+                                  <span className="text-[11px] hidden lg:inline">انتها</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* MODE 2: GRID VIEW (With Quick Reordering Bar on each card) */}
+                {productViewMode === 'grid' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {productsList
+                      .map((product, originalIndex) => ({ product, originalIndex }))
+                      .filter(({ product }) => {
+                        if (productCategoryFilter !== 'all' && product.category !== productCategoryFilter) return false;
+                        if (productSearchQuery.trim()) {
+                          const q = productSearchQuery.toLowerCase();
+                          return product.title.toLowerCase().includes(q) || (product.englishTitle && product.englishTitle.toLowerCase().includes(q));
+                        }
+                        return true;
+                      })
+                      .map(({ product, originalIndex }) => {
+                        const isStockAvailable = product.stock > 0;
+                        const isFirst = originalIndex === 0;
+                        const isLast = originalIndex === productsList.length - 1;
+                        const discountPercent = product.salePrice && product.salePrice < product.price
+                          ? Math.round(((product.price - product.salePrice) / product.price) * 100)
+                          : 0;
+
+                        return (
+                          <div key={product.id} className="bg-slate-900 border border-slate-700/80 rounded-2xl p-4 flex flex-col justify-between space-y-3 hover:border-indigo-500/50 transition-colors">
+                            {/* Card Top: Ordinal badge and Quick Reorder arrows */}
+                            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 text-[11px]">
+                              <div className="flex items-center gap-1.5">
+                                <span className="bg-amber-500/20 text-amber-300 font-extrabold px-2 py-0.5 rounded-lg border border-amber-500/30 text-[10px]">
+                                  رتبه اولویت: #{originalIndex + 1}
                                 </span>
-                                {discountPercent > 0 && (
-                                  <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-bold">
-                                    {discountPercent}٪ تخفیف
+                                {originalIndex === 0 && (
+                                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">
+                                    اولین در فروشگاه
                                   </span>
                                 )}
-                                {product.featured && <span className="bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">ویژه</span>}
-                                {product.bestSeller && <span className="bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded">پرفروش</span>}
+                              </div>
+
+                              {/* Quick Move Buttons */}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => handleMoveProduct(product.id, 'top', product.title)}
+                                  disabled={isFirst}
+                                  className={`p-1 rounded-md text-[10px] ${isFirst ? 'opacity-30 text-slate-600' : 'text-indigo-300 hover:bg-slate-800 hover:text-white cursor-pointer'}`}
+                                  title="انتقال به ابتدای فروشگاه"
+                                >
+                                  <ChevronsUp size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleMoveProduct(product.id, 'up', product.title)}
+                                  disabled={isFirst}
+                                  className={`p-1 rounded-md text-[10px] ${isFirst ? 'opacity-30 text-slate-600' : 'text-slate-300 hover:bg-slate-800 hover:text-amber-300 cursor-pointer'}`}
+                                  title="یک رتبه بالاتر"
+                                >
+                                  <ArrowUp size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleMoveProduct(product.id, 'down', product.title)}
+                                  disabled={isLast}
+                                  className={`p-1 rounded-md text-[10px] ${isLast ? 'opacity-30 text-slate-600' : 'text-slate-300 hover:bg-slate-800 hover:text-amber-300 cursor-pointer'}`}
+                                  title="یک رتبه پایین‌تر"
+                                >
+                                  <ArrowDown size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleMoveProduct(product.id, 'bottom', product.title)}
+                                  disabled={isLast}
+                                  className={`p-1 rounded-md text-[10px] ${isLast ? 'opacity-30 text-slate-600' : 'text-slate-300 hover:bg-slate-800 hover:text-rose-300 cursor-pointer'}`}
+                                  title="انتقال به انتهای کاتالوگ"
+                                >
+                                  <ChevronsDown size={14} />
+                                </button>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Quick Price & Stock Controls */}
-                          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80 space-y-2 text-[11px]">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="block text-[10px] text-slate-400 mb-0.5">قیمت اصلی (تومان):</label>
-                                <input
-                                  type="number"
-                                  value={product.price}
-                                  onChange={e => handleUpdatePrice(product.id, Number(e.target.value))}
-                                  className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
-                                />
-                              </div>
+                            <div className="flex gap-3">
+                              <img
+                                src={product.images?.[0] || product.image || defaultProductImg}
+                                alt={product.title}
+                                className="w-20 h-24 object-cover rounded-xl border border-slate-700/80 shrink-0 shadow-sm"
+                              />
+                              <div className="space-y-1.5 text-xs flex-grow">
+                                <div className="flex justify-between items-start gap-1">
+                                  <h3 className="font-bold text-white text-xs leading-snug">{product.title}</h3>
+                                  <span className={`px-2 py-0.5 rounded text-[10px] shrink-0 font-bold ${
+                                    isStockAvailable ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                  }`}>
+                                    {isStockAvailable ? `${product.stock} موجود` : 'ناموجود'}
+                                  </span>
+                                </div>
 
-                              <div>
-                                <label className="block text-[10px] text-slate-400 mb-0.5">قیمت با تخفیف (تومان):</label>
-                                <input
-                                  type="number"
-                                  placeholder="بدون تخفیف"
-                                  value={product.salePrice || ''}
-                                  onChange={e => handleUpdateSalePrice(product.id, Number(e.target.value))}
-                                  className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-amber-300 text-xs font-mono focus:outline-none focus:border-amber-500"
-                                />
+                                <p dir="ltr" className="text-[10px] text-indigo-300 text-right">{product.englishTitle || product.author}</p>
+
+                                <div className="flex flex-wrap gap-1 text-[9px] pt-1">
+                                  <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
+                                    {product.type === 'printed' ? 'کتاب چاپی' : product.type === 'pdf' ? 'فایل PDF' : product.type === 'audio' ? 'کتاب صوتی' : 'دوره آنلاین'}
+                                  </span>
+                                  {discountPercent > 0 && (
+                                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-bold">
+                                      {discountPercent}٪ تخفیف
+                                    </span>
+                                  )}
+                                  {product.featured && <span className="bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">ویژه</span>}
+                                  {product.bestSeller && <span className="bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded">پرفروش</span>}
+                                </div>
                               </div>
                             </div>
 
-                            <div className="flex justify-between items-center pt-1 border-t border-slate-800/80">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-slate-400">موجودی انبار:</span>
-                                <input
-                                  type="number"
-                                  value={product.stock}
-                                  onChange={e => handleUpdateStockCount(product.id, Number(e.target.value))}
-                                  className="w-16 bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-0.5 text-center text-white text-xs font-mono"
-                                />
+                            {/* Quick Price & Stock Controls */}
+                            <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80 space-y-2 text-[11px]">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[10px] text-slate-400 mb-0.5">قیمت اصلی (تومان):</label>
+                                  <input
+                                    type="number"
+                                    value={product.price}
+                                    onChange={e => handleUpdatePrice(product.id, Number(e.target.value))}
+                                    className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[10px] text-slate-400 mb-0.5">قیمت با تخفیف (تومان):</label>
+                                  <input
+                                    type="number"
+                                    placeholder="بدون تخفیف"
+                                    value={product.salePrice || ''}
+                                    onChange={e => handleUpdateSalePrice(product.id, Number(e.target.value))}
+                                    className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-amber-300 text-xs font-mono focus:outline-none focus:border-amber-500"
+                                  />
+                                </div>
                               </div>
+
+                              <div className="flex justify-between items-center pt-1 border-t border-slate-800/80">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-400">موجودی انبار:</span>
+                                  <input
+                                    type="number"
+                                    value={product.stock}
+                                    onChange={e => handleUpdateStockCount(product.id, Number(e.target.value))}
+                                    className="w-16 bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-0.5 text-center text-white text-xs font-mono"
+                                  />
+                                </div>
+
+                                <button
+                                  onClick={() => handleToggleStock(product.id)}
+                                  className={`text-[10px] font-bold px-2 py-1 rounded-lg border cursor-pointer transition-colors ${
+                                    isStockAvailable
+                                      ? 'border-rose-500/40 text-rose-300 hover:bg-rose-500/10'
+                                      : 'border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10'
+                                  }`}
+                                >
+                                  {isStockAvailable ? 'تغییر به ناموجود' : 'تغییر به موجود'}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Buttons */}
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+                              <button
+                                onClick={() => setEditingProduct(product)}
+                                className="bg-indigo-600/80 hover:bg-indigo-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Edit3 size={13} />
+                                <span>ویرایش کامل و توضیحات</span>
+                              </button>
 
                               <button
-                                onClick={() => handleToggleStock(product.id)}
-                                className={`text-[10px] font-bold px-2 py-1 rounded-lg border cursor-pointer transition-colors ${
-                                  isStockAvailable
-                                    ? 'border-rose-500/40 text-rose-300 hover:bg-rose-500/10'
-                                    : 'border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10'
-                                }`}
+                                onClick={() => handleDeleteProduct(product.id, product.title)}
+                                className="bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                title="حذف محصول"
                               >
-                                {isStockAvailable ? 'تغییر به ناموجود' : 'تغییر به موجود'}
+                                <Trash2 size={13} />
+                                <span>حذف</span>
                               </button>
                             </div>
                           </div>
-
-                          {/* Buttons */}
-                          <div className="flex items-center justify-between pt-1 border-t border-slate-800">
-                            <button
-                              onClick={() => setEditingProduct(product)}
-                              className="bg-indigo-600/80 hover:bg-indigo-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-                            >
-                              <Edit3 size={13} />
-                              <span>ویرایش کامل و توضیحات</span>
-                            </button>
-
-                            <button
-                              onClick={() => handleDeleteProduct(product.id, product.title)}
-                              className="bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                              title="حذف محصول"
-                            >
-                              <Trash2 size={13} />
-                              <span>حذف</span>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
+                        );
+                      })}
+                  </div>
+                )}
               </div>
             )}
 

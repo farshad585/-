@@ -111,7 +111,7 @@ export default function Shop() {
     }
 
     return result;
-  }, [selectedCategory, selectedType, onlyInStock, priceRange, searchQuery, sortBy]);
+  }, [products, selectedCategory, selectedType, onlyInStock, priceRange, searchQuery, sortBy]);
 
   const categoryLabelMap: Record<string, string> = {
     all: 'کل فروشگاه',

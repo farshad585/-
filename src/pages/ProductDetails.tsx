@@ -10,6 +10,7 @@ import { Product, Review } from '../types';
 import SEO from '../components/SEO';
 import ProductCard from '../components/ProductCard';
 import ShimmerButton from '../components/ShimmerButton';
+import ketabrahLogo from '../assets/images/ketabrah.jpg';
 import { 
   Star, 
   ShoppingCart, 
@@ -84,7 +85,9 @@ export default function ProductDetails() {
         const defaultFormatLabel = 
           found.type === 'pdf' ? 'کتاب الکترونیکی PDF' : 
           found.type === 'audio' ? 'کتاب صوتی MP3' : 
-          found.type === 'course' ? 'دوره ویدیویی آنلاین' : 'کیفیت معمولی';
+          found.type === 'course' ? 'دوره ویدیویی آنلاین' : 
+          (found.id === '45322' || found.id === '45329' || found.id === '45363') ? 'کیفیت معمولی' :
+          (found.format || 'نسخه فیزیکی چاپی');
         setSelectedFormat(defaultFormatLabel);
         setSelectedVipConsultation('none');
       }
@@ -153,7 +156,7 @@ export default function ProductDetails() {
       return { originalPrice: 0, finalPrice: 0, discountPercent: 0 };
     }
 
-    if (product.id === '45363') { // 4-volume set (Pre-order with no discount)
+    if (product.id === '45363') { // 4-volume set (Pre-order)
       let basePrice = 3900000;
       if (selectedFormat.includes('تمام رنگی')) {
         basePrice = 4400000;
@@ -443,10 +446,89 @@ export default function ProductDetails() {
           {product.id !== '45398' && (
             <div className="space-y-3">
               <span className="block text-xs font-bold text-slate-900">
-                {product.type === 'printed' ? 'انتخاب کیفیت چاپ:' : 'فرمت و نوع محصول:'}
+                {(product.id === '45322' || product.id === '45329' || product.id === '45363') ? 'انتخاب کیفیت چاپ:' : 'فرمت و مشخصات محصول:'}
               </span>
               <div className="flex flex-wrap gap-3">
-                {product.type === 'printed' ? (
+                {product.id === '45363' ? (
+                  <>
+                    {/* Quality 1: معمولی */}
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedFormat('کیفیت معمولی')}
+                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[140px] ${
+                        selectedFormat.includes('معمولی')
+                          ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                      }`}
+                    >
+                      <span className="block font-bold">کیفیت معمولی</span>
+                      <span className="text-[10px] text-slate-500 mt-1 block">چاپ استاندارد کاغذ سوئدی (۴ جلد)</span>
+                      <span className="text-[11px] text-indigo-700 font-black mt-1.5 block">۳,۹۰۰,۰۰۰ تومان</span>
+                    </button>
+
+                    {/* Quality 2: تمام رنگی */}
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedFormat('کیفیت تمام رنگی')}
+                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[140px] ${
+                        selectedFormat.includes('تمام رنگی')
+                          ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                      }`}
+                    >
+                      <span className="block font-bold">کیفیت تمام رنگی</span>
+                      <span className="text-[10px] text-slate-500 mt-1 block">چاپ تمام‌رنگی ویژه نفیس (۴ جلد)</span>
+                      <span className="text-[11px] text-indigo-700 font-black mt-1.5 block">۴,۴۰۰,۰۰۰ تومان</span>
+                    </button>
+                  </>
+                ) : product.id === '45322' ? (
+                  <>
+                    {/* Quality 1: معمولی */}
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedFormat('کیفیت معمولی')}
+                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                        selectedFormat.includes('معمولی')
+                          ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                      }`}
+                    >
+                      <span className="block font-bold">کیفیت معمولی</span>
+                      <span className="text-[10px] text-slate-500 mt-1 block">چاپ استاندارد کاغذ سوئدی</span>
+                      <span className="text-[11px] text-indigo-700 font-black mt-1.5 block">۵۳۹,۱۰۰ تومان</span>
+                    </button>
+
+                    {/* Quality Bulk for 45322 */}
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedFormat('کیفیت بالک سبک')}
+                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                        selectedFormat.includes('بالک سبک')
+                          ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                      }`}
+                    >
+                      <span className="block font-bold">کیفیت بالک سبک</span>
+                      <span className="text-[10px] text-slate-500 mt-1 block">کاغذ بالک سبک درجه یک</span>
+                      <span className="text-[11px] text-indigo-700 font-black mt-1.5 block">۷۱۹,۱۰۰ تومان</span>
+                    </button>
+
+                    {/* Quality 2: تمام رنگی */}
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedFormat('کیفیت تمام رنگی')}
+                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
+                        selectedFormat.includes('تمام رنگی')
+                          ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                      }`}
+                    >
+                      <span className="block font-bold">کیفیت تمام رنگی</span>
+                      <span className="text-[10px] text-slate-500 mt-1 block">چاپ تمام‌رنگی ویژه نفیس</span>
+                      <span className="text-[11px] text-indigo-700 font-black mt-1.5 block">۸۹۹,۱۰۰ تومان</span>
+                    </button>
+                  </>
+                ) : product.id === '45329' ? (
                   <>
                     {/* Quality 1: معمولی */}
                     <button 
@@ -460,51 +542,37 @@ export default function ProductDetails() {
                     >
                       <span className="block font-bold">کیفیت معمولی</span>
                       <span className="text-[10px] text-slate-500 mt-1 block">چاپ استاندارد کاغذ سوئدی</span>
-                      {product.id === '45363' && (
-                        <span className="text-[11px] text-indigo-700 font-black mt-1.5 block">۳,۹۰۰,۰۰۰ تومان</span>
-                      )}
+                      <span className="text-[11px] text-indigo-700 font-black mt-1.5 block">۵۰۳,۱۰۰ تومان</span>
                     </button>
 
-                    {/* Quality Bulk for 45322 */}
-                    {product.id === '45322' && (
-                      <button 
-                        type="button"
-                        onClick={() => setSelectedFormat('کیفیت بالک سبک')}
-                        className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[130px] ${
-                          selectedFormat.includes('بالک سبک')
-                            ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
-                            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
-                        }`}
-                      >
-                        <span className="block font-bold">کیفیت بالک سبک</span>
-                        <span className="text-[10px] text-slate-500 mt-1 block">کاغذ بالک سبک درجه یک</span>
-                      </button>
-                    )}
-
                     {/* Quality 2: تمام رنگی */}
-                    {product.id !== '45375' && (
-                      <button 
-                        type="button"
-                        onClick={() => setSelectedFormat('کیفیت تمام رنگی')}
-                        className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[140px] ${
-                          selectedFormat.includes('تمام رنگی')
-                            ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
-                            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
-                        }`}
-                      >
-                        <span className="block font-bold">کیفیت تمام رنگی</span>
-                        <span className="text-[10px] text-slate-500 mt-1 block">چاپ تمام‌رنگی ویژه نفیس</span>
-                        {product.id === '45363' && (
-                          <span className="text-[11px] text-indigo-700 font-black mt-1.5 block">۴,۴۰۰,۰۰۰ تومان</span>
-                        )}
-                      </button>
-                    )}
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedFormat('کیفیت تمام رنگی')}
+                      className={`px-4 py-3 rounded-2xl border text-xs transition-all text-right flex-1 min-w-[140px] ${
+                        selectedFormat.includes('تمام رنگی')
+                          ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                      }`}
+                    >
+                      <span className="block font-bold">کیفیت تمام رنگی</span>
+                      <span className="text-[10px] text-slate-500 mt-1 block">چاپ تمام‌رنگی ویژه نفیس</span>
+                      <span className="text-[11px] text-indigo-700 font-black mt-1.5 block">۸۰۹,۱۰۰ تومان</span>
+                    </button>
                   </>
                 ) : (
-                  <button className="px-4 py-3 rounded-2xl border border-indigo-200 bg-indigo-50/50 text-indigo-950 text-xs font-semibold w-full text-right cursor-default">
-                    <span className="block font-bold">{selectedFormat}</span>
-                    <span className="text-[10px] text-slate-500 mt-1 font-mono">غیرقابل تغییر (دسترسی دیجیتال آنی پس از ثبت)</span>
-                  </button>
+                  <div className="px-4 py-3 rounded-2xl border border-indigo-200 bg-indigo-50/50 text-indigo-950 text-xs font-semibold w-full text-right">
+                    <span className="block font-bold">
+                      {product.type === 'printed'
+                        ? (product.id === '45363' ? 'مجموعه ۴ جلدی کامل (کاغذ سوئدی سبک)' : (product.format || 'نسخه فیزیکی چاپی'))
+                        : (selectedFormat || product.format || 'محصول دیجیتال')}
+                    </span>
+                    <span className="text-[10px] text-slate-500 mt-1 block">
+                      {product.type === 'printed'
+                        ? (product.id === '45363' ? 'چاپ استاندارد کاغذ بالکی سوئدی (پیش‌فروش دوره ۴ جلدی)' : `چاپ باکیفیت استاندارد کاغذ سوئدی${product.pages ? ` - ${product.pages.toLocaleString('fa-IR')} صفحه` : ''}`)
+                        : 'غیرقابل تغییر (دسترسی دیجیتال آنی پس از ثبت)'}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
@@ -689,6 +757,39 @@ export default function ProductDetails() {
               <span>{isWishlisted ? 'در لیست علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}</span>
             </button>
           </div>
+
+          {/* Direct Link to Digital Version on Ketabrah for Printed Books (Except Daneshkhand and Cheshmhayam) */}
+          {product.type === 'printed' && 
+           product.id !== '45376' && 
+           product.id !== '45378' && 
+           !product.title.includes('دانشخند') && 
+           !product.title.includes('چشمهایم') && 
+           !product.title.includes('چشم‌هایم') && (
+            <div className="pt-2">
+              <a
+                href="https://www.ketabrah.ir/go/a18260"
+                target="_blank"
+                rel="noopener noreferrer"
+                id="details-ketabrah-digital-btn"
+                className="w-full bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 hover:from-amber-500/20 hover:via-orange-500/20 hover:to-amber-500/20 border-2 border-amber-400/80 hover:border-amber-500 text-slate-900 font-extrabold text-xs sm:text-sm py-3.5 px-4 rounded-xl flex items-center justify-between transition-all active:scale-[0.99] shadow-xs group cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <img
+                    src={ketabrahLogo}
+                    alt="کتابراه"
+                    className="w-7 h-7 rounded-lg object-contain bg-white shadow-2xs border border-amber-300 group-hover:scale-105 transition-transform"
+                  />
+                  <span className="font-black text-slate-900 group-hover:text-amber-950 transition-colors">
+                    دانلود نسخه دیجیتال
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-amber-900 font-bold bg-amber-200/80 group-hover:bg-amber-300/80 px-3 py-1.5 rounded-lg transition-colors">
+                  <span>کتابراه</span>
+                  <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+                </div>
+              </a>
+            </div>
+          )}
 
         </div>
 
