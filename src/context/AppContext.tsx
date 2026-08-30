@@ -181,20 +181,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               orderedList.push({
                 ...catalogItem,
                 ...item,
-                price: catalogItem.price,
-                salePrice: catalogItem.salePrice,
-                isPreOrder: catalogItem.isPreOrder,
-                preOrderDeliveryDate: catalogItem.preOrderDeliveryDate,
-                stock: catalogItem.stock === 0 ? 0 : (item.stock ?? catalogItem.stock),
-                title: catalogItem.title,
-                englishTitle: catalogItem.englishTitle,
-                description: catalogItem.description,
-                shortDescription: catalogItem.shortDescription,
-                images: catalogItem.images,
-                tags: catalogItem.tags,
-                duration: catalogItem.duration,
-                format: catalogItem.format,
-                author: catalogItem.author
+                price: typeof item.price === 'number' ? item.price : catalogItem.price,
+                salePrice: typeof item.salePrice === 'number' ? item.salePrice : catalogItem.salePrice,
+                stock: typeof item.stock === 'number' ? item.stock : catalogItem.stock,
+                title: item.title || catalogItem.title,
+                englishTitle: item.englishTitle || catalogItem.englishTitle,
+                description: item.description || catalogItem.description,
+                shortDescription: item.shortDescription || catalogItem.shortDescription,
+                images: (Array.isArray(item.images) && item.images.length > 0) ? item.images : catalogItem.images,
+                tags: (Array.isArray(item.tags) && item.tags.length > 0) ? item.tags : catalogItem.tags,
+                duration: item.duration || catalogItem.duration,
+                format: item.format || catalogItem.format,
+                author: item.author || catalogItem.author,
+                isPreOrder: item.isPreOrder !== undefined ? item.isPreOrder : catalogItem.isPreOrder,
+                preOrderDeliveryDate: item.preOrderDeliveryDate || catalogItem.preOrderDeliveryDate
               });
             } else {
               orderedList.push(item);
@@ -341,6 +341,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Coupons
   const [couponCode, setCouponCode] = useState<string | null>(null);
   const [discountPercentage, setDiscountPercentage] = useState<number>(0);
+  const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
+
+  // Fetch available coupons from server / Supabase
+  useEffect(() => {
+    fetch('/api/coupons')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.coupons)) {
+          setAvailableCoupons(data.coupons);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // VIP Monthly Capacity State (Total: 40 seats, default enrolled: 17)
   const vipCapacity = 40;
@@ -356,6 +369,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     return 17;
   });
+
+  // Fetch live VIP capacity from server / Supabase on mount
+  useEffect(() => {
+    fetch('/api/settings/vip-capacity')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && typeof data.enrolled === 'number') {
+          setVipEnrolledCount(data.enrolled);
+          localStorage.setItem('40gates_vip_enrolled', data.enrolled.toString());
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const updateVipEnrolledCount = (count: number) => {
     const clamped = Math.max(0, Math.min(vipCapacity, count));
@@ -721,9 +747,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Coupon handling with 1-time check and 1,000,000 Toman minimum threshold
+  // Coupon handling with Supabase sync and minimum threshold checks
   const applyCoupon = (code: string, currentSubtotal: number = 0): { success: boolean; message: string } => {
     const formatted = code.toUpperCase().trim();
+
+    // Check dynamically loaded coupons from Supabase / server
+    const dynamicFound = availableCoupons.find(c => (c.code || '').toUpperCase().trim() === formatted && (c.active !== false));
+    if (dynamicFound) {
+      const minSpend = dynamicFound.minSpendNum || 0;
+      if (minSpend > 0 && currentSubtotal < minSpend) {
+        return {
+          success: false,
+          message: `کد تخفیف ${dynamicFound.discount} فقط برای خریدهای بالای ${dynamicFound.minSpend || (minSpend.toLocaleString('fa-IR') + ' تومان')} قابل استفاده است.`
+        };
+      }
+      const percent = typeof dynamicFound.percent === 'number' ? dynamicFound.percent : parseInt(dynamicFound.discount) || 20;
+      setCouponCode(formatted);
+      setDiscountPercentage(percent);
+      return {
+        success: true,
+        message: `کد تخفیف ${dynamicFound.discount || `${percent}٪`} با موفقیت اعمال شد!`
+      };
+    }
 
     if (['DREAM20', 'FIRST20', 'WELCOME20'].includes(formatted)) {
       // Check 1-time usage restriction
@@ -757,6 +802,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return {
         success: true,
         message: 'کد تخفیف ۴۰٪ با موفقیت اعمال گردید!'
+      };
+    }
+
+    if (formatted === 'VIPGATES') {
+      if (currentSubtotal < 500000) {
+        return {
+          success: false,
+          message: 'کد تخفیف ۱۵٪ فقط برای خریدهای بالای ۵۰۰,۰۰۰ تومان قابل استفاده است.'
+        };
+      }
+      setCouponCode('VIPGATES');
+      setDiscountPercentage(15);
+      return {
+        success: true,
+        message: 'کد تخفیف ۱۵٪ با موفقیت اعمال گردید!'
       };
     }
 

@@ -49,7 +49,9 @@ import {
   MoveVertical,
   ListOrdered,
   LayoutGrid,
-  GripVertical
+  GripVertical,
+  Database,
+  Copy
 } from 'lucide-react';
 import SEO from '../components/SEO';
 import { useApp } from '../context/AppContext';
@@ -285,10 +287,10 @@ export default function Admin() {
   };
 
   // Custom Discount Coupons state
-  const [coupons, setCoupons] = useState([
-    { code: 'DREAM20', discount: '۲۰٪', minSpend: '۱,۰۰۰,۰۰۰ تومان', description: 'تخفیف ویژه اولین خرید', active: true },
-    { code: 'BEDAR40', discount: '۴۰٪', minSpend: 'بدون حداقل خرید', description: 'تخفیف طلایی کمپین رویا', active: true },
-    { code: 'VIPGATES', discount: '۱۵٪', minSpend: '۵۰۰,۰۰۰ تومان', description: 'کد تخفیف اعضای VIP', active: true },
+  const [coupons, setCoupons] = useState<Array<{ code: string; discount: string; percent?: number; minSpend: string; minSpendNum?: number; description: string; active?: boolean }>>([
+    { code: 'DREAM20', discount: '۲۰٪', percent: 20, minSpend: '۱,۰۰۰,۰۰۰ تومان', description: 'تخفیف ویژه اولین خرید', active: true },
+    { code: 'BEDAR40', discount: '۴۰٪', percent: 40, minSpend: 'بدون حداقل خرید', description: 'تخفیف طلایی کمپین رویا', active: true },
+    { code: 'VIPGATES', discount: '۱۵٪', percent: 15, minSpend: '۵۰۰,۰۰۰ تومان', description: 'کد تخفیف اعضای VIP', active: true },
   ]);
   const [newCouponCode, setNewCouponCode] = useState('');
   const [newCouponDiscount, setNewCouponDiscount] = useState('10');
@@ -385,10 +387,18 @@ export default function Admin() {
           })
           .catch(err => console.warn('Email logs error:', err));
 
-        // 7. Supabase status
+        // 7. Coupons
+        const couponsPromise = fetch('/api/coupons')
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && Array.isArray(data.coupons)) setCoupons(data.coupons);
+          })
+          .catch(err => console.warn('Coupons error:', err));
+
+        // 8. Supabase status
         checkSupabaseStatus().catch(() => {});
 
-        await Promise.all([usersPromise, logsPromise, settingsPromise, msgsPromise, emailLogsPromise]);
+        await Promise.all([usersPromise, logsPromise, settingsPromise, msgsPromise, emailLogsPromise, couponsPromise]);
       } else {
         await usersPromise;
       }
@@ -962,21 +972,59 @@ export default function Admin() {
     }
   };
 
-  // Add coupon
-  const handleAddCoupon = (e: React.FormEvent) => {
+  // Add coupon with Supabase persistence
+  const handleAddCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCouponCode.trim()) return;
-    setCoupons(prev => [
-      {
-        code: newCouponCode.trim().toUpperCase(),
-        discount: `${newCouponDiscount}%`,
-        minSpend: 'بدون محدودیت',
-        description: 'کد تخفیف اختصاصی جدید',
-        active: true
-      },
-      ...prev
-    ]);
+    const formattedCode = newCouponCode.trim().toUpperCase();
+    const percentNum = Number(newCouponDiscount) || 10;
+    const newC = {
+      code: formattedCode,
+      discount: `${percentNum}٪`,
+      percent: percentNum,
+      minSpend: 'بدون محدودیت',
+      minSpendNum: 0,
+      description: 'کد تخفیف اختصاصی جدید',
+      active: true
+    };
+
+    setCoupons(prev => [newC, ...prev.filter(c => c.code !== formattedCode)]);
     setNewCouponCode('');
+
+    try {
+      const res = await fetch('/api/coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coupon: newC })
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.coupons)) {
+        setCoupons(data.coupons);
+      }
+      setRefreshNotification(`کد تخفیف «${formattedCode}» با موفقیت در Supabase ذخیره شد.`);
+      setTimeout(() => setRefreshNotification(null), 3500);
+    } catch (e) {
+      console.warn('Coupon save error:', e);
+    }
+  };
+
+  // Delete coupon with Supabase persistence
+  const handleDeleteCoupon = async (code: string) => {
+    if (!window.confirm(`آیا از حذف کد تخفیف «${code}» اطمینان دارید؟`)) return;
+    setCoupons(prev => prev.filter(c => c.code.toUpperCase() !== code.toUpperCase()));
+    try {
+      const res = await fetch(`/api/coupons/${encodeURIComponent(code)}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.coupons)) {
+        setCoupons(data.coupons);
+      }
+      setRefreshNotification(`کد تخفیف «${code}» با موفقیت حذف گردید.`);
+      setTimeout(() => setRefreshNotification(null), 3500);
+    } catch (e) {
+      console.warn('Coupon delete error:', e);
+    }
   };
 
   // Loading Splash
@@ -2327,12 +2375,25 @@ export default function Admin() {
                   {coupons.map((coupon, idx) => (
                     <div key={idx} className="bg-slate-900 border border-slate-700/80 rounded-xl p-3 flex justify-between items-center text-xs">
                       <div className="space-y-1">
-                        <span className="font-mono font-extrabold text-amber-300 text-sm">{coupon.code}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-extrabold text-amber-300 text-sm">{coupon.code}</span>
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded text-[11px] font-bold font-mono">
+                            {coupon.discount}
+                          </span>
+                        </div>
                         <p className="text-[11px] text-slate-400">{coupon.description} - حداقل خرید: {coupon.minSpend}</p>
                       </div>
-                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-lg font-bold">
-                        {coupon.discount}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCoupon(coupon.code)}
+                          className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 p-2 rounded-lg transition-colors cursor-pointer text-[11px] flex items-center gap-1"
+                          title="حذف کد تخفیف"
+                        >
+                          <Trash2 size={13} />
+                          <span>حذف</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2596,6 +2657,58 @@ export default function Admin() {
                         )}
                       </div>
                     </form>
+
+                    {/* Supabase Schema Helper SQL for Tables */}
+                    <div className="pt-3 border-t border-slate-800 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-slate-300 text-[11px] flex items-center gap-1.5">
+                          <Database size={13} className="text-emerald-400" />
+                          <span>ساختار پایگاه داده در Supabase (SQL Schema):</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const sql = `-- ساخت جدول ذخیره‌سازی جامع تنظیمات و محصولات
+CREATE TABLE IF NOT EXISTS public.site_settings (
+  id TEXT PRIMARY KEY,
+  value JSONB,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- فعال‌سازی دسترسی امن
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read-write" ON public.site_settings FOR ALL USING (true);
+
+-- ساخت جدول سفارشات
+CREATE TABLE IF NOT EXISTS public.orders (
+  id TEXT PRIMARY KEY,
+  customer_name TEXT,
+  customer_phone TEXT,
+  customer_email TEXT,
+  customer_address TEXT,
+  customer_postal_code TEXT,
+  total_amount NUMERIC,
+  payment_status TEXT,
+  order_status TEXT,
+  items JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read-write orders" ON public.orders FOR ALL USING (true);`;
+                            navigator.clipboard.writeText(sql);
+                            setRefreshNotification('کد SQL با موفقیت کپی شد! می‌توانید در Supabase SQL Editor اجرا نمایید.');
+                            setTimeout(() => setRefreshNotification(null), 4000);
+                          }}
+                          className="text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-slate-700"
+                        >
+                          <Copy size={12} />
+                          <span>کپی کد SQL جداول</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        داده‌های محصولات، تخفیف‌ها، سهمیه VIP و سفارش‌ها علاوه بر فایل پشتیبان سرور، به صورت زنده در جدول <code className="font-mono bg-slate-950 px-1 py-0.5 rounded text-emerald-400">site_settings</code> و <code className="font-mono bg-slate-950 px-1 py-0.5 rounded text-emerald-400">orders</code> پایگاه داده Supabase همگام‌سازی و ذخیره می‌شوند.
+                      </p>
+                    </div>
                   </div>
                 </div>
                 {/* 2FA Security Configuration Card */}

@@ -59,14 +59,14 @@ app.use((req, res, next) => {
 
 // Runtime Supabase Config Store
 export const runtimeSupabaseConfig = {
-  url: (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim(),
-  anonKey: (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim(),
+  url: (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://msyomyfwitwdpdgflzvi.supabase.co').trim(),
+  anonKey: (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_MZO-v0WCtwY8B4c0UVyetg__iRn0JVq').trim(),
   serviceKey: (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
 };
 
 export function getSupabaseClient() {
-  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || runtimeSupabaseConfig.url || '').trim();
-  const key = (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || runtimeSupabaseConfig.serviceKey || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || runtimeSupabaseConfig.anonKey || '').trim();
+  const url = (runtimeSupabaseConfig.url || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://msyomyfwitwdpdgflzvi.supabase.co').trim();
+  const key = (runtimeSupabaseConfig.serviceKey || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || runtimeSupabaseConfig.anonKey || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_MZO-v0WCtwY8B4c0UVyetg__iRn0JVq').trim();
   if (!url || !key || url.includes('placeholder')) return null;
   try {
     return createClient(url, key);
@@ -537,9 +537,12 @@ if (!fs.existsSync(DATA_DIR)) {
   }
 }
 
-const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const CONTACT_FILE = path.join(DATA_DIR, 'contacts.json');
+const ORDERS_FILE = path.join(process.cwd(), 'orders_store.json');
+const PRODUCTS_FILE = path.join(process.cwd(), 'products_store.json');
+const COUPONS_FILE = path.join(process.cwd(), 'coupons_store.json');
+const VIP_FILE = path.join(process.cwd(), 'vip_store.json');
 
 // Initialize local stores from disk if existing
 try {
@@ -593,15 +596,31 @@ function saveContactsToDisk() {
   }
 }
 
+function saveProductsToDisk(products: any[]) {
+  try {
+    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Products file save error:', e);
+  }
+}
+
 async function syncOrdersFromSupabase(): Promise<any[]> {
   const client = getSupabaseClient();
   if (!client) {
     return serverOrdersStore;
   }
   try {
+    // 1. Try dedicated orders table
     const { data, error } = await client.from('orders').select('*').order('created_at', { ascending: false });
-    if (!error && Array.isArray(data)) {
+    if (!error && Array.isArray(data) && data.length > 0) {
       serverOrdersStore = data.map(item => item.data || item);
+      saveOrdersToDisk();
+      return serverOrdersStore;
+    }
+    // 2. Fallback to site_settings table
+    const { data: settingsData, error: settingsError } = await client.from('site_settings').select('value').eq('id', 'orders_store').single();
+    if (!settingsError && settingsData?.value && Array.isArray(settingsData.value)) {
+      serverOrdersStore = settingsData.value;
       saveOrdersToDisk();
     }
   } catch (e) {
@@ -615,6 +634,7 @@ async function persistOrderToSupabase(order: any) {
   const client = getSupabaseClient();
   if (!client || !order || !order.id) return;
   try {
+    // 1. Upsert into dedicated orders table
     await client.from('orders').upsert({
       id: order.id,
       data: order,
@@ -622,7 +642,18 @@ async function persistOrderToSupabase(order: any) {
       created_at: new Date().toISOString()
     });
   } catch (e) {
-    console.warn('Supabase save order warn:', e);
+    console.warn('Supabase save order warn (orders table):', e);
+  }
+
+  // 2. Always backup to site_settings orders_store
+  try {
+    await client.from('site_settings').upsert({
+      id: 'orders_store',
+      value: serverOrdersStore,
+      updated_at: new Date().toISOString()
+    });
+  } catch (e) {
+    console.warn('Supabase save order warn (site_settings):', e);
   }
 }
 
@@ -697,13 +728,36 @@ app.get('/robots.txt', (req, res) => {
 // Server Products Store & Supabase Sync
 let serverProductsStore: any[] = [];
 
+// Try to load initial products from disk on boot
+try {
+  if (fs.existsSync(PRODUCTS_FILE)) {
+    const raw = fs.readFileSync(PRODUCTS_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      serverProductsStore = parsed;
+    }
+  }
+} catch (e) {
+  console.warn('Initial products load from disk error:', e);
+}
+
 async function syncProductsFromSupabase(): Promise<any[]> {
   const client = getSupabaseClient();
   if (!client) return serverProductsStore;
   try {
+    // 1. Check site_settings table first (primary key-value store in Supabase)
+    const { data: settingsData, error: settingsError } = await client.from('site_settings').select('value').eq('id', 'products_store').single();
+    if (!settingsError && settingsData?.value && Array.isArray(settingsData.value) && settingsData.value.length > 0) {
+      serverProductsStore = settingsData.value;
+      saveProductsToDisk(serverProductsStore);
+      return serverProductsStore;
+    }
+
+    // 2. Check dedicated products table as fallback
     const { data, error } = await client.from('products').select('*');
     if (!error && Array.isArray(data) && data.length > 0) {
       serverProductsStore = data.map(item => item.data || item);
+      saveProductsToDisk(serverProductsStore);
     }
   } catch (e) {
     console.warn('Supabase products sync warn:', e);
@@ -712,8 +766,22 @@ async function syncProductsFromSupabase(): Promise<any[]> {
 }
 
 async function persistProductsToSupabase(productsList: any[]) {
+  saveProductsToDisk(productsList);
   const client = getSupabaseClient();
   if (!client || !Array.isArray(productsList) || productsList.length === 0) return;
+  
+  // 1. Primary: Save full structured catalog into site_settings (reliable, preserves ordering & nested fields)
+  try {
+    await client.from('site_settings').upsert({
+      id: 'products_store',
+      value: productsList,
+      updated_at: new Date().toISOString()
+    });
+  } catch (e) {
+    console.warn('Supabase site_settings products persist warn:', e);
+  }
+
+  // 2. Also try dedicated products table
   try {
     const rows = productsList.map(p => ({
       id: p.id,
@@ -724,27 +792,132 @@ async function persistProductsToSupabase(productsList: any[]) {
     }));
     await client.from('products').upsert(rows);
   } catch (e) {
-    console.warn('Supabase save products warn:', e);
+    console.warn('Supabase products table persist warn (optional table):', e);
   }
 }
 
 // VIP Capacity In-Memory & Persistence Store
 let serverVipCapacity = { enrolled: 17, capacity: 40 };
 
-app.get('/api/settings/vip-capacity', (req, res) => {
+async function syncVipCapacityFromSupabase() {
+  const client = getSupabaseClient();
+  if (!client) return serverVipCapacity;
+  try {
+    const { data, error } = await client.from('site_settings').select('value').eq('id', 'vip_capacity_store').single();
+    if (!error && data?.value && typeof data.value.enrolled === 'number') {
+      serverVipCapacity = { ...serverVipCapacity, ...data.value };
+    }
+  } catch (e) {
+    console.warn('Supabase VIP capacity sync warn:', e);
+  }
+  return serverVipCapacity;
+}
+
+async function persistVipCapacityToSupabase() {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from('site_settings').upsert({
+      id: 'vip_capacity_store',
+      value: serverVipCapacity,
+      updated_at: new Date().toISOString()
+    });
+  } catch (e) {
+    console.warn('Supabase VIP capacity persist warn:', e);
+  }
+}
+
+app.get('/api/settings/vip-capacity', async (req, res) => {
+  await syncVipCapacityFromSupabase();
   res.json({ success: true, ...serverVipCapacity });
 });
 
-app.post('/api/settings/vip-capacity', (req, res) => {
+app.post('/api/settings/vip-capacity', async (req, res) => {
   try {
     const { enrolled, capacity } = req.body;
     if (typeof enrolled === 'number') {
-      serverVipCapacity.enrolled = Math.max(0, Math.min(capacity || 40, enrolled));
+      serverVipCapacity.enrolled = Math.max(0, Math.min(capacity || serverVipCapacity.capacity || 40, enrolled));
     }
     if (typeof capacity === 'number' && capacity > 0) {
       serverVipCapacity.capacity = capacity;
     }
-    res.json({ success: true, ...serverVipCapacity });
+    await persistVipCapacityToSupabase();
+    res.json({ success: true, ...serverVipCapacity, syncedWithSupabase: true });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e?.message });
+  }
+});
+
+// Coupons / Discount Codes Store & Persistence
+let serverCouponsStore = [
+  { code: 'DREAM20', discount: '۲۰٪', percent: 20, minSpend: '۱,۰۰۰,۰۰۰ تومان', minSpendNum: 1000000, description: 'تخفیف ویژه اولین خرید', active: true },
+  { code: 'BEDAR40', discount: '۴۰٪', percent: 40, minSpend: 'بدون حداقل خرید', minSpendNum: 0, description: 'تخفیف طلایی کمپین رویا', active: true },
+  { code: 'VIPGATES', discount: '۱۵٪', percent: 15, minSpend: '۵۰۰,۰۰۰ تومان', minSpendNum: 500000, description: 'کد تخفیف اعضای VIP', active: true },
+  { code: 'FIRST20', discount: '۲۰٪', percent: 20, minSpend: 'بدون حداقل خرید', minSpendNum: 0, description: 'تخفیف سفارش اول', active: true },
+  { code: 'WELCOME20', discount: '۲۰٪', percent: 20, minSpend: 'بدون حداقل خرید', minSpendNum: 0, description: 'تخفیف خوش‌آمدگویی', active: true }
+];
+
+async function syncCouponsFromSupabase(): Promise<any[]> {
+  const client = getSupabaseClient();
+  if (!client) return serverCouponsStore;
+  try {
+    const { data, error } = await client.from('site_settings').select('value').eq('id', 'coupons_store').single();
+    if (!error && data?.value && Array.isArray(data.value) && data.value.length > 0) {
+      serverCouponsStore = data.value;
+    }
+  } catch (e) {
+    console.warn('Supabase coupons sync warn:', e);
+  }
+  return serverCouponsStore;
+}
+
+async function persistCouponsToSupabase(couponsList: any[]) {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from('site_settings').upsert({
+      id: 'coupons_store',
+      value: couponsList,
+      updated_at: new Date().toISOString()
+    });
+  } catch (e) {
+    console.warn('Supabase coupons persist warn:', e);
+  }
+}
+
+app.get('/api/coupons', async (req, res) => {
+  const coupons = await syncCouponsFromSupabase();
+  res.json({ success: true, coupons });
+});
+
+app.post('/api/coupons', async (req, res) => {
+  try {
+    const { coupons: newCoupons, coupon: singleCoupon } = req.body;
+    if (Array.isArray(newCoupons) && newCoupons.length > 0) {
+      serverCouponsStore = newCoupons;
+      await persistCouponsToSupabase(newCoupons);
+    } else if (singleCoupon && singleCoupon.code) {
+      const codeUpper = singleCoupon.code.trim().toUpperCase();
+      const existingIdx = serverCouponsStore.findIndex(c => c.code.toUpperCase() === codeUpper);
+      if (existingIdx >= 0) {
+        serverCouponsStore[existingIdx] = { ...serverCouponsStore[existingIdx], ...singleCoupon, code: codeUpper };
+      } else {
+        serverCouponsStore.unshift({ ...singleCoupon, code: codeUpper });
+      }
+      await persistCouponsToSupabase(serverCouponsStore);
+    }
+    res.json({ success: true, coupons: serverCouponsStore, syncedWithSupabase: true });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e?.message });
+  }
+});
+
+app.delete('/api/coupons/:code', async (req, res) => {
+  try {
+    const code = req.params.code.trim().toUpperCase();
+    serverCouponsStore = serverCouponsStore.filter(c => c.code.toUpperCase() !== code);
+    await persistCouponsToSupabase(serverCouponsStore);
+    res.json({ success: true, coupons: serverCouponsStore, syncedWithSupabase: true });
   } catch (e: any) {
     res.status(500).json({ success: false, error: e?.message });
   }
@@ -771,7 +944,7 @@ app.post('/api/products', async (req, res) => {
       }
       persistProductsToSupabase(serverProductsStore).catch(e => console.warn('Product persist warn:', e));
     }
-    res.json({ success: true, products: serverProductsStore });
+    res.json({ success: true, products: serverProductsStore, syncedWithSupabase: true });
   } catch (e: any) {
     res.status(500).json({ success: false, error: e?.message });
   }

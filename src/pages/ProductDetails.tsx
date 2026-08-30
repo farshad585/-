@@ -10,7 +10,7 @@ import { Product, Review } from '../types';
 import SEO from '../components/SEO';
 import ProductCard from '../components/ProductCard';
 import ShimmerButton from '../components/ShimmerButton';
-import ketabrahLogo from '../assets/images/ketabrah.jpg';
+import ketabrahLogo from '../assets/images/ketabrah.png';
 import { 
   Star, 
   ShoppingCart, 
