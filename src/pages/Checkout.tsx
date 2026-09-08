@@ -21,7 +21,8 @@ import {
   Sparkles,
   Mail,
   ShoppingBag,
-  Send
+  Send,
+  Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -185,6 +186,14 @@ export default function Checkout() {
     setTimeout(() => setCopiedCard(false), 3000);
   };
 
+  const [copiedSheba, setCopiedSheba] = useState(false);
+  const handleCopySheba = () => {
+    navigator.clipboard.writeText('IR920170000000120407930006');
+    setCopiedSheba(true);
+    showNotification('شماره شبا بانک ملی با موفقیت کپی شد.');
+    setTimeout(() => setCopiedSheba(false), 3000);
+  };
+
   // Return to client dashboard
   const handleGoToDashboard = () => {
     if (generatedOrder) {
@@ -258,6 +267,10 @@ export default function Checkout() {
               <strong className="text-indigo-950 font-mono text-sm sm:text-base tracking-widest dir-ltr">6362141809746812</strong>
             </div>
             <div className="flex justify-between items-center border-t border-slate-100 pt-2">
+              <span className="text-slate-500">شماره شبا (بانک ملی):</span>
+              <strong className="text-indigo-950 font-mono text-xs sm:text-sm tracking-wider dir-ltr select-all">IR920170000000120407930006</strong>
+            </div>
+            <div className="flex justify-between items-center border-t border-slate-100 pt-2">
               <span className="text-slate-500">به نام:</span>
               <strong className="text-slate-900 font-bold">فرشاد میرشکاری سرکره</strong>
             </div>
@@ -267,13 +280,24 @@ export default function Checkout() {
             </div>
           </div>
 
-          <button
-            onClick={handleCopyCard}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2"
-          >
-            <CreditCard size={14} />
-            <span>{copiedCard ? '✓ شماره کارت کپی شد' : 'کپی شماره کارت (۶۳۶۲۱۴۱۸۰۹۷۴۶۸۱۲)'}</span>
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleCopyCard}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <CreditCard size={14} />
+              <span>{copiedCard ? '✓ شماره کارت کپی شد' : 'کپی شماره کارت'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleCopySheba}
+              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs py-3 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Copy size={14} />
+              <span>{copiedSheba ? '✓ شماره شبا کپی شد' : 'کپی شماره شبا (IBAN)'}</span>
+            </button>
+          </div>
 
           <div className="bg-white/80 p-3.5 rounded-xl border border-indigo-100 text-center space-y-2">
             <p className="text-xs text-slate-700 font-medium leading-relaxed">

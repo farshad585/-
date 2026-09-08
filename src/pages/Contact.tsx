@@ -136,6 +136,19 @@ export default function Contact() {
               </li>
 
               <li className="flex gap-3 items-start">
+                <Phone size={20} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="block text-slate-900 font-bold">شماره تماس مستقیم و پشتیبانی:</span>
+                  <a 
+                    href="tel:09363532455"
+                    className="text-emerald-700 hover:underline font-mono font-bold text-sm block dir-ltr text-right tracking-wider"
+                  >
+                    09363532455
+                  </a>
+                </div>
+              </li>
+
+              <li className="flex gap-3 items-start">
                 <MessageCircle size={20} className="text-emerald-600 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <span className="block text-slate-900 font-bold">کانال رسمی در پیام‌رسان بله:</span>

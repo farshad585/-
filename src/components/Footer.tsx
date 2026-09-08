@@ -88,6 +88,13 @@ export default function Footer() {
             >
               <Mail size={18} />
             </a>
+            <a 
+              href="tel:09363532455" 
+              className="p-2.5 bg-indigo-50 hover:bg-gradient-to-r hover:from-emerald-600 hover:to-teal-600 hover:text-white rounded-xl transition-all text-indigo-600 shadow-xs flex items-center gap-1.5"
+              title="تماس تلفنی مستقیم (09363532455)"
+            >
+              <Phone size={18} />
+            </a>
           </div>
         </div>
 
@@ -159,6 +166,15 @@ export default function Footer() {
                 className="hover:text-indigo-600 dir-ltr font-mono font-semibold transition-colors"
               >
                 ble.ir/40GATES
+              </a>
+            </li>
+            <li className="flex items-center gap-2.5">
+              <Phone size={18} className="text-emerald-600 shrink-0" />
+              <a 
+                href="tel:09363532455"
+                className="hover:text-indigo-600 dir-ltr font-mono font-bold transition-colors text-slate-800"
+              >
+                09363532455
               </a>
             </li>
             <li className="flex items-center gap-2.5">
