@@ -355,7 +355,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []);
 
-  // VIP Monthly Capacity State (Total: 40 seats, default enrolled: 15)
+  // VIP Monthly Capacity State (Total: 40 seats, default enrolled: 9)
   const vipCapacity = 40;
   const [vipEnrolledCount, setVipEnrolledCount] = useState<number>(() => {
     try {
@@ -363,10 +363,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved !== null) {
         const parsed = parseInt(saved, 10);
         if (!isNaN(parsed) && parsed >= 0) {
-          // If previous default of 17 was saved, update to new default of 15
-          if (parsed === 17) {
-            localStorage.setItem('40gates_vip_enrolled', '15');
-            return 15;
+          // If previous default of 17 or 15 was saved, update to new default of 9
+          if (parsed === 17 || parsed === 15) {
+            localStorage.setItem('40gates_vip_enrolled', '9');
+            return 9;
           }
           return parsed;
         }
@@ -374,7 +374,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // fallback
     }
-    return 15;
+    return 9;
   });
 
   // Fetch live VIP capacity from server / Supabase on mount
