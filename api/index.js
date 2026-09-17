@@ -3,9 +3,435 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { Resend } from "resend";
-import crypto from "crypto";
+import crypto2 from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import { generateSecret, verifySync } from "otplib";
+
+// src/lib/rateLimiter.ts
+var TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1e3;
+var TEN_MINUTES_MS = 10 * 60 * 1e3;
+var FORGOT_PASSWORD_MAX_ATTEMPTS = 3;
+var FORGOT_PASSWORD_COOLDOWN_MS = 10 * 60 * 1e3;
+var ORDER_MAX_PER_24H = 2;
+var CONTACT_MAX_PER_24H = 3;
+var TEST_EMAIL_MAX_PER_10MIN = 5;
+var state = {
+  forgotPassword: {},
+  orders: {},
+  contact: {},
+  testEmail: {},
+  sentEmailEvents: {}
+};
+var syncTimeout = null;
+function pruneTimestamps(timestamps = [], windowMs, now = Date.now()) {
+  const cutoff = now - windowMs;
+  return timestamps.filter((t) => typeof t === "number" && t > cutoff);
+}
+function pruneEntireState(now = Date.now()) {
+  for (const [key, bucket] of Object.entries(state.forgotPassword)) {
+    bucket.timestamps = pruneTimestamps(bucket.timestamps, TWENTY_FOUR_HOURS_MS, now);
+    if (bucket.timestamps.length === 0 && (!bucket.lastSuccess || now - bucket.lastSuccess > TWENTY_FOUR_HOURS_MS)) {
+      delete state.forgotPassword[key];
+    }
+  }
+  for (const [key, bucket] of Object.entries(state.orders)) {
+    bucket.timestamps = pruneTimestamps(bucket.timestamps, TWENTY_FOUR_HOURS_MS, now);
+    if (bucket.timestamps.length === 0) {
+      delete state.orders[key];
+    }
+  }
+  for (const [key, bucket] of Object.entries(state.contact)) {
+    bucket.timestamps = pruneTimestamps(bucket.timestamps, TWENTY_FOUR_HOURS_MS, now);
+    if (bucket.timestamps.length === 0) {
+      delete state.contact[key];
+    }
+  }
+  for (const [key, bucket] of Object.entries(state.testEmail)) {
+    bucket.timestamps = pruneTimestamps(bucket.timestamps, TEN_MINUTES_MS, now);
+    if (bucket.timestamps.length === 0) {
+      delete state.testEmail[key];
+    }
+  }
+  const eventCutoff = now - 48 * 60 * 60 * 1e3;
+  for (const [key, timestamp] of Object.entries(state.sentEmailEvents)) {
+    if (timestamp < eventCutoff) {
+      delete state.sentEmailEvents[key];
+    }
+  }
+}
+async function initRateLimiterFromSupabase(supabaseClient) {
+  if (!supabaseClient) return false;
+  try {
+    const { data, error } = await supabaseClient.from("site_settings").select("value").eq("id", "rate_limiter_state").single();
+    if (!error && data && data.value && typeof data.value === "object") {
+      const loaded = data.value;
+      state = {
+        forgotPassword: loaded.forgotPassword || {},
+        orders: loaded.orders || {},
+        contact: loaded.contact || {},
+        testEmail: loaded.testEmail || {},
+        sentEmailEvents: loaded.sentEmailEvents || {}
+      };
+      pruneEntireState();
+      return true;
+    }
+  } catch (err) {
+    console.warn("Failed to load rate limiter state from Supabase:", err);
+  }
+  return false;
+}
+async function syncRateLimiterToSupabase(supabaseClient, immediate = false) {
+  if (!supabaseClient) return;
+  const doSync = async () => {
+    try {
+      pruneEntireState();
+      await supabaseClient.from("site_settings").upsert({
+        id: "rate_limiter_state",
+        value: state,
+        updated_at: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    } catch (err) {
+      console.warn("Failed to sync rate limiter state to Supabase:", err);
+    }
+  };
+  if (immediate) {
+    if (syncTimeout) {
+      clearTimeout(syncTimeout);
+      syncTimeout = null;
+    }
+    await doSync();
+  } else {
+    if (syncTimeout) clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(() => {
+      doSync().catch(() => {
+      });
+    }, 1e3);
+  }
+}
+function checkForgotPasswordRateLimit(email, now = Date.now()) {
+  if (!email || typeof email !== "string" || !email.includes("@")) {
+    return {
+      allowed: false,
+      reason: "invalid_email",
+      message: "\u0622\u062F\u0631\u0633 \u0627\u06CC\u0645\u06CC\u0644 \u0648\u0627\u0631\u062F \u0634\u062F\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A."
+    };
+  }
+  const cleanEmail = email.trim().toLowerCase();
+  const bucket = state.forgotPassword[cleanEmail] || { timestamps: [] };
+  if (bucket.lastSuccess) {
+    const elapsed = now - bucket.lastSuccess;
+    if (elapsed < FORGOT_PASSWORD_COOLDOWN_MS) {
+      const waitRemainingMs = FORGOT_PASSWORD_COOLDOWN_MS - elapsed;
+      const waitMinutes = Math.max(1, Math.ceil(waitRemainingMs / 6e4));
+      return {
+        allowed: false,
+        reason: "cooldown",
+        waitMinutes,
+        message: `\u0634\u0645\u0627 \u0628\u0647 \u062A\u0627\u0632\u06AF\u06CC \u06CC\u06A9 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062B\u0628\u062A \u06A9\u0631\u062F\u0647\u200C\u0627\u06CC\u062F. \u0644\u0637\u0641\u0627\u064B ${waitMinutes} \u062F\u0642\u06CC\u0642\u0647 \u062F\u06CC\u06AF\u0631 \u0645\u062C\u062F\u062F\u0627\u064B \u062A\u0644\u0627\u0634 \u0641\u0631\u0645\u0627\u06CC\u06CC\u062F.`
+      };
+    }
+  }
+  const activeTimestamps = pruneTimestamps(bucket.timestamps, TWENTY_FOUR_HOURS_MS, now);
+  if (activeTimestamps.length >= FORGOT_PASSWORD_MAX_ATTEMPTS) {
+    return {
+      allowed: false,
+      reason: "daily_limit",
+      message: "\u062D\u062F\u0627\u06A9\u062B\u0631 \u062A\u0639\u062F\u0627\u062F \u0645\u062C\u0627\u0632 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 (\u06F3 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062F\u0631 \u06F2\u06F4 \u0633\u0627\u0639\u062A) \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0627\u06CC\u0645\u06CC\u0644 \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A. \u0644\u0637\u0641\u0627\u064B \u06F2\u06F4 \u0633\u0627\u0639\u062A \u067E\u0633 \u0627\u0632 \u0627\u0648\u0644\u06CC\u0646 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0645\u062C\u062F\u062F\u0627\u064B \u0627\u0642\u062F\u0627\u0645 \u0646\u0645\u0627\u06CC\u06CC\u062F \u06CC\u0627 \u0628\u0627 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u062A\u0645\u0627\u0633 \u0628\u06AF\u06CC\u0631\u06CC\u062F."
+    };
+  }
+  return { allowed: true };
+}
+function recordForgotPasswordSuccess(email, now = Date.now(), supabaseClient) {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!state.forgotPassword[cleanEmail]) {
+    state.forgotPassword[cleanEmail] = { timestamps: [] };
+  }
+  const bucket = state.forgotPassword[cleanEmail];
+  bucket.timestamps = [...pruneTimestamps(bucket.timestamps, TWENTY_FOUR_HOURS_MS, now), now];
+  bucket.lastSuccess = now;
+  if (supabaseClient) {
+    syncRateLimiterToSupabase(supabaseClient);
+  }
+}
+function checkOrderCreationRateLimit(identifier, now = Date.now()) {
+  const cleanKey = String(identifier || "").trim().toLowerCase();
+  if (!cleanKey) {
+    return { allowed: true };
+  }
+  const bucket = state.orders[cleanKey] || { timestamps: [] };
+  const activeTimestamps = pruneTimestamps(bucket.timestamps, TWENTY_FOUR_HOURS_MS, now);
+  if (activeTimestamps.length >= ORDER_MAX_PER_24H) {
+    return {
+      allowed: false,
+      reason: "order_limit_exceeded",
+      orderCount: activeTimestamps.length,
+      message: "\u0633\u0642\u0641 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u0633\u0641\u0627\u0631\u0634 (\u062D\u062F\u0627\u06A9\u062B\u0631 \u06F2 \u0633\u0641\u0627\u0631\u0634 \u062F\u0631 \u06F2\u06F4 \u0633\u0627\u0639\u062A) \u0628\u0631\u0627\u06CC \u062D\u0633\u0627\u0628 \u06CC\u0627 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0634\u0645\u0627 \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A. \u062F\u0631 \u0635\u0648\u0631\u062A \u0646\u06CC\u0627\u0632 \u0628\u0627 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u062A\u0645\u0627\u0633 \u062D\u0627\u0635\u0644 \u0641\u0631\u0645\u0627\u06CC\u06CC\u062F."
+    };
+  }
+  return { allowed: true, orderCount: activeTimestamps.length };
+}
+function recordOrderCreation(identifier, orderId, now = Date.now(), supabaseClient) {
+  const cleanKey = String(identifier || "").trim().toLowerCase();
+  if (!cleanKey) return;
+  if (!state.orders[cleanKey]) {
+    state.orders[cleanKey] = { timestamps: [] };
+  }
+  const bucket = state.orders[cleanKey];
+  bucket.timestamps = [...pruneTimestamps(bucket.timestamps, TWENTY_FOUR_HOURS_MS, now), now];
+  bucket.lastSuccess = now;
+  if (supabaseClient) {
+    syncRateLimiterToSupabase(supabaseClient);
+  }
+}
+function isFreeOrder(order) {
+  if (!order) return false;
+  const totalAmount = Number(order.totalAmount ?? order.amount ?? order.finalAmount);
+  if (!isNaN(totalAmount) && totalAmount <= 0) {
+    return true;
+  }
+  if (order.totalAmount === void 0 && order.amount === void 0) {
+    const subtotal = Number(order.subtotal || 0);
+    const shipping = Number(order.shippingFee || 0);
+    if (subtotal + shipping <= 0) {
+      return true;
+    }
+  }
+  return false;
+}
+function hasEmailBeenSent(eventKey) {
+  if (!eventKey) return false;
+  return Boolean(state.sentEmailEvents[eventKey]);
+}
+function markEmailAsSent(eventKey, now = Date.now(), supabaseClient) {
+  if (!eventKey) return;
+  state.sentEmailEvents[eventKey] = now;
+  if (supabaseClient) {
+    syncRateLimiterToSupabase(supabaseClient);
+  }
+}
+function checkContactRateLimit(params, now = Date.now()) {
+  const emailKey = params.email ? `email:${params.email.trim().toLowerCase()}` : "";
+  const ipKey = params.ip ? `ip:${params.ip.trim().toLowerCase()}` : "";
+  if (emailKey) {
+    const bucket = state.contact[emailKey] || { timestamps: [] };
+    const active = pruneTimestamps(bucket.timestamps, TWENTY_FOUR_HOURS_MS, now);
+    if (active.length >= CONTACT_MAX_PER_24H) {
+      return {
+        allowed: false,
+        reason: "email_limit_exceeded",
+        message: "\u0633\u0642\u0641 \u0645\u062C\u0627\u0632 \u0627\u0631\u0633\u0627\u0644 \u067E\u06CC\u0627\u0645 \u0627\u0632 \u0637\u0631\u06CC\u0642 \u0641\u0631\u0645 \u062A\u0645\u0627\u0633 (\u062D\u062F\u0627\u06A9\u062B\u0631 \u06F3 \u067E\u06CC\u0627\u0645 \u062F\u0631 \u06F2\u06F4 \u0633\u0627\u0639\u062A) \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0622\u062F\u0631\u0633 \u0627\u06CC\u0645\u06CC\u0644 \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A."
+      };
+    }
+  }
+  if (ipKey) {
+    const bucket = state.contact[ipKey] || { timestamps: [] };
+    const active = pruneTimestamps(bucket.timestamps, TWENTY_FOUR_HOURS_MS, now);
+    if (active.length >= CONTACT_MAX_PER_24H) {
+      return {
+        allowed: false,
+        reason: "ip_limit_exceeded",
+        message: "\u0633\u0642\u0641 \u0645\u062C\u0627\u0632 \u0627\u0631\u0633\u0627\u0644 \u067E\u06CC\u0627\u0645 \u0627\u0632 \u0637\u0631\u06CC\u0642 \u0641\u0631\u0645 \u062A\u0645\u0627\u0633 (\u062D\u062F\u0627\u06A9\u062B\u0631 \u06F3 \u067E\u06CC\u0627\u0645 \u062F\u0631 \u06F2\u06F4 \u0633\u0627\u0639\u062A) \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0634\u0628\u06A9\u0647 \u06CC\u0627 \u0633\u06CC\u0633\u062A\u0645 \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A."
+      };
+    }
+  }
+  return { allowed: true };
+}
+function recordContactMessage(params, now = Date.now(), supabaseClient) {
+  const emailKey = params.email ? `email:${params.email.trim().toLowerCase()}` : "";
+  const ipKey = params.ip ? `ip:${params.ip.trim().toLowerCase()}` : "";
+  if (emailKey) {
+    if (!state.contact[emailKey]) state.contact[emailKey] = { timestamps: [] };
+    const bucket = state.contact[emailKey];
+    bucket.timestamps = [...pruneTimestamps(bucket.timestamps, TWENTY_FOUR_HOURS_MS, now), now];
+    bucket.lastSuccess = now;
+  }
+  if (ipKey) {
+    if (!state.contact[ipKey]) state.contact[ipKey] = { timestamps: [] };
+    const bucket = state.contact[ipKey];
+    bucket.timestamps = [...pruneTimestamps(bucket.timestamps, TWENTY_FOUR_HOURS_MS, now), now];
+    bucket.lastSuccess = now;
+  }
+  if (supabaseClient) {
+    syncRateLimiterToSupabase(supabaseClient);
+  }
+}
+function checkAdminTestEmailRateLimit(adminIdentifier = "admin", now = Date.now()) {
+  const key = (adminIdentifier || "admin").trim().toLowerCase();
+  const bucket = state.testEmail[key] || { timestamps: [] };
+  const active = pruneTimestamps(bucket.timestamps, TEN_MINUTES_MS, now);
+  if (active.length >= TEST_EMAIL_MAX_PER_10MIN) {
+    return {
+      allowed: false,
+      reason: "test_email_limit_exceeded",
+      message: "\u0633\u0642\u0641 \u0645\u062C\u0627\u0632 \u0627\u0631\u0633\u0627\u0644 \u0627\u06CC\u0645\u06CC\u0644 \u062A\u0633\u062A (\u06F5 \u0627\u06CC\u0645\u06CC\u0644 \u062F\u0631 \u06F1\u06F0 \u062F\u0642\u06CC\u0642\u0647) \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A. \u0644\u0637\u0641\u0627\u064B \u0686\u0646\u062F \u062F\u0642\u06CC\u0642\u0647 \u0628\u0639\u062F \u0645\u062C\u062F\u062F\u0627\u064B \u062A\u0644\u0627\u0634 \u0646\u0645\u0627\u06CC\u06CC\u062F."
+    };
+  }
+  return { allowed: true };
+}
+function recordAdminTestEmail(adminIdentifier = "admin", now = Date.now(), supabaseClient) {
+  const key = (adminIdentifier || "admin").trim().toLowerCase();
+  if (!state.testEmail[key]) state.testEmail[key] = { timestamps: [] };
+  const bucket = state.testEmail[key];
+  bucket.timestamps = [...pruneTimestamps(bucket.timestamps, TEN_MINUTES_MS, now), now];
+  bucket.lastSuccess = now;
+  if (supabaseClient) {
+    syncRateLimiterToSupabase(supabaseClient);
+  }
+}
+
+// src/lib/adminTotp.ts
+import crypto from "crypto";
+import { generateSecret, generateURI, generateSync, verifySync } from "otplib";
+import QRCode from "qrcode";
+var memoryTotpSecret = "";
+var memoryTotpIsSetup = false;
+async function getAdminTotpSecret(envSecret, supabaseClient) {
+  const envVal = (envSecret ?? process.env.ADMIN_TOTP_SECRET ?? "").trim();
+  if (envVal) {
+    memoryTotpSecret = envVal;
+    memoryTotpIsSetup = true;
+    return {
+      secret: envVal,
+      isSetup: true,
+      source: "env"
+    };
+  }
+  if (memoryTotpSecret && memoryTotpIsSetup) {
+    return {
+      secret: memoryTotpSecret,
+      isSetup: true,
+      source: "memory"
+    };
+  }
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient.from("site_settings").select("value").eq("id", "admin_totp_config").single();
+      if (!error && data && data.value && data.value.secret) {
+        memoryTotpSecret = String(data.value.secret).trim();
+        memoryTotpIsSetup = data.value.isSetup !== false;
+        return {
+          secret: memoryTotpSecret,
+          isSetup: memoryTotpIsSetup,
+          source: "database"
+        };
+      }
+    } catch (e) {
+      console.warn("Could not read admin_totp_config from Supabase:", e);
+    }
+  }
+  return {
+    secret: memoryTotpSecret || "",
+    isSetup: memoryTotpIsSetup,
+    source: memoryTotpSecret ? "memory" : "none"
+  };
+}
+async function persistTotpSecret(secret, isSetup = true, envSecret, supabaseClient) {
+  const envVal = (envSecret ?? process.env.ADMIN_TOTP_SECRET ?? "").trim();
+  if (envVal) {
+    memoryTotpSecret = envVal;
+    memoryTotpIsSetup = true;
+    return;
+  }
+  memoryTotpSecret = secret.trim();
+  memoryTotpIsSetup = isSetup;
+  if (supabaseClient && memoryTotpSecret) {
+    try {
+      await supabaseClient.from("site_settings").upsert({
+        id: "admin_totp_config",
+        value: {
+          secret: memoryTotpSecret,
+          isSetup,
+          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+        }
+      });
+    } catch (e) {
+      console.warn("Could not save admin_totp_config to Supabase:", e);
+    }
+  }
+}
+async function resetAdminTotpSecret(envSecret, supabaseClient) {
+  const envVal = (envSecret ?? process.env.ADMIN_TOTP_SECRET ?? "").trim();
+  if (envVal) {
+    return {
+      success: false,
+      isEnvLocked: true,
+      message: "\u06A9\u0644\u06CC\u062F \u06F2FA \u0627\u0632 \u0637\u0631\u06CC\u0642 \u0645\u062A\u063A\u06CC\u0631 \u0645\u062D\u06CC\u0637\u06CC ADMIN_TOTP_SECRET \u062A\u0639\u0631\u06CC\u0641 \u0634\u062F\u0647 \u0627\u0633\u062A \u0648 \u0627\u0632 \u067E\u0646\u0644 \u0648\u0628 \u0642\u0627\u0628\u0644 \u062A\u063A\u06CC\u06CC\u0631 \u06CC\u0627 \u062D\u0630\u0641 \u0646\u06CC\u0633\u062A."
+    };
+  }
+  memoryTotpSecret = "";
+  memoryTotpIsSetup = false;
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from("site_settings").delete().eq("id", "admin_totp_config");
+    } catch (e) {
+      console.warn("Could not delete admin_totp_config from Supabase:", e);
+    }
+  }
+  return {
+    success: true,
+    isEnvLocked: false,
+    message: "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u062D\u0631\u0627\u0632 \u0647\u0648\u06CC\u062A \u062F\u0648 \u0639\u0627\u0645\u0644\u06CC \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0628\u0627\u0632\u0646\u0634\u0627\u0646\u06CC \u0634\u062F. \u062F\u0631 \u0648\u0631\u0648\u062F \u0628\u0639\u062F\u06CC\u060C QR \u06A9\u062F \u0631\u0627\u0647\u200C\u0627\u0646\u062F\u0627\u0632\u06CC \u062C\u062F\u06CC\u062F \u0627\u06CC\u062C\u0627\u062F \u062E\u0648\u0627\u0647\u062F \u0634\u062F."
+  };
+}
+async function generateTotpQrCodeDataUrl(adminEmail, secret) {
+  const otpUri = generateURI({
+    issuer: "Academy 40 Gates",
+    label: adminEmail || "admin@40gates.ir",
+    secret: secret.trim()
+  });
+  const qrCodeDataUrl = await QRCode.toDataURL(otpUri, {
+    errorCorrectionLevel: "M",
+    margin: 2,
+    width: 250
+  });
+  return { otpUri, qrCodeDataUrl };
+}
+function createTempTotpToken(email, requireSetup, secretKey) {
+  const expiresAt = Date.now() + 10 * 60 * 1e3;
+  const nonce = crypto.randomBytes(8).toString("hex");
+  const payloadStr = JSON.stringify({ email, requireSetup, expiresAt, nonce });
+  const b64Payload = Buffer.from(payloadStr).toString("base64url");
+  const hmac = crypto.createHmac("sha256", secretKey).update(b64Payload).digest("hex");
+  return `tmp_${b64Payload}_${hmac}`;
+}
+function verifyTempTotpToken(token, secretKey) {
+  if (!token || typeof token !== "string" || !token.startsWith("tmp_")) {
+    return { valid: false };
+  }
+  try {
+    const parts = token.split("_");
+    if (parts.length !== 3) return { valid: false };
+    const b64Payload = parts[1];
+    const signature = parts[2];
+    const expectedHmac = crypto.createHmac("sha256", secretKey).update(b64Payload).digest("hex");
+    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedHmac))) {
+      return { valid: false };
+    }
+    const payloadStr = Buffer.from(b64Payload, "base64url").toString("utf-8");
+    const payload = JSON.parse(payloadStr);
+    if (Date.now() > payload.expiresAt) {
+      return { valid: false };
+    }
+    return { valid: true, payload };
+  } catch (e) {
+    return { valid: false };
+  }
+}
+function verifyAdminTotpCode(inputCode, secret) {
+  if (!inputCode || !secret) return false;
+  const cleanCode = inputCode.toString().trim().replace(/\s+/g, "");
+  if (cleanCode.length !== 6 || !/^\d{6}$/.test(cleanCode)) return false;
+  try {
+    const result = verifySync({ token: cleanCode, secret: secret.trim(), epochTolerance: 30 });
+    return Boolean(result && result.valid === true);
+  } catch (e) {
+    return false;
+  }
+}
+function createNewTotpSecret() {
+  return generateSecret();
+}
+
+// server.ts
 var app = express();
 var PORT = 3e3;
 app.use(express.json());
@@ -28,13 +454,13 @@ app.use((req, res, next) => {
   next();
 });
 var runtimeSupabaseConfig = {
-  url: (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim(),
-  anonKey: (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "").trim(),
+  url: (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "https://msyomyfwitwdpdgflzvi.supabase.co").trim(),
+  anonKey: (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_MZO-v0WCtwY8B4c0UVyetg__iRn0JVq").trim(),
   serviceKey: (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim()
 };
 function getSupabaseClient() {
-  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || runtimeSupabaseConfig.url || "").trim();
-  const key = (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || runtimeSupabaseConfig.serviceKey || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || runtimeSupabaseConfig.anonKey || "").trim();
+  const url = (runtimeSupabaseConfig.url || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "https://msyomyfwitwdpdgflzvi.supabase.co").trim();
+  const key = (runtimeSupabaseConfig.serviceKey || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || runtimeSupabaseConfig.anonKey || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_MZO-v0WCtwY8B4c0UVyetg__iRn0JVq").trim();
   if (!url || !key || url.includes("placeholder")) return null;
   try {
     return createClient(url, key);
@@ -42,10 +468,19 @@ function getSupabaseClient() {
     return null;
   }
 }
+if (process.env.NODE_ENV !== "test" && !process.argv.some((a) => a.includes("test"))) {
+  setTimeout(() => {
+    const client = getSupabaseClient();
+    if (client) {
+      initRateLimiterFromSupabase(client).catch(() => {
+      });
+    }
+  }, 500);
+}
 var emailLogs = [];
 var runtimeResendConfig = {
   apiKey: (process.env.RESEND_API_KEY || "").trim(),
-  fromEmail: (process.env.RESEND_FROM_EMAIL || "\u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 <onboarding@resend.dev>").trim(),
+  fromEmail: (process.env.RESEND_FROM_EMAIL || "Academy 40 Gates <onboarding@resend.dev>").trim(),
   adminEmail: (process.env.ADMIN_EMAIL || "40gates.main@gmail.com").trim()
 };
 function sanitizeErrorLog(message, secrets = []) {
@@ -73,7 +508,7 @@ function sanitizeErrorLog(message, secrets = []) {
 }
 async function sendMailSafely(options, type = "general") {
   let apiKey = (runtimeResendConfig.apiKey || process.env.RESEND_API_KEY || "").trim();
-  let fromEmail = (runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || "\u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 <onboarding@resend.dev>").trim();
+  let fromEmail = (runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || "Academy 40 Gates <onboarding@resend.dev>").trim();
   let adminEmail = (runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || "40gates.main@gmail.com").trim();
   if (!apiKey && getSupabaseClient()) {
     try {
@@ -97,7 +532,7 @@ async function sendMailSafely(options, type = "general") {
   const cleanTo = toList.map((t) => String(t || "").trim()).filter(Boolean);
   const toDisplay = cleanTo.join(", ");
   const subject = String(options.subject || "");
-  const sender = options.from || fromEmail || "\u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 <onboarding@resend.dev>";
+  const sender = options.from || fromEmail || "Academy 40 Gates <onboarding@resend.dev>";
   const replyTo = options.replyTo || adminEmail;
   if (apiKey) {
     try {
@@ -177,6 +612,97 @@ async function sendMailSafely(options, type = "general") {
   };
 }
 var contactMessages = [];
+async function syncContactMessagesFromSupabase() {
+  const client = getSupabaseClient();
+  if (!client) return contactMessages;
+  try {
+    const { data, error } = await client.from("site_settings").select("value").eq("id", "contact_messages_store").single();
+    if (!error && data?.value && Array.isArray(data.value)) {
+      for (const msg of data.value) {
+        if (msg && msg.id && !contactMessages.some((m) => m.id === msg.id)) {
+          contactMessages.push(msg);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Supabase contact messages sync warn:", e);
+  }
+  return contactMessages;
+}
+async function persistContactMessagesToSupabase() {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from("site_settings").upsert({
+      id: "contact_messages_store",
+      value: contactMessages,
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (e) {
+    console.warn("Supabase save contact messages warn:", e);
+  }
+}
+async function sendAdminSecurityAlert(details) {
+  try {
+    const adminEmail = (runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || "40gates.main@gmail.com").trim();
+    const isLocked = details.reason === "LOCKED" || details.attemptCount >= 5;
+    const faDate = (/* @__PURE__ */ new Date()).toLocaleDateString("fa-IR");
+    const faTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("fa-IR");
+    const subject = isLocked ? `\u{1F6A8} [\u0647\u0634\u062F\u0627\u0631 \u0641\u0648\u0642\u200C\u0627\u0645\u0646\u06CC\u062A\u06CC] \u062D\u0633\u0627\u0628 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 \u0645\u0633\u062F\u0648\u062F \u0634\u062F (${details.attemptCount} \u062A\u0644\u0627\u0634 \u0646\u0627\u0645\u0648\u0641\u0642)` : details.reason === "FAILED_2FA" ? `\u26A0\uFE0F \u0647\u0634\u062F\u0627\u0631 \u0627\u0645\u0646\u06CC\u062A\u06CC: \u06A9\u062F \u06F2FA \u0627\u0634\u062A\u0628\u0627\u0647 \u062F\u0631 \u0648\u0631\u0648\u062F \u0628\u0647 \u067E\u0646\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A (${details.attemptCount} \u0627\u0632 \u06F5)` : `\u26A0\uFE0F \u0647\u0634\u062F\u0627\u0631 \u0627\u0645\u0646\u06CC\u062A\u06CC: \u062A\u0644\u0627\u0634 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0631\u0627\u06CC \u0648\u0631\u0648\u062F \u0628\u0647 \u067E\u0646\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0628\u0627 \u0631\u0645\u0632 \u0627\u0634\u062A\u0628\u0627\u0647 (${details.attemptCount} \u0627\u0632 \u06F5)`;
+    const reasonTitle = details.reason === "FAILED_2FA" ? "\u06A9\u062F \u062A\u0627\u06CC\u06CC\u062F \u062F\u0648 \u0645\u0631\u062D\u0644\u0647\u200C\u0627\u06CC (Authenticator) \u0627\u0634\u062A\u0628\u0627\u0647 \u0648\u0627\u0631\u062F \u0634\u062F" : details.reason === "LOCKED" ? "\u062A\u0639\u062F\u0627\u062F \u0645\u062C\u0627\u0632 \u062A\u0644\u0627\u0634\u200C\u0647\u0627 \u0628\u0647 \u067E\u0627\u06CC\u0627\u0646 \u0631\u0633\u06CC\u062F \u0648 \u062D\u0633\u0627\u0628 \u0642\u0641\u0644 \u0634\u062F" : "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u06CC\u0627 \u0627\u06CC\u0645\u06CC\u0644 \u0645\u062F\u06CC\u0631 \u0627\u0634\u062A\u0628\u0627\u0647 \u0648\u0627\u0631\u062F \u0634\u062F";
+    const html = `
+      <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #090d16; padding: 25px; color: #f8fafc;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #0f172a; border-radius: 16px; overflow: hidden; border: 1px solid ${isLocked ? "#ef4444" : "#f59e0b"}; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+          
+          <div style="background: ${isLocked ? "linear-gradient(135deg, #7f1d1d, #991b1b)" : "linear-gradient(135deg, #78350f, #92400e)"}; padding: 25px 20px; text-align: center; color: #ffffff;">
+            <h1 style="margin: 0; font-size: 18px;">${isLocked ? "\u{1F6A8} \u0647\u0634\u062F\u0627\u0631 \u0627\u0645\u0646\u06CC\u062A\u06CC: \u0645\u0633\u062F\u0648\u062F\u06CC \u062D\u0633\u0627\u0628 \u0645\u062F\u06CC\u0631\u06CC\u062A" : "\u26A0\uFE0F \u06AF\u0632\u0627\u0631\u0634 \u062A\u0644\u0627\u0634 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0631\u0627\u06CC \u0648\u0631\u0648\u062F \u0628\u0647 \u067E\u0646\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A"}</h1>
+            <p style="margin: 6px 0 0 0; font-size: 12px; color: #fef3c7;">\u0633\u06CC\u0633\u062A\u0645 \u0627\u0645\u0646\u06CC\u062A \u0648 \u0645\u0627\u0646\u06CC\u062A\u0648\u0631\u06CC\u0646\u06AF \u0647\u0648\u0634\u0645\u0646\u062F \u0648\u0628\u200C\u0633\u0627\u06CC\u062A \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647</p>
+          </div>
+
+          <div style="padding: 25px; font-size: 13px; line-height: 1.8; color: #cbd5e1;">
+            <p style="font-size: 14px; color: #f1f5f9; margin-top: 0;">
+              \u0633\u0644\u0627\u0645 \u0645\u062F\u06CC\u0631 \u06AF\u0631\u0627\u0645\u06CC\u061B
+            </p>
+            <p>
+              \u06CC\u06A9 \u062A\u0644\u0627\u0634 <strong>\u0646\u0627\u0645\u0648\u0641\u0642</strong> \u0628\u0631\u0627\u06CC \u062F\u0633\u062A\u0631\u0633\u06CC \u0628\u0647 \u067E\u0646\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 \u062B\u0628\u062A \u06AF\u0631\u062F\u06CC\u062F. \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0627\u06CC\u0646 \u0631\u0648\u06CC\u062F\u0627\u062F \u0627\u0645\u0646\u06CC\u062A\u06CC \u0628\u0647 \u0634\u0631\u062D \u0632\u06CC\u0631 \u0627\u0633\u062A:
+            </p>
+
+            <div style="background-color: #1e293b; border-radius: 12px; padding: 18px; margin: 20px 0; border: 1px solid #334155; font-size: 13px; line-height: 1.9;">
+              <p style="margin: 4px 0;"><strong>\u0639\u0644\u062A \u062E\u0637\u0627:</strong> <span style="color: #fca5a5; font-weight: bold;">${reasonTitle}</span></p>
+              <p style="margin: 4px 0;"><strong>\u0627\u06CC\u0645\u06CC\u0644 \u0648\u0627\u0631\u062F \u0634\u062F\u0647:</strong> <span style="font-family: monospace; color: #38bdf8;">${details.enteredEmail || "\u062E\u0627\u0644\u06CC"}</span></p>
+              <p style="margin: 4px 0;"><strong>\u0622\u062F\u0631\u0633 IP \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u062F\u0647\u0646\u062F\u0647:</strong> <span style="font-family: monospace; color: #fbbf24; direction: ltr; display: inline-block;">${details.clientIp}</span></p>
+              <p style="margin: 4px 0;"><strong>\u0632\u0645\u0627\u0646 \u062B\u0628\u062A \u0631\u0648\u06CC\u062F\u0627\u062F:</strong> ${faDate} \u0633\u0627\u0639\u062A ${faTime}</p>
+              <p style="margin: 4px 0;"><strong>\u062A\u0639\u062F\u0627\u062F \u062A\u0644\u0627\u0634\u200C\u0647\u0627\u06CC \u0646\u0627\u0645\u0648\u0641\u0642:</strong> <span style="font-weight: bold; color: ${details.attemptCount >= 4 ? "#ef4444" : "#fbbf24"};">${details.attemptCount} \u0627\u0632 \u06F5</span></p>
+              ${isLocked ? '<p style="margin: 8px 0 0 0; color: #ef4444; font-weight: bold;">\u26D4 \u067E\u0646\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0628\u0647 \u0645\u062F\u062A \u06F1\u06F5 \u062F\u0642\u06CC\u0642\u0647 \u062C\u0647\u062A \u062C\u0644\u0648\u06AF\u06CC\u0631\u06CC \u0627\u0632 \u0646\u0641\u0648\u0630 \u0645\u0648\u0642\u062A\u0627\u064B \u0645\u0633\u062F\u0648\u062F \u06AF\u0631\u062F\u06CC\u062F.</p>' : ""}
+              <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #475569; font-size: 11px; color: #94a3b8;">
+                <strong>\u0645\u0634\u062E\u0635\u0627\u062A \u0645\u0631\u0648\u0631\u06AF\u0631 / \u062F\u0633\u062A\u06AF\u0627\u0647 \u06A9\u0627\u0631\u0628\u0631:</strong><br/>
+                <span style="direction: ltr; display: block; font-family: monospace; margin-top: 4px;">${details.userAgent || "\u0646\u0627\u0645\u0634\u062E\u0635"}</span>
+              </div>
+            </div>
+
+            <div style="background-color: #451a03; border-radius: 10px; padding: 14px; border: 1px solid #78350f; color: #fde68a; font-size: 12px; line-height: 1.7;">
+              \u{1F6E1}\uFE0F <strong>\u0627\u0642\u062F\u0627\u0645\u0627\u062A \u0627\u0645\u0646\u06CC\u062A\u06CC \u067E\u06CC\u0634\u0646\u0647\u0627\u062F\u06CC:</strong><br/>
+              \u0627\u06AF\u0631 \u0627\u06CC\u0646 \u062A\u0644\u0627\u0634 \u062A\u0648\u0633\u0637 \u062E\u0648\u062F \u0634\u0645\u0627 \u0627\u0646\u062C\u0627\u0645 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A\u060C \u0627\u062D\u062A\u0645\u0627\u0644 \u062A\u0644\u0627\u0634 \u0627\u0641\u0631\u0627\u062F \u063A\u06CC\u0631\u0645\u062C\u0627\u0632 \u0628\u0631\u0627\u06CC \u062F\u0633\u062A\u0631\u0633\u06CC \u0648\u062C\u0648\u062F \u062F\u0627\u0631\u062F. \u062A\u0648\u0635\u06CC\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0645\u062D\u0631\u0645\u0627\u0646\u0647 \u062E\u0648\u062F \u0631\u0627 \u0686\u06A9 \u0646\u0645\u0648\u062F\u0647 \u0648 \u0627\u0632 \u0627\u0645\u0646\u06CC\u062A \u06A9\u0644\u06CC\u062F \u0627\u062D\u0631\u0627\u0632 \u0647\u0648\u06CC\u062A \u062F\u0648 \u0645\u0631\u062D\u0644\u0647\u200C\u0627\u06CC (2FA) \u0627\u0637\u0645\u06CC\u0646\u0627\u0646 \u062D\u0627\u0635\u0644 \u0646\u0645\u0627\u06CC\u06CC\u062F.
+            </div>
+          </div>
+
+          <div style="background-color: #0b1120; padding: 15px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #1e293b;">
+            \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 \u2014 \u067E\u0644\u062A\u0641\u0631\u0645 \u062A\u062E\u0635\u0635\u06CC \u0631\u0648\u06CC\u0627\u0628\u06CC\u0646\u06CC \u0622\u06AF\u0627\u0647\u0627\u0646\u0647<br/>
+            \u0627\u06CC\u0646 \u067E\u06CC\u0627\u0645 \u0628\u0647 \u0635\u0648\u0631\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0632 \u0633\u0631\u0648\u0631 \u0627\u0645\u0646\u06CC\u062A\u06CC \u0627\u0631\u0633\u0627\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A.
+          </div>
+
+        </div>
+      </div>
+    `;
+    await sendMailSafely({
+      to: adminEmail,
+      subject,
+      html
+    }, "admin-security-alert");
+  } catch (alertErr) {
+    console.warn("Admin security alert email failed:", alertErr);
+  }
+}
 var adminSecurityState = {
   failedPasswordCount: 0,
   lockedUntil: 0,
@@ -189,150 +715,13 @@ function getAdminConfig() {
   const adminPassword = (process.env.ADMIN_PASSWORD || "40gates1403").trim();
   return { adminEmail, adminPassword };
 }
-var runtimeTotpSecret = (process.env.ADMIN_TOTP_SECRET || "").trim();
-async function getStoredTotpSecret() {
-  if (runtimeTotpSecret) {
-    return { secret: runtimeTotpSecret, isSetup: true };
-  }
-  const client = getSupabaseClient();
-  if (client) {
-    try {
-      const { data } = await client.from("site_settings").select("value").eq("id", "admin_totp_config").single();
-      if (data && data.value && data.value.secret) {
-        runtimeTotpSecret = String(data.value.secret).trim();
-        return { secret: runtimeTotpSecret, isSetup: data.value.isSetup !== false };
-      }
-    } catch (e) {
-      console.warn("Could not read admin_totp_config from Supabase:", e);
-    }
-  }
-  return { secret: "", isSetup: false };
-}
-async function saveTotpSecret(secret, isSetup = true) {
-  runtimeTotpSecret = secret;
-  const client = getSupabaseClient();
-  if (client) {
-    try {
-      await client.from("site_settings").upsert({
-        id: "admin_totp_config",
-        value: {
-          secret,
-          isSetup,
-          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-        }
-      });
-    } catch (e) {
-      console.warn("Could not save admin_totp_config to Supabase:", e);
-    }
-  }
-}
-function createTempTotpToken(email, tempSecret, requireSetup) {
-  const expiresAt = Date.now() + 10 * 60 * 1e3;
-  const payloadStr = JSON.stringify({ email, tempSecret, requireSetup, expiresAt });
-  const b64Payload = Buffer.from(payloadStr).toString("base64url");
-  const hmac = crypto.createHmac("sha256", ADMIN_SECRET).update(b64Payload).digest("hex");
-  return `tmp_${b64Payload}_${hmac}`;
-}
-function verifyTempTotpToken(token) {
-  if (!token || typeof token !== "string" || !token.startsWith("tmp_")) return { valid: false };
-  try {
-    const parts = token.split("_");
-    if (parts.length !== 3) return { valid: false };
-    const b64Payload = parts[1];
-    const signature = parts[2];
-    const expectedHmac = crypto.createHmac("sha256", ADMIN_SECRET).update(b64Payload).digest("hex");
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedHmac))) {
-      return { valid: false };
-    }
-    const payloadStr = Buffer.from(b64Payload, "base64url").toString("utf-8");
-    const payload = JSON.parse(payloadStr);
-    if (Date.now() > payload.expiresAt) return { valid: false };
-    return { valid: true, payload };
-  } catch (e) {
-    return { valid: false };
-  }
-}
-var registeredUsersStore = [
-  {
-    id: "USR-101",
-    fullName: "\u0641\u0631\u0634\u0627\u062F \u0645\u06CC\u0631\u0634\u06A9\u0627\u0631\u06CC",
-    email: "40gates.main@gmail.com",
-    phone: "09121112233",
-    registeredAt: new Date(Date.now() - 30 * 24 * 3600 * 1e3).toISOString(),
-    faDate: "\u06F1\u06F4\u06F0\u06F3/\u06F0\u06F4/\u06F1\u06F5"
-  },
-  {
-    id: "USR-102",
-    fullName: "\u0633\u0627\u0631\u0627 \u0627\u062D\u0645\u062F\u06CC",
-    email: "sara.ahmadi@gmail.com",
-    phone: "09351234567",
-    registeredAt: new Date(Date.now() - 12 * 24 * 3600 * 1e3).toISOString(),
-    faDate: "\u06F1\u06F4\u06F0\u06F3/\u06F0\u06F5/\u06F0\u06F1"
-  },
-  {
-    id: "USR-103",
-    fullName: "\u0639\u0644\u06CC \u0631\u0636\u0627\u06CC\u06CC",
-    email: "ali.rezaei@yahoo.com",
-    phone: "09129876543",
-    registeredAt: new Date(Date.now() - 3 * 24 * 3600 * 1e3).toISOString(),
-    faDate: "\u06F1\u06F4\u06F0\u06F3/\u06F0\u06F5/\u06F1\u06F0"
-  }
-];
-var serverOrdersStore = [
-  {
-    id: "IRN-847291",
-    date: "\u06F1\u06F4\u06F0\u06F3/\u06F0\u06F5/\u06F1\u06F2",
-    status: "processing",
-    items: [
-      { productId: "book-40gates-print", title: "\u06A9\u062A\u0627\u0628 \u0686\u0627\u067E\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 \u0631\u0648\u06CC\u0627\u0628\u06CC\u0646\u06CC \u0622\u06AF\u0627\u0647\u0627\u0646\u0647", quantity: 1, price: 58e4, type: "printed" },
-      { productId: "audio-dream-course", title: "\u062F\u0648\u0631\u0647 \u062C\u0627\u0645\u0639 \u0635\u0648\u062A\u06CC \u06AF\u0627\u0645 \u0628\u0647 \u06AF\u0627\u0645 \u0631\u0648\u06CC\u0627\u0628\u06CC\u0646\u06CC", quantity: 1, price: 89e4, type: "audio" }
-    ],
-    subtotal: 147e4,
-    discountAmount: 294e3,
-    vatAmount: 117600,
-    shippingFee: 0,
-    totalAmount: 1293600,
-    shippingAddress: {
-      fullName: "\u0633\u0627\u0631\u0627 \u0627\u062D\u0645\u062F\u06CC",
-      phone: "09351234567",
-      province: "\u062A\u0647\u0631\u0627\u0646",
-      city: "\u062A\u0647\u0631\u0627\u0646",
-      postalCode: "1987654321",
-      address: "\u062E\u06CC\u0627\u0628\u0627\u0646 \u0648\u0644\u06CC\u0639\u0635\u0631\u060C \u0646\u0631\u0633\u06CC\u062F\u0647 \u0628\u0647 \u0645\u06CC\u062F\u0627\u0646 \u0648\u0646\u06A9\u060C \u067E\u0644\u0627\u06A9 \u06F1\u06F2"
-    },
-    userEmail: "sara.ahmadi@gmail.com",
-    paymentGateway: "zarinpal"
-  },
-  {
-    id: "IRN-392018",
-    date: "\u06F1\u06F4\u06F0\u06F3/\u06F0\u06F5/\u06F1\u06F0",
-    status: "shipped",
-    trackingCode: "298371029384729103847261",
-    items: [
-      { productId: "book-lucid-dream-pdf", title: "\u0646\u0633\u062E\u0647 \u062F\u06CC\u062C\u06CC\u062A\u0627\u0644 PDF \u0634\u0627\u0647\u06A9\u0644\u06CC\u062F \u0631\u0648\u06CC\u0627", quantity: 1, price: 34e4, type: "pdf" }
-    ],
-    subtotal: 34e4,
-    discountAmount: 0,
-    vatAmount: 34e3,
-    shippingFee: 0,
-    totalAmount: 374e3,
-    shippingAddress: {
-      fullName: "\u0639\u0644\u06CC \u0631\u0636\u0627\u06CC\u06CC",
-      phone: "09129876543",
-      province: "\u0627\u0635\u0641\u0647\u0627\u0646",
-      city: "\u0627\u0635\u0641\u0647\u0627\u0646",
-      postalCode: "8123456789",
-      address: "\u062E\u06CC\u0627\u0628\u0627\u0646 \u0686\u0647\u0627\u0631\u0628\u0627\u063A \u0639\u0628\u0627\u0633\u06CC\u060C \u06A9\u0648\u0686\u0647 \u0628\u0647\u0627\u0631\u060C \u067E\u0644\u0627\u06A9 \u06F5"
-    },
-    userEmail: "ali.rezaei@yahoo.com",
-    paymentGateway: "card-to-card"
-  }
-];
+var registeredUsersStore = [];
+var serverOrdersStore = [];
 var ADMIN_SECRET = process.env.ADMIN_SECRET || process.env.ADMIN_PASSWORD || "40gates-master-key-2026";
 function generateAdminToken(email) {
   const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1e3;
   const payload = `${email}:${expiresAt}`;
-  const hmac = crypto.createHmac("sha256", ADMIN_SECRET).update(payload).digest("hex");
+  const hmac = crypto2.createHmac("sha256", ADMIN_SECRET).update(payload).digest("hex");
   const b64Email = Buffer.from(email).toString("base64");
   return `adm_${expiresAt}_${hmac}_${b64Email}`;
 }
@@ -346,8 +735,8 @@ function verifyAdminToken(token) {
     const email = Buffer.from(parts[3], "base64").toString("utf-8");
     if (isNaN(expiresAt) || Date.now() > expiresAt) return { valid: false };
     const payload = `${email}:${expiresAt}`;
-    const expectedHmac = crypto.createHmac("sha256", ADMIN_SECRET).update(payload).digest("hex");
-    if (crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedHmac))) {
+    const expectedHmac = crypto2.createHmac("sha256", ADMIN_SECRET).update(payload).digest("hex");
+    if (crypto2.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedHmac))) {
       return { valid: true, email };
     }
   } catch (e) {
@@ -381,18 +770,76 @@ function requireAdminAuth(req, res, next) {
   req.adminSession = session;
   next();
 }
+var DATA_DIR = path.join(process.cwd(), "data");
+if (!fs.existsSync(DATA_DIR)) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (e) {
+  }
+}
+var USERS_FILE = path.join(DATA_DIR, "users.json");
+var CONTACT_FILE = path.join(DATA_DIR, "contacts.json");
+var ORDERS_FILE = path.join(process.cwd(), "orders_store.json");
+var PRODUCTS_FILE = path.join(process.cwd(), "products_store.json");
+var COUPONS_FILE = path.join(process.cwd(), "coupons_store.json");
+var VIP_FILE = path.join(process.cwd(), "vip_store.json");
+try {
+  if (fs.existsSync(ORDERS_FILE)) {
+    const raw = fs.readFileSync(ORDERS_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) serverOrdersStore = parsed;
+  }
+} catch (e) {
+}
+try {
+  if (fs.existsSync(USERS_FILE)) {
+    const raw = fs.readFileSync(USERS_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) registeredUsersStore = parsed;
+  }
+} catch (e) {
+}
+try {
+  if (fs.existsSync(CONTACT_FILE)) {
+    const raw = fs.readFileSync(CONTACT_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      contactMessages.length = 0;
+      contactMessages.push(...parsed);
+    }
+  }
+} catch (e) {
+}
+function saveOrdersToDisk() {
+  try {
+    fs.writeFileSync(ORDERS_FILE, JSON.stringify(serverOrdersStore, null, 2), "utf-8");
+  } catch (e) {
+    console.warn("Orders file save error:", e);
+  }
+}
+function saveProductsToDisk(products) {
+  try {
+    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2), "utf-8");
+  } catch (e) {
+    console.warn("Products file save error:", e);
+  }
+}
 async function syncOrdersFromSupabase() {
   const client = getSupabaseClient();
-  if (!client) return serverOrdersStore;
+  if (!client) {
+    return serverOrdersStore;
+  }
   try {
     const { data, error } = await client.from("orders").select("*").order("created_at", { ascending: false });
     if (!error && Array.isArray(data) && data.length > 0) {
-      const dbOrders = data.map((item) => item.data || item);
-      for (const order of dbOrders) {
-        if (order && order.id && !serverOrdersStore.some((o) => o.id === order.id)) {
-          serverOrdersStore.push(order);
-        }
-      }
+      serverOrdersStore = data.map((item) => item.data || item);
+      saveOrdersToDisk();
+      return serverOrdersStore;
+    }
+    const { data: settingsData, error: settingsError } = await client.from("site_settings").select("value").eq("id", "orders_store").single();
+    if (!settingsError && settingsData?.value && Array.isArray(settingsData.value)) {
+      serverOrdersStore = settingsData.value;
+      saveOrdersToDisk();
     }
   } catch (e) {
     console.warn("Supabase orders sync warn:", e);
@@ -400,6 +847,7 @@ async function syncOrdersFromSupabase() {
   return serverOrdersStore;
 }
 async function persistOrderToSupabase(order) {
+  saveOrdersToDisk();
   const client = getSupabaseClient();
   if (!client || !order || !order.id) return;
   try {
@@ -410,7 +858,16 @@ async function persistOrderToSupabase(order) {
       created_at: (/* @__PURE__ */ new Date()).toISOString()
     });
   } catch (e) {
-    console.warn("Supabase save order warn:", e);
+    console.warn("Supabase save order warn (orders table):", e);
+  }
+  try {
+    await client.from("site_settings").upsert({
+      id: "orders_store",
+      value: serverOrdersStore,
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (e) {
+    console.warn("Supabase save order warn (site_settings):", e);
   }
 }
 app.get("/api/health", (req, res) => {
@@ -442,22 +899,70 @@ app.get("/robots.txt", (req, res) => {
   res.send("User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://40gates.ir/sitemap.xml\n");
 });
 var serverProductsStore = [];
+try {
+  if (fs.existsSync(PRODUCTS_FILE)) {
+    const raw = fs.readFileSync(PRODUCTS_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      serverProductsStore = parsed;
+    }
+  }
+} catch (e) {
+  console.warn("Initial products load from disk error:", e);
+}
+function prioritizeProducts(list) {
+  if (!Array.isArray(list) || list.length === 0) return list;
+  const topIds = ["45375", "45322", "45329"];
+  const topItems = [];
+  const otherItems = [];
+  for (const tid of topIds) {
+    const item = list.find((p) => p && p.id === tid);
+    if (item) topItems.push(item);
+  }
+  for (const item of list) {
+    if (item && item.id && !topIds.includes(item.id)) {
+      otherItems.push(item);
+    }
+  }
+  return [...topItems, ...otherItems];
+}
 async function syncProductsFromSupabase() {
   const client = getSupabaseClient();
-  if (!client) return serverProductsStore;
+  if (!client) {
+    serverProductsStore = prioritizeProducts(serverProductsStore);
+    return serverProductsStore;
+  }
   try {
+    const { data: settingsData, error: settingsError } = await client.from("site_settings").select("value").eq("id", "products_store").single();
+    if (!settingsError && settingsData?.value && Array.isArray(settingsData.value) && settingsData.value.length > 0) {
+      serverProductsStore = prioritizeProducts(settingsData.value);
+      saveProductsToDisk(serverProductsStore);
+      return serverProductsStore;
+    }
     const { data, error } = await client.from("products").select("*");
     if (!error && Array.isArray(data) && data.length > 0) {
-      serverProductsStore = data.map((item) => item.data || item);
+      serverProductsStore = prioritizeProducts(data.map((item) => item.data || item));
+      saveProductsToDisk(serverProductsStore);
     }
   } catch (e) {
     console.warn("Supabase products sync warn:", e);
   }
+  serverProductsStore = prioritizeProducts(serverProductsStore);
   return serverProductsStore;
 }
 async function persistProductsToSupabase(productsList) {
+  saveProductsToDisk(productsList);
   const client = getSupabaseClient();
   if (!client || !Array.isArray(productsList) || productsList.length === 0) return;
+  try {
+    await client.from("site_settings").upsert({
+      id: "products_store",
+      value: productsList,
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (e) {
+    console.warn("Supabase site_settings products persist warn:", e);
+  }
   try {
     const rows = productsList.map((p) => ({
       id: p.id,
@@ -468,9 +973,129 @@ async function persistProductsToSupabase(productsList) {
     }));
     await client.from("products").upsert(rows);
   } catch (e) {
-    console.warn("Supabase save products warn:", e);
+    console.warn("Supabase products table persist warn (optional table):", e);
   }
 }
+var serverVipCapacity = { enrolled: 1, capacity: 40 };
+async function syncVipCapacityFromSupabase() {
+  const client = getSupabaseClient();
+  if (!client) return serverVipCapacity;
+  try {
+    const { data, error } = await client.from("site_settings").select("value").eq("id", "vip_capacity_store").single();
+    if (!error && data?.value && typeof data.value.enrolled === "number") {
+      if (data.value.enrolled === 17 || data.value.enrolled === 15 || data.value.enrolled === 9) {
+        serverVipCapacity = { ...serverVipCapacity, ...data.value, enrolled: 1 };
+        persistVipCapacityToSupabase().catch(() => {
+        });
+      } else {
+        serverVipCapacity = { ...serverVipCapacity, ...data.value };
+      }
+    }
+  } catch (e) {
+    console.warn("Supabase VIP capacity sync warn:", e);
+  }
+  return serverVipCapacity;
+}
+async function persistVipCapacityToSupabase() {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from("site_settings").upsert({
+      id: "vip_capacity_store",
+      value: serverVipCapacity,
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (e) {
+    console.warn("Supabase VIP capacity persist warn:", e);
+  }
+}
+app.get("/api/settings/vip-capacity", async (req, res) => {
+  await syncVipCapacityFromSupabase();
+  res.json({ success: true, ...serverVipCapacity });
+});
+app.post("/api/settings/vip-capacity", async (req, res) => {
+  try {
+    const { enrolled, capacity } = req.body;
+    if (typeof enrolled === "number") {
+      serverVipCapacity.enrolled = Math.max(0, Math.min(capacity || serverVipCapacity.capacity || 40, enrolled));
+    }
+    if (typeof capacity === "number" && capacity > 0) {
+      serverVipCapacity.capacity = capacity;
+    }
+    await persistVipCapacityToSupabase();
+    res.json({ success: true, ...serverVipCapacity, syncedWithSupabase: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e?.message });
+  }
+});
+var serverCouponsStore = [
+  { code: "DREAM20", discount: "\u06F2\u06F0\u066A", percent: 20, minSpend: "\u06F1,\u06F0\u06F0\u06F0,\u06F0\u06F0\u06F0 \u062A\u0648\u0645\u0627\u0646", minSpendNum: 1e6, description: "\u062A\u062E\u0641\u06CC\u0641 \u0648\u06CC\u0698\u0647 \u0627\u0648\u0644\u06CC\u0646 \u062E\u0631\u06CC\u062F", active: true },
+  { code: "BEDAR40", discount: "\u06F4\u06F0\u066A", percent: 40, minSpend: "\u0628\u062F\u0648\u0646 \u062D\u062F\u0627\u0642\u0644 \u062E\u0631\u06CC\u062F", minSpendNum: 0, description: "\u062A\u062E\u0641\u06CC\u0641 \u0637\u0644\u0627\u06CC\u06CC \u06A9\u0645\u067E\u06CC\u0646 \u0631\u0648\u06CC\u0627", active: true },
+  { code: "VIPGATES", discount: "\u06F1\u06F5\u066A", percent: 15, minSpend: "\u06F5\u06F0\u06F0,\u06F0\u06F0\u06F0 \u062A\u0648\u0645\u0627\u0646", minSpendNum: 5e5, description: "\u06A9\u062F \u062A\u062E\u0641\u06CC\u0641 \u0627\u0639\u0636\u0627\u06CC VIP", active: true },
+  { code: "FIRST20", discount: "\u06F2\u06F0\u066A", percent: 20, minSpend: "\u0628\u062F\u0648\u0646 \u062D\u062F\u0627\u0642\u0644 \u062E\u0631\u06CC\u062F", minSpendNum: 0, description: "\u062A\u062E\u0641\u06CC\u0641 \u0633\u0641\u0627\u0631\u0634 \u0627\u0648\u0644", active: true },
+  { code: "WELCOME20", discount: "\u06F2\u06F0\u066A", percent: 20, minSpend: "\u0628\u062F\u0648\u0646 \u062D\u062F\u0627\u0642\u0644 \u062E\u0631\u06CC\u062F", minSpendNum: 0, description: "\u062A\u062E\u0641\u06CC\u0641 \u062E\u0648\u0634\u200C\u0622\u0645\u062F\u06AF\u0648\u06CC\u06CC", active: true }
+];
+async function syncCouponsFromSupabase() {
+  const client = getSupabaseClient();
+  if (!client) return serverCouponsStore;
+  try {
+    const { data, error } = await client.from("site_settings").select("value").eq("id", "coupons_store").single();
+    if (!error && data?.value && Array.isArray(data.value) && data.value.length > 0) {
+      serverCouponsStore = data.value;
+    }
+  } catch (e) {
+    console.warn("Supabase coupons sync warn:", e);
+  }
+  return serverCouponsStore;
+}
+async function persistCouponsToSupabase(couponsList) {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from("site_settings").upsert({
+      id: "coupons_store",
+      value: couponsList,
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (e) {
+    console.warn("Supabase coupons persist warn:", e);
+  }
+}
+app.get("/api/coupons", async (req, res) => {
+  const coupons = await syncCouponsFromSupabase();
+  res.json({ success: true, coupons });
+});
+app.post("/api/coupons", async (req, res) => {
+  try {
+    const { coupons: newCoupons, coupon: singleCoupon } = req.body;
+    if (Array.isArray(newCoupons) && newCoupons.length > 0) {
+      serverCouponsStore = newCoupons;
+      await persistCouponsToSupabase(newCoupons);
+    } else if (singleCoupon && singleCoupon.code) {
+      const codeUpper = singleCoupon.code.trim().toUpperCase();
+      const existingIdx = serverCouponsStore.findIndex((c) => c.code.toUpperCase() === codeUpper);
+      if (existingIdx >= 0) {
+        serverCouponsStore[existingIdx] = { ...serverCouponsStore[existingIdx], ...singleCoupon, code: codeUpper };
+      } else {
+        serverCouponsStore.unshift({ ...singleCoupon, code: codeUpper });
+      }
+      await persistCouponsToSupabase(serverCouponsStore);
+    }
+    res.json({ success: true, coupons: serverCouponsStore, syncedWithSupabase: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e?.message });
+  }
+});
+app.delete("/api/coupons/:code", async (req, res) => {
+  try {
+    const code = req.params.code.trim().toUpperCase();
+    serverCouponsStore = serverCouponsStore.filter((c) => c.code.toUpperCase() !== code);
+    await persistCouponsToSupabase(serverCouponsStore);
+    res.json({ success: true, coupons: serverCouponsStore, syncedWithSupabase: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e?.message });
+  }
+});
 app.get("/api/products", async (req, res) => {
   let products = await syncProductsFromSupabase();
   res.json({ success: true, products });
@@ -490,7 +1115,7 @@ app.post("/api/products", async (req, res) => {
       }
       persistProductsToSupabase(serverProductsStore).catch((e) => console.warn("Product persist warn:", e));
     }
-    res.json({ success: true, products: serverProductsStore });
+    res.json({ success: true, products: serverProductsStore, syncedWithSupabase: true });
   } catch (e) {
     res.status(500).json({ success: false, error: e?.message });
   }
@@ -502,112 +1127,160 @@ app.get("/api/orders", async (req, res) => {
 app.post("/api/orders", async (req, res) => {
   try {
     const { order } = req.body;
-    if (order && order.id) {
-      const existingIdx = serverOrdersStore.findIndex((o) => o.id === order.id);
-      if (existingIdx >= 0) {
-        serverOrdersStore[existingIdx] = { ...serverOrdersStore[existingIdx], ...order };
-      } else {
-        serverOrdersStore.unshift(order);
+    if (!order || !order.id) {
+      return res.status(400).json({ success: false, error: "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0633\u0641\u0627\u0631\u0634 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A." });
+    }
+    const custEmail = (order.shippingAddress?.email || order.userEmail || "").trim().toLowerCase();
+    const custName = (order.shippingAddress?.fullName || "").trim();
+    const custPhone = (order.shippingAddress?.phone || "").trim();
+    const userIdentifier = custEmail || custPhone || String(order.id);
+    const existingIdx = serverOrdersStore.findIndex((o) => o.id === order.id);
+    const isNewOrder = existingIdx < 0;
+    if (isNewOrder) {
+      const orderRateCheck = checkOrderCreationRateLimit(userIdentifier);
+      if (!orderRateCheck.allowed) {
+        return res.status(429).json({
+          success: false,
+          error: orderRateCheck.message || "\u0633\u0642\u0641 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u0633\u0641\u0627\u0631\u0634 (\u062D\u062F\u0627\u06A9\u062B\u0631 \u06F2 \u0633\u0641\u0627\u0631\u0634 \u062F\u0631 \u06F2\u06F4 \u0633\u0627\u0639\u062A) \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A. \u062F\u0631 \u0635\u0648\u0631\u062A \u0646\u06CC\u0627\u0632 \u0628\u0627 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u062A\u0645\u0627\u0633 \u0628\u06AF\u06CC\u0631\u06CC\u062F."
+        });
       }
-      persistOrderToSupabase(order).catch((e) => console.warn("Order persist warn:", e));
-      const custEmail = (order.shippingAddress?.email || order.userEmail || "").trim();
-      const custName = order.shippingAddress?.fullName;
-      const custPhone = order.shippingAddress?.phone;
-      if (custEmail) {
-        const existingUser = registeredUsersStore.find((u) => u.email.toLowerCase() === custEmail.toLowerCase());
-        if (!existingUser) {
-          registeredUsersStore.unshift({
-            id: "USR-" + Date.now(),
-            fullName: custName || "\u062E\u0631\u06CC\u062F\u0627\u0631 \u0622\u06A9\u0627\u062F\u0645\u06CC",
-            email: custEmail,
-            phone: custPhone || "",
-            registeredAt: (/* @__PURE__ */ new Date()).toISOString(),
-            faDate: (/* @__PURE__ */ new Date()).toLocaleDateString("fa-IR")
-          });
-        }
+      const now = Date.now();
+      const past24hCutoff = now - 24 * 60 * 60 * 1e3;
+      const recentOrdersByUser = serverOrdersStore.filter((o) => {
+        const oEmail = (o.shippingAddress?.email || o.userEmail || "").trim().toLowerCase();
+        const oPhone = (o.shippingAddress?.phone || "").trim();
+        const matchesUser = custEmail && oEmail === custEmail || custPhone && oPhone === custPhone;
+        const orderTime = o.createdAt ? new Date(o.createdAt).getTime() : now;
+        return matchesUser && orderTime >= past24hCutoff;
+      });
+      if (recentOrdersByUser.length >= 2) {
+        return res.status(429).json({
+          success: false,
+          error: "\u0633\u0642\u0641 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u0633\u0641\u0627\u0631\u0634 (\u062D\u062F\u0627\u06A9\u062B\u0631 \u06F2 \u0633\u0641\u0627\u0631\u0634 \u062F\u0631 \u06F2\u06F4 \u0633\u0627\u0639\u062A) \u0628\u0631\u0627\u06CC \u0634\u0645\u0627 \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A."
+        });
       }
-      const adminEmail = runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || "40gates.main@gmail.com";
-      const items = order.items || [];
-      const totalAmount = order.totalAmount || 0;
-      const subtotal = order.subtotal || 0;
-      const shippingFee = order.shippingFee || 0;
-      const itemsHtml = items.map((item) => `
-        <tr style="border-bottom: 1px solid #f1f5f9;">
-          <td style="padding: 10px; font-size: 13px;">${item.title || "\u0645\u062D\u0635\u0648\u0644"} (${item.quantity || 1} \u0639\u062F\u062F)</td>
-          <td style="padding: 10px; font-size: 13px; text-align: left; font-weight: bold; color: #4338ca;">
-            ${((item.price || 0) * (item.quantity || 1)).toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646
-          </td>
-        </tr>
-      `).join("");
-      if (custEmail) {
-        try {
-          await sendMailSafely({
-            to: custEmail,
-            subject: `\u{1F6D2} \u062A\u0627\u06CC\u06CC\u062F \u062B\u0628\u062A \u0633\u0641\u0627\u0631\u0634 #${order.id} - \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647`,
-            html: `
-              <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
-                <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                  <div style="background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95); padding: 25px 20px; text-align: center; color: #ffffff;">
-                    <h1 style="margin: 0; font-size: 20px; color: #fbbf24;">\u062A\u0627\u06CC\u06CC\u062F \u062B\u0628\u062A \u0633\u0641\u0627\u0631\u0634 - \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647</h1>
-                    <p style="margin: 6px 0 0 0; font-size: 12px; color: #e0e7ff;">\u0634\u0645\u0627\u0631\u0647 \u0633\u0641\u0627\u0631\u0634: ${order.id}</p>
-                  </div>
-                  <div style="padding: 25px; font-size: 13px; line-height: 1.8;">
-                    <p>\u0633\u0644\u0627\u0645 <strong>${custName || "\u0647\u0646\u0631\u062C\u0648\u06CC \u06AF\u0631\u0627\u0645\u06CC"}</strong> \u0639\u0632\u06CC\u0632\u060C</p>
-                    <p>\u0633\u0641\u0627\u0631\u0634 \u0634\u0645\u0627 \u0628\u0627 \u0634\u0645\u0627\u0631\u0647 <strong>#${order.id}</strong> \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062B\u0628\u062A \u0634\u062F \u0648 \u062F\u0631 \u0645\u0631\u062D\u0644\u0647 \u067E\u0631\u062F\u0627\u0632\u0634 \u0642\u0631\u0627\u0631 \u06AF\u0631\u0641\u062A.</p>
-                    <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-                      <thead>
-                        <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1;">
-                          <th style="padding: 8px; text-align: right; font-size: 12px; color: #64748b;">\u0645\u062D\u0635\u0648\u0644</th>
-                          <th style="padding: 8px; text-align: left; font-size: 12px; color: #64748b;">\u0645\u0628\u0644\u063A</th>
-                        </tr>
-                      </thead>
-                      <tbody>${itemsHtml}</tbody>
-                    </table>
-                    <div style="background-color: #f8fafc; border-radius: 12px; padding: 15px; margin: 15px 0;">
-                      <p style="margin: 4px 0;">\u062C\u0645\u0639 \u06A9\u0644: <strong>${subtotal.toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646</strong></p>
-                      ${shippingFee > 0 ? `<p style="margin: 4px 0;">\u0647\u0632\u06CC\u0646\u0647 \u0627\u0631\u0633\u0627\u0644: <strong>${shippingFee.toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646</strong></p>` : ""}
-                      <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: bold; color: #1e1b4b; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
-                        \u0645\u0628\u0644\u063A \u0646\u0647\u0627\u06CC\u06CC \u067E\u0631\u062F\u0627\u062E\u062A\u06CC: ${totalAmount.toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646
-                      </p>
-                    </div>
-                    <p style="font-size: 12px; color: #64748b;">\u0648\u0636\u0639\u06CC\u062A \u0633\u0641\u0627\u0631\u0634 \u0627\u0632 \u0637\u0631\u06CC\u0642 \u0647\u0645\u06CC\u0646 \u0627\u06CC\u0645\u06CC\u0644 \u0648 \u067E\u06CC\u0627\u0645\u06A9 \u0628\u0647 \u0634\u0645\u0627 \u0627\u0637\u0644\u0627\u0639\u200C\u0631\u0633\u0627\u0646\u06CC \u062E\u0648\u0627\u0647\u062F \u0634\u062F.</p>
-                  </div>
-                  <div style="background-color: #f8fafc; padding: 12px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
-                    \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647
-                  </div>
-                </div>
-              </div>
-            `
-          }, "order-customer");
-        } catch (e) {
-          console.warn("Customer order email err:", e);
-        }
-      }
-      try {
-        await sendMailSafely({
-          to: adminEmail,
-          subject: `\u{1F514} \u0633\u0641\u0627\u0631\u0634 \u062C\u062F\u06CC\u062F \u062B\u0628\u062A \u0634\u062F #${order.id} - ${totalAmount.toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646`,
-          html: `
-            <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 25px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
-              <h2 style="color: #38bdf8; margin-top: 0;">\u{1F6D2} \u0633\u0641\u0627\u0631\u0634 \u062C\u062F\u06CC\u062F \u062F\u0631 \u0648\u0628\u200C\u0633\u0627\u06CC\u062A \u062B\u0628\u062A \u0634\u062F!</h2>
-              <p><strong>\u0634\u0645\u0627\u0631\u0647 \u0633\u0641\u0627\u0631\u0634:</strong> ${order.id}</p>
-              <p><strong>\u0646\u0627\u0645 \u062E\u0631\u06CC\u062F\u0627\u0631:</strong> ${custName || "\u0646\u0627\u0645\u0634\u062E\u0635"}</p>
-              <p><strong>\u0627\u06CC\u0645\u06CC\u0644 \u062E\u0631\u06CC\u062F\u0627\u0631:</strong> ${custEmail || "\u062B\u0628\u062A \u0646\u0634\u062F\u0647"}</p>
-              <p><strong>\u062A\u0644\u0641\u0646 \u062E\u0631\u06CC\u062F\u0627\u0631:</strong> ${custPhone || "-"}</p>
-              <p><strong>\u0645\u0628\u0644\u063A \u06A9\u0644:</strong> ${totalAmount.toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646</p>
-              <p><strong>\u0622\u062F\u0631\u0633:</strong> ${order.shippingAddress?.address || "\u062F\u06CC\u062C\u06CC\u062A\u0627\u0644 / \u0622\u0646\u0644\u0627\u06CC\u0646"}</p>
-              <hr style="border-color: #334155; margin: 15px 0;"/>
-              <h4 style="color: #fbbf24; margin: 0 0 10px 0;">\u0627\u0642\u0644\u0627\u0645 \u0633\u0641\u0627\u0631\u0634:</h4>
-              <ul>
-                ${items.map((i) => `<li>${i.title || "\u0645\u062D\u0635\u0648\u0644"} - ${i.quantity || 1} \u0639\u062F\u062F (${((i.price || 0) * (i.quantity || 1)).toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646)</li>`).join("")}
-              </ul>
-            </div>
-          `
-        }, "order-admin-notify");
-      } catch (e) {
-        console.warn("Admin order email err:", e);
+      serverOrdersStore.unshift(order);
+      recordOrderCreation(userIdentifier, order.id, now, getSupabaseClient());
+    } else {
+      serverOrdersStore[existingIdx] = { ...serverOrdersStore[existingIdx], ...order };
+    }
+    persistOrderToSupabase(order).catch((e) => console.warn("Order persist warn:", e));
+    if (custEmail) {
+      const existingUser = registeredUsersStore.find((u) => u.email.toLowerCase() === custEmail);
+      if (!existingUser) {
+        registeredUsersStore.unshift({
+          id: "USR-" + Date.now(),
+          fullName: custName || "\u062E\u0631\u06CC\u062F\u0627\u0631 \u0622\u06A9\u0627\u062F\u0645\u06CC",
+          email: custEmail,
+          phone: custPhone || "",
+          registeredAt: (/* @__PURE__ */ new Date()).toISOString(),
+          faDate: (/* @__PURE__ */ new Date()).toLocaleDateString("fa-IR")
+        });
       }
     }
+    const isFree = isFreeOrder(order);
+    if (isFree) {
+      console.log(`\u2139\uFE0F [FREE ORDER] Order #${order.id} has total amount <= 0. Skipping transactional emails per anti-abuse rules.`);
+      return res.json({
+        success: true,
+        orders: serverOrdersStore,
+        emailSkipped: true,
+        reason: "free_order",
+        message: "\u0633\u0641\u0627\u0631\u0634 \u0631\u0627\u06CC\u06AF\u0627\u0646 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062B\u0628\u062A \u0634\u062F."
+      });
+    }
+    const eventKey = `order-created:${order.id}`;
+    if (hasEmailBeenSent(eventKey)) {
+      console.log(`\u2139\uFE0F [DUPLICATE EMAIL PREVENTED] Order confirmation email for ${eventKey} was already sent.`);
+      return res.json({
+        success: true,
+        orders: serverOrdersStore,
+        emailSkipped: true,
+        reason: "already_sent"
+      });
+    }
+    const adminEmail = runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || "40gates.main@gmail.com";
+    const items = order.items || [];
+    const totalAmount = order.totalAmount || 0;
+    const subtotal = order.subtotal || 0;
+    const shippingFee = order.shippingFee || 0;
+    const itemsHtml = items.map((item) => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 10px; font-size: 13px;">${item.title || "\u0645\u062D\u0635\u0648\u0644"} (${item.quantity || 1} \u0639\u062F\u062F)</td>
+        <td style="padding: 10px; font-size: 13px; text-align: left; font-weight: bold; color: #4338ca;">
+          ${((item.price || 0) * (item.quantity || 1)).toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646
+        </td>
+      </tr>
+    `).join("");
+    if (custEmail) {
+      try {
+        await sendMailSafely({
+          to: custEmail,
+          subject: `\u{1F6D2} \u062A\u0627\u06CC\u06CC\u062F \u062B\u0628\u062A \u0633\u0641\u0627\u0631\u0634 #${order.id} - \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647`,
+          html: `
+            <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                <div style="background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95); padding: 25px 20px; text-align: center; color: #ffffff;">
+                  <h1 style="margin: 0; font-size: 20px; color: #fbbf24;">\u062A\u0627\u06CC\u06CC\u062F \u062B\u0628\u062A \u0633\u0641\u0627\u0631\u0634 - \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647</h1>
+                  <p style="margin: 6px 0 0 0; font-size: 12px; color: #e0e7ff;">\u0634\u0645\u0627\u0631\u0647 \u0633\u0641\u0627\u0631\u0634: ${order.id}</p>
+                </div>
+                <div style="padding: 25px; font-size: 13px; line-height: 1.8;">
+                  <p>\u0633\u0644\u0627\u0645 <strong>${custName || "\u0647\u0646\u0631\u062C\u0648\u06CC \u06AF\u0631\u0627\u0645\u06CC"}</strong> \u0639\u0632\u06CC\u0632\u060C</p>
+                  <p>\u0633\u0641\u0627\u0631\u0634 \u0634\u0645\u0627 \u0628\u0627 \u0634\u0645\u0627\u0631\u0647 <strong>#${order.id}</strong> \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062B\u0628\u062A \u0634\u062F \u0648 \u062F\u0631 \u0645\u0631\u062D\u0644\u0647 \u067E\u0631\u062F\u0627\u0632\u0634 \u0642\u0631\u0627\u0631 \u06AF\u0631\u0641\u062A.</p>
+                  <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                    <thead>
+                      <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                        <th style="padding: 8px; text-align: right; font-size: 12px; color: #64748b;">\u0645\u062D\u0635\u0648\u0644</th>
+                        <th style="padding: 8px; text-align: left; font-size: 12px; color: #64748b;">\u0645\u0628\u0644\u063A</th>
+                      </tr>
+                    </thead>
+                    <tbody>${itemsHtml}</tbody>
+                  </table>
+                  <div style="background-color: #f8fafc; border-radius: 12px; padding: 15px; margin: 15px 0;">
+                    <p style="margin: 4px 0;">\u062C\u0645\u0639 \u06A9\u0644: <strong>${subtotal.toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646</strong></p>
+                    ${shippingFee > 0 ? `<p style="margin: 4px 0;">\u0647\u0632\u06CC\u0646\u0647 \u0627\u0631\u0633\u0627\u0644: <strong>${shippingFee.toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646</strong></p>` : ""}
+                    <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: bold; color: #1e1b4b; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
+                      \u0645\u0628\u0644\u063A \u0646\u0647\u0627\u06CC\u06CC \u067E\u0631\u062F\u0627\u062E\u062A\u06CC: ${totalAmount.toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646
+                    </p>
+                  </div>
+                  <p style="font-size: 12px; color: #64748b;">\u0648\u0636\u0639\u06CC\u062A \u0633\u0641\u0627\u0631\u0634 \u0627\u0632 \u0637\u0631\u06CC\u0642 \u0647\u0645\u06CC\u0646 \u0627\u06CC\u0645\u06CC\u0644 \u0648 \u067E\u06CC\u0627\u0645\u06A9 \u0628\u0647 \u0634\u0645\u0627 \u0627\u0637\u0644\u0627\u0639\u200C\u0631\u0633\u0627\u0646\u06CC \u062E\u0648\u0627\u0647\u062F \u0634\u062F.</p>
+                </div>
+                <div style="background-color: #f8fafc; padding: 12px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+                  \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647
+                </div>
+              </div>
+            </div>
+          `
+        }, "order-customer");
+      } catch (e) {
+        console.warn("Customer order email err:", e);
+      }
+    }
+    try {
+      await sendMailSafely({
+        to: adminEmail,
+        subject: `\u{1F514} \u0633\u0641\u0627\u0631\u0634 \u062C\u062F\u06CC\u062F \u062B\u0628\u062A \u0634\u062F #${order.id} - ${totalAmount.toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646`,
+        html: `
+          <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; padding: 25px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
+            <h2 style="color: #38bdf8; margin-top: 0;">\u{1F6D2} \u0633\u0641\u0627\u0631\u0634 \u062C\u062F\u06CC\u062F \u062F\u0631 \u0648\u0628\u200C\u0633\u0627\u06CC\u062A \u062B\u0628\u062A \u0634\u062F!</h2>
+            <p><strong>\u0634\u0645\u0627\u0631\u0647 \u0633\u0641\u0627\u0631\u0634:</strong> ${order.id}</p>
+            <p><strong>\u0646\u0627\u0645 \u062E\u0631\u06CC\u062F\u0627\u0631:</strong> ${custName || "\u0646\u0627\u0645\u0634\u062E\u0635"}</p>
+            <p><strong>\u0627\u06CC\u0645\u06CC\u0644 \u062E\u0631\u06CC\u062F\u0627\u0631:</strong> ${custEmail || "\u062B\u0628\u062A \u0646\u0634\u062F\u0647"}</p>
+            <p><strong>\u062A\u0644\u0641\u0646 \u062E\u0631\u06CC\u062F\u0627\u0631:</strong> ${custPhone || "-"}</p>
+            <p><strong>\u0645\u0628\u0644\u063A \u06A9\u0644:</strong> ${totalAmount.toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646</p>
+            <p><strong>\u0622\u062F\u0631\u0633:</strong> ${order.shippingAddress?.address || "\u062F\u06CC\u062C\u06CC\u062A\u0627\u0644 / \u0622\u0646\u0644\u0627\u06CC\u0646"}</p>
+            <hr style="border-color: #334155; margin: 15px 0;"/>
+            <h4 style="color: #fbbf24; margin: 0 0 10px 0;">\u0627\u0642\u0644\u0627\u0645 \u0633\u0641\u0627\u0631\u0634:</h4>
+            <ul>
+              ${items.map((i) => `<li>${i.title || "\u0645\u062D\u0635\u0648\u0644"} - ${i.quantity || 1} \u0639\u062F\u062F (${((i.price || 0) * (i.quantity || 1)).toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646)</li>`).join("")}
+            </ul>
+          </div>
+        `
+      }, "order-admin-notify");
+    } catch (e) {
+      console.warn("Admin order email err:", e);
+    }
+    markEmailAsSent(eventKey, Date.now(), getSupabaseClient());
     res.json({ success: true, orders: serverOrdersStore });
   } catch (e) {
     res.status(500).json({ success: false, error: "\u062E\u0637\u0627 \u062F\u0631 \u062B\u0628\u062A \u0633\u0641\u0627\u0631\u0634 \u062F\u0631 \u0633\u0631\u0648\u0631" });
@@ -628,6 +1301,31 @@ app.patch("/api/orders/:id/status", (req, res) => {
     res.status(500).json({ success: false, error: "\u062E\u0637\u0627 \u062F\u0631 \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0648\u0636\u0639\u06CC\u062A \u0633\u0641\u0627\u0631\u0634" });
   }
 });
+var handleDeleteOrderHandler = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const initialCount = serverOrdersStore.length;
+    serverOrdersStore = serverOrdersStore.filter((o) => o.id !== id);
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        await client.from("orders").delete().eq("id", id);
+      } catch (dbErr) {
+        console.warn("Supabase delete order error:", dbErr);
+      }
+    }
+    return res.json({
+      success: true,
+      message: `\u0633\u0641\u0627\u0631\u0634 #${id} \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062D\u0630\u0641 \u06AF\u0631\u062F\u06CC\u062F.`,
+      orders: serverOrdersStore
+    });
+  } catch (err) {
+    console.error("Delete order error:", err);
+    return res.status(500).json({ success: false, error: "\u062E\u0637\u0627 \u062F\u0631 \u062D\u0630\u0641 \u0633\u0641\u0627\u0631\u0634" });
+  }
+};
+app.delete("/api/admin/orders/:id", requireAdminAuth, handleDeleteOrderHandler);
+app.delete("/api/orders/:id", handleDeleteOrderHandler);
 app.get("/api/users", (req, res) => {
   res.json({ success: true, users: registeredUsersStore });
 });
@@ -698,6 +1396,13 @@ app.post("/api/admin/login", async (req, res) => {
         email: email || "\u0646\u0627\u0645\u0634\u062E\u0635",
         userAgent: req.headers["user-agent"]
       });
+      sendAdminSecurityAlert({
+        reason: adminSecurityState.failedPasswordCount >= 5 ? "LOCKED" : "FAILED_PASSWORD",
+        clientIp,
+        enteredEmail: email || "\u0646\u0627\u0645\u0634\u062E\u0635",
+        userAgent: req.headers["user-agent"],
+        attemptCount: adminSecurityState.failedPasswordCount
+      });
       if (adminSecurityState.failedPasswordCount >= 5) {
         adminSecurityState.lockedUntil = Date.now() + 15 * 60 * 1e3;
         return res.status(429).json({
@@ -711,14 +1416,27 @@ app.post("/api/admin/login", async (req, res) => {
       });
     }
     adminSecurityState.failedPasswordCount = 0;
-    let { secret } = await getStoredTotpSecret();
-    if (!secret) {
-      secret = generateSecret();
-      await saveTotpSecret(secret, true);
+    let totpInfo = await getAdminTotpSecret(void 0, getSupabaseClient());
+    if (!totpInfo.secret) {
+      const newSecret = createNewTotpSecret();
+      await persistTotpSecret(newSecret, false, void 0, getSupabaseClient());
+      totpInfo = { secret: newSecret, isSetup: false, source: "memory" };
     }
-    const tempToken = createTempTotpToken(adminEmail, secret, false);
+    if (!totpInfo.isSetup) {
+      const { qrCodeDataUrl } = await generateTotpQrCodeDataUrl(adminEmail, totpInfo.secret);
+      const tempToken2 = createTempTotpToken(adminEmail, true, ADMIN_SECRET);
+      return res.json({
+        success: true,
+        requireSetup: true,
+        qrCode: qrCodeDataUrl,
+        tempToken: tempToken2,
+        message: "\u0631\u0627\u0647\u200C\u0627\u0646\u062F\u0627\u0632\u06CC \u0627\u0648\u0644\u06CC\u0647: \u0644\u0637\u0641\u0627\u064B \u0627\u06CC\u0646 QR \u06A9\u062F \u0631\u0627 \u062F\u0631 \u0627\u067E\u0644\u06CC\u06A9\u06CC\u0634\u0646 Google Authenticator \u0627\u0633\u06A9\u0646 \u0646\u0645\u0648\u062F\u0647 \u0648 \u06A9\u062F \u06F6 \u0631\u0642\u0645\u06CC \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F."
+      });
+    }
+    const tempToken = createTempTotpToken(adminEmail, false, ADMIN_SECRET);
     return res.json({
       success: true,
+      requireSetup: false,
       tempToken,
       message: "\u06A9\u062F \u06F6 \u0631\u0642\u0645\u06CC \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631 Google Authenticator \u06CC\u0627 Microsoft Authenticator \u062E\u0648\u062F \u0631\u0627 \u0648\u0627\u0631\u062F \u0646\u0645\u0627\u06CC\u06CC\u062F."
     });
@@ -739,14 +1457,14 @@ var handleVerifyTotpHandler = async (req, res) => {
     const { tempToken, code } = req.body;
     const { adminEmail } = getAdminConfig();
     const clientIp = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1").split(",")[0].trim();
-    const verifiedTemp = verifyTempTotpToken(tempToken);
+    const verifiedTemp = verifyTempTotpToken(tempToken, ADMIN_SECRET);
     if (!verifiedTemp.valid || !verifiedTemp.payload) {
       return res.status(401).json({
         success: false,
         error: "\u0646\u0634\u0633\u062A \u0632\u0645\u0627\u0646\u200C\u062F\u0627\u0631 \u0648\u0631\u0648\u062F \u0645\u0646\u0642\u0636\u06CC \u0634\u062F\u0647 \u06CC\u0627 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A. \u0644\u0637\u0641\u0627\u064B \u0645\u062C\u062F\u062F\u0627\u064B \u0627\u06CC\u0645\u06CC\u0644 \u0648 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0631\u0627 \u0648\u0627\u0631\u062F \u0646\u0645\u0627\u06CC\u06CC\u062F."
       });
     }
-    const { tempSecret, requireSetup } = verifiedTemp.payload;
+    const { requireSetup } = verifiedTemp.payload;
     const inputCode = (code || "").toString().trim().replace(/\s+/g, "");
     if (!inputCode || inputCode.length !== 6 || !/^\d{6}$/.test(inputCode)) {
       return res.status(400).json({
@@ -754,20 +1472,17 @@ var handleVerifyTotpHandler = async (req, res) => {
         error: "\u0644\u0637\u0641\u0627\u064B \u06A9\u062F \u06F6 \u0631\u0642\u0645\u06CC \u0631\u0627 \u0628\u0647 \u0637\u0648\u0631 \u06A9\u0627\u0645\u0644 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F."
       });
     }
-    let secretToVerify = tempSecret;
-    if (!secretToVerify) {
-      const stored = await getStoredTotpSecret();
-      secretToVerify = stored.secret;
-    }
-    if (!secretToVerify) {
+    const totpInfo = await getAdminTotpSecret(void 0, getSupabaseClient());
+    if (!totpInfo.secret) {
       return res.status(400).json({
         success: false,
-        error: "\u06A9\u0644\u06CC\u062F \u0627\u062D\u0631\u0627\u0632 \u0647\u0648\u06CC\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F. \u0644\u0637\u0641\u0627\u064B \u0645\u062C\u062F\u062F\u0627\u064B \u062A\u0644\u0627\u0634 \u06A9\u0646\u06CC\u062F."
+        error: "\u06A9\u0644\u06CC\u062F \u0627\u062D\u0631\u0627\u0632 \u0647\u0648\u06CC\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F. \u0644\u0637\u0641\u0627\u064B \u0645\u062C\u062F\u062F\u0627\u064B \u0641\u0631\u0622\u06CC\u0646\u062F \u0648\u0631\u0648\u062F \u0631\u0627 \u0622\u063A\u0627\u0632 \u06A9\u0646\u06CC\u062F."
       });
     }
-    const checkResult = verifySync({ token: inputCode, secret: secretToVerify, epochTolerance: 30 });
-    const isValidCode = checkResult && checkResult.valid === true;
+    const isValidCode = verifyAdminTotpCode(inputCode, totpInfo.secret);
     if (!isValidCode) {
+      const failedCount = (adminSecurityState.failedPasswordCount || 0) + 1;
+      adminSecurityState.failedPasswordCount = failedCount;
       adminSecurityState.loginLogs.unshift({
         id: "LOG-" + Date.now(),
         timestamp: (/* @__PURE__ */ new Date()).toISOString(),
@@ -778,13 +1493,20 @@ var handleVerifyTotpHandler = async (req, res) => {
         email: adminEmail,
         userAgent: req.headers["user-agent"]
       });
+      sendAdminSecurityAlert({
+        reason: "FAILED_2FA",
+        clientIp,
+        enteredEmail: adminEmail,
+        userAgent: req.headers["user-agent"],
+        attemptCount: failedCount
+      });
       return res.status(401).json({
         success: false,
         error: "\u06A9\u062F \u06F6 \u0631\u0642\u0645\u06CC \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631 Authenticator \u0627\u0634\u062A\u0628\u0627\u0647 \u0627\u0633\u062A. \u0644\u0637\u0641\u0627\u064B \u06A9\u062F \u062C\u062F\u06CC\u062F \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0634\u062F\u0647 \u062F\u0631 \u0627\u067E\u0644\u06CC\u06A9\u06CC\u0634\u0646 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F."
       });
     }
-    if (requireSetup) {
-      await saveTotpSecret(tempSecret, true);
+    if (!totpInfo.isSetup || requireSetup) {
+      await persistTotpSecret(totpInfo.secret, true, void 0, getSupabaseClient());
     }
     adminSecurityState.failedPasswordCount = 0;
     const token = generateAdminToken(adminEmail);
@@ -820,10 +1542,18 @@ app.post("/api/admin/verify-totp", handleVerifyTotpHandler);
 app.post("/api/admin/verify-otp", handleVerifyTotpHandler);
 app.post("/api/admin/reset-totp", requireAdminAuth, async (req, res) => {
   try {
-    await saveTotpSecret("", false);
+    const result = await resetAdminTotpSecret(void 0, getSupabaseClient());
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        isEnvLocked: result.isEnvLocked,
+        error: result.message
+      });
+    }
     return res.json({
       success: true,
-      message: "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u062D\u0631\u0627\u0632 \u0647\u0648\u06CC\u062A \u062F\u0648 \u0639\u0627\u0645\u0644\u06CC (TOTP) \u0628\u0627\u0632\u0646\u0634\u0627\u0646\u06CC \u06AF\u0631\u062F\u06CC\u062F. \u062F\u0631 \u0648\u0631\u0648\u062F \u0628\u0639\u062F\u06CC \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F QR \u06A9\u062F \u062C\u062F\u06CC\u062F\u06CC \u0631\u0627 \u0627\u0633\u06A9\u0646 \u06A9\u0646\u06CC\u062F."
+      isEnvLocked: false,
+      message: result.message
     });
   } catch (e) {
     return res.status(500).json({ success: false, error: "\u062E\u0637\u0627 \u062F\u0631 \u0628\u0627\u0632\u0646\u0634\u0627\u0646\u06CC \u062A\u0646\u0638\u06CC\u0645\u0627\u062A 2FA" });
@@ -841,11 +1571,12 @@ app.post("/api/admin/logout", requireAdminAuth, (req, res) => {
 app.get("/api/admin/logs", requireAdminAuth, (req, res) => {
   res.json({ success: true, logs: adminSecurityState.loginLogs });
 });
-app.get("/api/admin/settings", requireAdminAuth, (req, res) => {
+app.get("/api/admin/settings", requireAdminAuth, async (req, res) => {
   const { adminEmail } = getAdminConfig();
   const activeAdminEmail = runtimeResendConfig.adminEmail || adminEmail;
   const isResendConfigured = Boolean(runtimeResendConfig.apiKey || process.env.RESEND_API_KEY);
   const fromEmail = runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || "\u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 <onboarding@resend.dev>";
+  const totpInfo = await getAdminTotpSecret(void 0, getSupabaseClient());
   res.json({
     success: true,
     settings: {
@@ -854,6 +1585,10 @@ app.get("/api/admin/settings", requireAdminAuth, (req, res) => {
       resendConfigured: isResendConfigured,
       resendApiKeyMasked: isResendConfigured ? "re_\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" : "\u062A\u0646\u0638\u06CC\u0645 \u0646\u0634\u062F\u0647",
       resendFromEmail: fromEmail,
+      // 2FA TOTP Status (Secret is NEVER sent to frontend)
+      totpConfigured: Boolean(totpInfo.secret && totpInfo.isSetup),
+      totpSource: totpInfo.source,
+      isEnvLocked: totpInfo.source === "env",
       // Backward compatibility fields
       smtpConfigured: isResendConfigured,
       smtpUser: fromEmail,
@@ -912,10 +1647,19 @@ var handleContactMessage = async (req, res) => {
     if (!name || !email || !message) {
       return res.status(400).json({ success: false, error: "\u0646\u0627\u0645\u060C \u0627\u06CC\u0645\u06CC\u0644 \u0648 \u0645\u062A\u0646 \u067E\u06CC\u0627\u0645 \u0627\u0644\u0632\u0627\u0645\u06CC \u0627\u0633\u062A." });
     }
+    const cleanEmail = String(email).trim().toLowerCase();
+    const clientIp = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || req.ip || "127.0.0.1";
+    const rateCheck = checkContactRateLimit({ email: cleanEmail, ip: clientIp });
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        success: false,
+        error: rateCheck.message || "\u0633\u0642\u0641 \u0645\u062C\u0627\u0632 \u0627\u0631\u0633\u0627\u0644 \u067E\u06CC\u0627\u0645 (\u062D\u062F\u0627\u06A9\u062B\u0631 \u06F3 \u067E\u06CC\u0627\u0645 \u062F\u0631 \u06F2\u06F4 \u0633\u0627\u0639\u062A) \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A. \u0644\u0637\u0641\u0627\u064B \u0628\u0639\u062F\u0627\u064B \u062A\u0644\u0627\u0634 \u06A9\u0646\u06CC\u062F \u06CC\u0627 \u0645\u0633\u062A\u0642\u06CC\u0645\u0627\u064B \u0628\u0647 \u0627\u06CC\u0645\u06CC\u0644 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u067E\u06CC\u0627\u0645 \u062F\u0647\u06CC\u062F."
+      });
+    }
     const newMessage = {
       id: "MSG-" + Date.now(),
       name: name.trim(),
-      email: email.trim(),
+      email: cleanEmail,
       subject: subject || "\u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC",
       message: message.trim(),
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
@@ -936,7 +1680,7 @@ var handleContactMessage = async (req, res) => {
             <div style="margin: 20px 0; font-size: 14px; line-height: 1.8;">
               <p><strong>\u06A9\u062F \u062A\u06CC\u06A9\u062A:</strong> <span style="font-family: monospace; color: #4338ca;">${newMessage.id}</span></p>
               <p><strong>\u0646\u0627\u0645 \u0641\u0631\u0633\u062A\u0646\u062F\u0647:</strong> ${name.trim()}</p>
-              <p><strong>\u0627\u06CC\u0645\u06CC\u0644 \u0641\u0631\u0633\u062A\u0646\u062F\u0647:</strong> <a href="mailto:${email.trim()}" style="color: #2563eb;">${email.trim()}</a></p>
+              <p><strong>\u0627\u06CC\u0645\u06CC\u0644 \u0641\u0631\u0633\u062A\u0646\u062F\u0647:</strong> <a href="mailto:${cleanEmail}" style="color: #2563eb;">${cleanEmail}</a></p>
               <p><strong>\u0645\u0648\u0636\u0648\u0639 \u067E\u06CC\u0627\u0645:</strong> ${subject || "\u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC"}</p>
               <p><strong>\u062A\u0627\u0631\u06CC\u062E \u0648 \u0632\u0645\u0627\u0646:</strong> ${newMessage.faDate} - \u0633\u0627\u0639\u062A ${newMessage.faTime}</p>
             </div>
@@ -994,10 +1738,11 @@ var handleContactMessage = async (req, res) => {
       </div>
     `;
     await sendMailSafely({
-      to: email.trim(),
+      to: cleanEmail,
       subject: `\u2728 \u062F\u0631\u06CC\u0627\u0641\u062A \u067E\u06CC\u0627\u0645 \u0634\u0645\u0627 \u062F\u0631 \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 (\u06A9\u062F \u062A\u06CC\u06A9\u062A: ${newMessage.id})`,
       html: userHtml
     }, "contact-user-autoreply");
+    recordContactMessage({ email: cleanEmail, ip: clientIp }, Date.now(), getSupabaseClient());
     return res.json({
       success: true,
       message: "\u067E\u06CC\u0627\u0645 \u0634\u0645\u0627 \u062B\u0628\u062A \u0634\u062F. \u06CC\u06A9 \u0627\u06CC\u0645\u06CC\u0644 \u062A\u0627\u06CC\u06CC\u062F\u06CC\u0647 \u062F\u0631\u06CC\u0627\u0641\u062A \u067E\u06CC\u0627\u0645 \u0628\u0647 \u0622\u062F\u0631\u0633 \u0627\u06CC\u0645\u06CC\u0644 \u0634\u0645\u0627 \u0627\u0631\u0633\u0627\u0644 \u06AF\u0631\u062F\u06CC\u062F.",
@@ -1010,8 +1755,123 @@ var handleContactMessage = async (req, res) => {
 };
 app.post("/api/contact", handleContactMessage);
 app.post("/api/email/contact", handleContactMessage);
-app.get("/api/admin/contact-messages", requireAdminAuth, (req, res) => {
+app.get("/api/admin/contact-messages", requireAdminAuth, async (req, res) => {
+  await syncContactMessagesFromSupabase();
   res.json({ success: true, messages: contactMessages });
+});
+app.patch("/api/admin/contact-messages/:id", requireAdminAuth, async (req, res) => {
+  const msg = contactMessages.find((m) => m.id === req.params.id);
+  if (msg) {
+    msg.read = true;
+    await persistContactMessagesToSupabase();
+    return res.json({ success: true, message: "\u0648\u0636\u0639\u06CC\u062A \u067E\u06CC\u0627\u0645 \u0628\u0647 \u062E\u0648\u0627\u0646\u062F\u0647 \u0634\u062F\u0647 \u062A\u063A\u06CC\u06CC\u0631 \u06CC\u0627\u0641\u062A.", messages: contactMessages });
+  }
+  return res.status(404).json({ success: false, error: "\u067E\u06CC\u0627\u0645 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F." });
+});
+app.delete("/api/admin/contact-messages/:id", requireAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const idx = contactMessages.findIndex((m) => m.id === id);
+    if (idx >= 0) {
+      contactMessages.splice(idx, 1);
+      await persistContactMessagesToSupabase();
+      return res.json({ success: true, message: "\u067E\u06CC\u0627\u0645 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062D\u0630\u0641 \u06AF\u0631\u062F\u06CC\u062F.", messages: contactMessages });
+    }
+    return res.status(404).json({ success: false, error: "\u067E\u06CC\u0627\u0645 \u0645\u0648\u0631\u062F \u0646\u0638\u0631 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F." });
+  } catch (err) {
+    console.error("Delete message error:", err);
+    return res.status(500).json({ success: false, error: "\u062E\u0637\u0627 \u062F\u0631 \u062D\u0630\u0641 \u067E\u06CC\u0627\u0645" });
+  }
+});
+app.post("/api/admin/contact-messages/:id/reply", requireAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { replyText, replySubject } = req.body;
+    if (!replyText || !replyText.trim()) {
+      return res.status(400).json({ success: false, error: "\u0644\u0637\u0641\u0627\u064B \u0645\u062A\u0646 \u067E\u0627\u0633\u062E \u0631\u0627 \u0648\u0627\u0631\u062F \u0646\u0645\u0627\u06CC\u06CC\u062F." });
+    }
+    const msg = contactMessages.find((m) => m.id === id);
+    if (!msg) {
+      return res.status(404).json({ success: false, error: "\u067E\u06CC\u0627\u0645 \u0645\u0648\u0631\u062F \u0646\u0638\u0631 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F." });
+    }
+    const subject = replySubject?.trim() || `\u2728 \u067E\u0627\u0633\u062E \u0628\u0647 \u067E\u06CC\u0627\u0645 \u0634\u0645\u0627: ${msg.subject || "\u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647"} (\u06A9\u062F: ${msg.id})`;
+    const adminEmail = (runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || "40gates.main@gmail.com").trim();
+    const replyDateFa = (/* @__PURE__ */ new Date()).toLocaleDateString("fa-IR");
+    const replyTimeFa = (/* @__PURE__ */ new Date()).toLocaleTimeString("fa-IR");
+    const emailHtml = `
+      <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+          
+          <div style="background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95); padding: 25px 20px; text-align: center; color: #ffffff;">
+            <h1 style="margin: 0; font-size: 20px; color: #fbbf24;">\u067E\u0627\u0633\u062E \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647</h1>
+            <p style="margin: 6px 0 0 0; font-size: 12px; color: #e0e7ff;">\u0641\u0631\u0634\u0627\u062F \u0645\u06CC\u0631\u0634\u06A9\u0627\u0631\u06CC \u2014 \u0645\u0631\u062C\u0639 \u062A\u062E\u0635\u0635\u06CC \u0631\u0648\u06CC\u0627\u0628\u06CC\u0646\u06CC \u0622\u06AF\u0627\u0647\u0627\u0646\u0647</p>
+          </div>
+
+          <div style="padding: 30px; font-size: 14px; line-height: 1.8; color: #334155;">
+            <p style="margin-top: 0; font-size: 15px;">
+              \u062C\u0646\u0627\u0628 \u0622\u0642\u0627\u06CC / \u0633\u0631\u06A9\u0627\u0631 \u062E\u0627\u0646\u0645 <strong>${msg.name}</strong> \u0639\u0632\u06CC\u0632\u060C \u0628\u0627 \u0633\u0644\u0627\u0645 \u0648 \u062F\u0631\u0648\u062F\u061B
+            </p>
+
+            <p style="color: #475569;">
+              \u062F\u0631 \u067E\u0627\u0633\u062E \u0628\u0647 \u067E\u06CC\u0627\u0645\u06CC \u06A9\u0647 \u0627\u0632 \u0637\u0631\u06CC\u0642 \u0641\u0631\u0645 \u062A\u0645\u0627\u0633 \u0648\u0628\u200C\u0633\u0627\u06CC\u062A \u0628\u0627 \u0634\u0646\u0627\u0633\u0647 \u067E\u06CC\u06AF\u06CC\u0631\u06CC <strong style="font-family: monospace; color: #4338ca;">${msg.id}</strong> \u062B\u0628\u062A \u0646\u0645\u0648\u062F\u0647\u200C\u0627\u06CC\u062F:
+            </p>
+
+            <!-- Admin Reply Text Box -->
+            <div style="background-color: #f0fdf4; border-right: 4px solid #16a34a; border-radius: 10px; padding: 20px; margin: 20px 0; font-size: 14px; line-height: 1.9; color: #14532d; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+              <h4 style="margin: 0 0 10px 0; color: #166534; font-size: 14px;">
+                \u270D\uFE0F \u0645\u062A\u0646 \u067E\u0627\u0633\u062E \u0645\u062F\u06CC\u0631\u06CC\u062A / \u0641\u0631\u0634\u0627\u062F \u0645\u06CC\u0631\u0634\u06A9\u0627\u0631\u06CC:
+              </h4>
+              <div style="white-space: pre-wrap;">${replyText.trim().replace(/\n/g, "<br/>")}</div>
+            </div>
+
+            <!-- Original Message Quote Box -->
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin: 20px 0; font-size: 12px; line-height: 1.7; color: #64748b;">
+              <h5 style="margin: 0 0 8px 0; color: #334155; font-size: 13px;">\u{1F4CB} \u0646\u0642\u0644\u200C\u0642\u0648\u0644 \u067E\u06CC\u0627\u0645 \u0627\u0648\u0644\u06CC\u0647 \u0634\u0645\u0627:</h5>
+              <p style="margin: 3px 0;"><strong>\u0645\u0648\u0636\u0648\u0639:</strong> ${msg.subject || "\u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC"}</p>
+              <p style="margin: 3px 0;"><strong>\u062A\u0627\u0631\u06CC\u062E \u0627\u0631\u0633\u0627\u0644:</strong> ${msg.faDate} \u0633\u0627\u0639\u062A ${msg.faTime}</p>
+              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; color: #475569;">
+                ${msg.message.replace(/\n/g, "<br/>")}
+              </div>
+            </div>
+
+            <p style="font-size: 13px; color: #64748b; margin-top: 20px;">
+              \u062F\u0631 \u0635\u0648\u0631\u062A \u0648\u062C\u0648\u062F \u0647\u0631\u06AF\u0648\u0646\u0647 \u067E\u0631\u0633\u0634 \u06CC\u0627 \u0646\u06CC\u0627\u0632 \u0628\u0647 \u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0628\u06CC\u0634\u062A\u0631\u060C \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0645\u0633\u062A\u0642\u06CC\u0645\u0627\u064B \u0628\u0647 \u0647\u0645\u06CC\u0646 \u0627\u06CC\u0645\u06CC\u0644 \u067E\u0627\u0633\u062E \u062F\u0647\u06CC\u062F \u06CC\u0627 \u0627\u0632 \u0637\u0631\u06CC\u0642 \u062A\u0644\u06AF\u0631\u0627\u0645 \u0628\u0627 \u0645\u0627 \u062F\u0631 \u0627\u0631\u062A\u0628\u0627\u0637 \u0628\u0627\u0634\u06CC\u062F:
+            </p>
+
+            <div style="background-color: #eff6ff; border-radius: 10px; padding: 12px 15px; font-size: 12px; color: #1e40af; display: inline-block; margin-top: 5px;">
+              \u{1F4AC} \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u062A\u0644\u06AF\u0631\u0627\u0645: <a href="https://t.me/Farshad_God" style="color: #2563eb; font-weight: bold; text-decoration: none;">t.me/Farshad_God</a>
+            </div>
+          </div>
+
+          <div style="background-color: #f1f5f9; padding: 15px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+            \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 | \u0627\u06CC\u0645\u06CC\u0644 \u0631\u0633\u0645\u06CC: <a href="mailto:${adminEmail}" style="color: #6366f1;">${adminEmail}</a> | \u0648\u0628\u200C\u0633\u0627\u06CC\u062A: <a href="https://40gates.ir" style="color: #6366f1;">40gates.ir</a>
+          </div>
+
+        </div>
+      </div>
+    `;
+    await sendMailSafely({
+      to: msg.email,
+      subject,
+      html: emailHtml,
+      replyTo: adminEmail
+    }, "contact-reply");
+    msg.read = true;
+    msg.replied = true;
+    msg.replyText = replyText.trim();
+    msg.replySubject = subject;
+    msg.repliedAt = `${replyDateFa} \u0633\u0627\u0639\u062A ${replyTimeFa}`;
+    await persistContactMessagesToSupabase();
+    return res.json({
+      success: true,
+      message: "\u067E\u0627\u0633\u062E \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0628\u0647 \u0627\u06CC\u0645\u06CC\u0644 \u06A9\u0627\u0631\u0628\u0631 \u0627\u0631\u0633\u0627\u0644 \u06AF\u0631\u062F\u06CC\u062F.",
+      messageItem: msg,
+      messages: contactMessages
+    });
+  } catch (err) {
+    console.error("Reply contact error:", err);
+    return res.status(500).json({ success: false, error: "\u062E\u0637\u0627 \u062F\u0631 \u0627\u0631\u0633\u0627\u0644 \u067E\u0627\u0633\u062E \u0628\u0647 \u0627\u06CC\u0645\u06CC\u0644" });
+  }
 });
 app.get("/api/supabase/status", async (req, res) => {
   const url = (runtimeSupabaseConfig.url || process.env.VITE_SUPABASE_URL || "").trim();
@@ -1098,6 +1958,14 @@ app.get("/api/email/logs", (req, res) => {
 });
 var handleTestEmail = async (req, res) => {
   try {
+    const adminIdentifier = req.adminSession?.email || req.adminSession?.token || "admin-user";
+    const rateCheck = checkAdminTestEmailRateLimit(adminIdentifier);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        success: false,
+        error: rateCheck.message || "\u0633\u0642\u0641 \u0645\u062C\u0627\u0632 \u0627\u0631\u0633\u0627\u0644 \u0627\u06CC\u0645\u06CC\u0644 \u062A\u0633\u062A (\u06F5 \u0627\u06CC\u0645\u06CC\u0644 \u062F\u0631 \u06F1\u06F0 \u062F\u0642\u06CC\u0642\u0647) \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A. \u0644\u0637\u0641\u0627\u064B \u0686\u0646\u062F \u062F\u0642\u06CC\u0642\u0647 \u0635\u0628\u0631 \u06A9\u0646\u06CC\u062F."
+      });
+    }
     const { testEmail, to } = req.body;
     const target = (testEmail || to || runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || "40gates.main@gmail.com").trim();
     const isConfigured = Boolean(runtimeResendConfig.apiKey || process.env.RESEND_API_KEY);
@@ -1109,7 +1977,7 @@ var handleTestEmail = async (req, res) => {
           <h2 style="color: #38bdf8; margin-top: 0;">\u2705 \u062A\u0633\u062A \u0627\u0631\u0633\u0627\u0644 \u0627\u06CC\u0645\u06CC\u0644 Resend API \u0645\u0648\u0641\u0642\u06CC\u062A\u200C\u0622\u0645\u06CC\u0632 \u0628\u0648\u062F!</h2>
           <p>\u0627\u06CC\u0646 \u0627\u06CC\u0645\u06CC\u0644 \u062C\u0647\u062A \u062A\u0633\u062A \u0633\u0631\u0648\u06CC\u0633 \u0627\u0631\u0633\u0627\u0644 \u0627\u06CC\u0645\u06CC\u0644 \u0645\u062F\u0631\u0646 \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 \u0627\u0632 \u0637\u0631\u06CC\u0642 <strong>Resend API</strong> \u0627\u0631\u0633\u0627\u0644 \u06AF\u0631\u062F\u06CC\u062F\u0647 \u0627\u0633\u062A.</p>
           <div style="background: #1e293b; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 13px;">
-            <p style="margin: 4px 0;"><strong>\u0641\u0631\u0633\u062A\u0646\u062F\u0647:</strong> ${runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || "\u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647 <onboarding@resend.dev>"}</p>
+            <p style="margin: 4px 0;"><strong>\u0641\u0631\u0633\u062A\u0646\u062F\u0647:</strong> ${runtimeResendConfig.fromEmail || process.env.RESEND_FROM_EMAIL || "Academy 40 Gates <onboarding@resend.dev>"}</p>
             <p style="margin: 4px 0;"><strong>\u06AF\u06CC\u0631\u0646\u062F\u0647:</strong> ${target}</p>
             <p style="margin: 4px 0;"><strong>\u0632\u0645\u0627\u0646 \u0627\u0631\u0633\u0627\u0644:</strong> ${(/* @__PURE__ */ new Date()).toLocaleString("fa-IR")}</p>
           </div>
@@ -1117,6 +1985,7 @@ var handleTestEmail = async (req, res) => {
         </div>
       `
     }, "test-email");
+    recordAdminTestEmail(adminIdentifier, Date.now(), getSupabaseClient());
     return res.json({
       success: result.success,
       status: result.status,
@@ -1129,14 +1998,24 @@ var handleTestEmail = async (req, res) => {
   }
 };
 app.post("/api/admin/test-email", requireAdminAuth, handleTestEmail);
-app.post("/api/email/test", handleTestEmail);
+app.post("/api/email/test", requireAdminAuth, handleTestEmail);
 app.post("/api/email/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email || !email.includes("@")) {
+    if (!email || typeof email !== "string" || !email.includes("@")) {
       return res.status(400).json({ success: false, error: "\u0622\u062F\u0631\u0633 \u0627\u06CC\u0645\u06CC\u0644 \u0645\u0639\u062A\u0628\u0631 \u0627\u0644\u0632\u0627\u0645\u06CC \u0627\u0633\u062A." });
     }
     const cleanEmail = email.trim().toLowerCase();
+    const rateCheck = checkForgotPasswordRateLimit(cleanEmail);
+    if (!rateCheck.allowed) {
+      console.warn(`[FORGOT_PASSWORD_BLOCKED] Rate limit blocked for ${cleanEmail}: ${rateCheck.reason}`);
+      return res.status(429).json({
+        success: false,
+        error: rateCheck.message,
+        reason: rateCheck.reason,
+        waitMinutes: rateCheck.waitMinutes
+      });
+    }
     const adminEmail = runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || "40gates.main@gmail.com";
     const userResetHtml = `
       <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
@@ -1181,6 +2060,7 @@ app.post("/api/email/forgot-password", async (req, res) => {
     } catch (e) {
       console.warn("Admin password reset notify err:", e);
     }
+    recordForgotPasswordSuccess(cleanEmail, Date.now(), getSupabaseClient());
     return res.json({
       success: true,
       message: "\u062F\u0633\u062A\u0648\u0631\u0627\u0644\u0639\u0645\u0644 \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u06A9\u0644\u0645\u0647 \u0639\u0628\u0648\u0631 \u0628\u0647 \u0627\u06CC\u0645\u06CC\u0644 \u0634\u0645\u0627 \u0627\u0631\u0633\u0627\u0644 \u0634\u062F.",
@@ -1275,7 +2155,26 @@ app.post("/api/email/order-created", async (req, res) => {
     if (!order || !customerEmail) {
       return res.status(400).json({ success: false, error: "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0633\u0641\u0627\u0631\u0634 \u0648 \u0627\u06CC\u0645\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A" });
     }
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER || "40gates.main@gmail.com";
+    if (isFreeOrder(order)) {
+      console.log(`\u2139\uFE0F [FREE ORDER] /api/email/order-created - Order #${order.id} is free. Skipping email.`);
+      return res.json({
+        success: true,
+        message: "\u0633\u0641\u0627\u0631\u0634 \u0631\u0627\u06CC\u06AF\u0627\u0646 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062B\u0628\u062A \u0634\u062F (\u0628\u0631\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u200C\u0647\u0627\u06CC \u0631\u0627\u06CC\u06AF\u0627\u0646 \u0627\u06CC\u0645\u06CC\u0644 \u0627\u0631\u0633\u0627\u0644 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F).",
+        emailSkipped: true,
+        reason: "free_order"
+      });
+    }
+    const eventKey = `order-created:${order.id}`;
+    if (hasEmailBeenSent(eventKey)) {
+      console.log(`\u2139\uFE0F [DUPLICATE EMAIL SKIPPED] Email for order event ${eventKey} has already been sent.`);
+      return res.json({
+        success: true,
+        message: "\u0627\u06CC\u0645\u06CC\u0644 \u0633\u0641\u0627\u0631\u0634 \u0642\u0628\u0644\u0627\u064B \u0627\u0631\u0633\u0627\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A.",
+        emailSkipped: true,
+        reason: "already_sent"
+      });
+    }
+    const adminEmail = runtimeResendConfig.adminEmail || process.env.ADMIN_EMAIL || process.env.GMAIL_USER || "40gates.main@gmail.com";
     const items = order.items || [];
     const subtotal = order.subtotal || 0;
     const shippingFee = order.shippingFee || 0;
@@ -1375,6 +2274,7 @@ app.post("/api/email/order-created", async (req, res) => {
       subject: `\u{1F514} \u0633\u0641\u0627\u0631\u0634 \u062C\u062F\u06CC\u062F \u062B\u0628\u062A \u0634\u062F #${order.id} - ${totalAmount.toLocaleString("fa-IR")} \u062A\u0648\u0645\u0627\u0646`,
       html: ownerHtml
     }, "order-admin");
+    markEmailAsSent(eventKey, Date.now(), getSupabaseClient());
     if (order && order.id) {
       const existingIdx = serverOrdersStore.findIndex((o) => o.id === order.id);
       if (existingIdx >= 0) {
@@ -1399,6 +2299,16 @@ app.post("/api/email/order-status", async (req, res) => {
     const { orderId, newStatus, trackingCode, customerEmail, customerName } = req.body;
     if (!orderId || !customerEmail) {
       return res.status(400).json({ success: false, error: "\u067E\u0627\u0631\u0627\u0645\u062A\u0631\u0647\u0627\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u0633\u0641\u0627\u0631\u0634 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A" });
+    }
+    const statusEventKey = `order-status:${orderId}:${newStatus || "updated"}`;
+    if (hasEmailBeenSent(statusEventKey)) {
+      console.log(`\u2139\uFE0F [DUPLICATE EMAIL SKIPPED] Status update email for ${statusEventKey} already sent.`);
+      return res.json({
+        success: true,
+        message: "\u0627\u06CC\u0645\u06CC\u0644 \u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0631\u062D\u0644\u0647 \u0642\u0628\u0644\u0627\u064B \u0627\u0631\u0633\u0627\u0644 \u0634\u062F\u0647 \u0627\u0633\u062A.",
+        emailSkipped: true,
+        reason: "already_sent"
+      });
     }
     const targetOrder = serverOrdersStore.find((o) => o.id === orderId);
     if (targetOrder) {
@@ -1454,6 +2364,7 @@ app.post("/api/email/order-status", async (req, res) => {
       subject: `\u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u0633\u0641\u0627\u0631\u0634 #${orderId}: ${label} - \u0622\u06A9\u0627\u062F\u0645\u06CC \u06F4\u06F0 \u062F\u0631\u0648\u0627\u0632\u0647`,
       html: htmlContent
     }, "order-status");
+    markEmailAsSent(statusEventKey, Date.now(), getSupabaseClient());
     return res.json({
       success: true,
       message: "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0648\u0636\u0639\u06CC\u062A \u0633\u0641\u0627\u0631\u0634 \u067E\u0631\u062F\u0627\u0632\u0634 \u0634\u062F.",
@@ -1483,12 +2394,31 @@ async function startServer() {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
 }
-if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {
+if (!process.env.VERCEL && process.env.NODE_ENV !== "test" && !process.argv.some((a) => a.includes("test"))) {
   startServer();
 }
 var server_default = app;
 export {
   server_default as default,
+  getSupabaseClient,
+  runtimeResendConfig,
+  runtimeSupabaseConfig,
   sanitizeErrorLog,
   sendMailSafely
 };
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ * 
+ * Rate Limiting & Anti-Abuse Protection Module for 40 Gates Academy Backend
+ * 
+ * Rules Enforced:
+ * 1. Forgot Password: Max 3 requests in 24 hours per email + min 10 min cooldown between successful requests.
+ * 2. Order Creation: Max 2 orders in 24 hours per user (by email/phone/userId).
+ * 3. Free Orders: If final order total is 0 (or <= 0), skip transactional emails entirely.
+ * 4. Anti-Duplicate Emails: Exactly 1 email per order event (idempotency key prevents replay abuse).
+ * 5. Contact Form: Max 3 submissions in 24 hours per user / email / IP.
+ * 6. Admin Test Email: Rate-limited and strictly authenticated.
+ * 
+ * Storage: In-memory cache + persistent sync to Supabase (site_settings) across server restarts.
+ */

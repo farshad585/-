@@ -110,6 +110,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const [orders, setOrders] = useState<Order[]>([]);
 
+  // Enforce top priority products requested by store owner:
+  // 1. 45375 (کتاب چهل دروازه به ماورا - جلد اول)
+  // 2. 45322 (کتاب فراسوی واقعیت)
+  // 3. 45329 (کتاب آفریدگار رویاها)
+  // followed by all other products in their current relative order.
+  const prioritizeProducts = (list: Product[]): Product[] => {
+    const topIds = ['45375', '45322', '45329'];
+    const topItems: Product[] = [];
+    const otherItems: Product[] = [];
+
+    for (const tid of topIds) {
+      const item = list.find((p) => p.id === tid);
+      if (item) topItems.push(item);
+    }
+
+    for (const item of list) {
+      if (!topIds.includes(item.id)) {
+        otherItems.push(item);
+      }
+    }
+
+    return [...topItems, ...otherItems];
+  };
+
   // Products Catalog State
   const [products, setProducts] = useState<Product[]>(() => {
     try {
@@ -155,14 +179,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          localStorage.setItem('40gates_products', JSON.stringify(orderedList));
-          return orderedList;
+          const finalized = prioritizeProducts(orderedList);
+          localStorage.setItem('40gates_products', JSON.stringify(finalized));
+          return finalized;
         }
       }
     } catch (e) {
       console.warn('Failed to load products from localStorage:', e);
     }
-    return PRODUCTS;
+    return prioritizeProducts(PRODUCTS);
   });
 
   // Fetch products from server on mount
@@ -208,8 +233,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          setProducts(orderedList);
-          localStorage.setItem('40gates_products', JSON.stringify(orderedList));
+          const finalized = prioritizeProducts(orderedList);
+          setProducts(finalized);
+          localStorage.setItem('40gates_products', JSON.stringify(finalized));
         }
       })
       .catch((err) => console.warn('Failed to fetch products from server:', err));
@@ -355,7 +381,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []);
 
-  // VIP Monthly Capacity State (Total: 40 seats, default enrolled: 9)
+  // VIP Monthly Capacity State (Total: 40 seats, default enrolled: 1)
   const vipCapacity = 40;
   const [vipEnrolledCount, setVipEnrolledCount] = useState<number>(() => {
     try {
@@ -363,10 +389,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (saved !== null) {
         const parsed = parseInt(saved, 10);
         if (!isNaN(parsed) && parsed >= 0) {
-          // If previous default of 17 or 15 was saved, update to new default of 9
-          if (parsed === 17 || parsed === 15) {
-            localStorage.setItem('40gates_vip_enrolled', '9');
-            return 9;
+          // If previous default of 17, 15, or 9 was saved, update to new default of 1
+          if (parsed === 17 || parsed === 15 || parsed === 9) {
+            localStorage.setItem('40gates_vip_enrolled', '1');
+            return 1;
           }
           return parsed;
         }
@@ -374,7 +400,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // fallback
     }
-    return 9;
+    return 1;
   });
 
   // Fetch live VIP capacity from server / Supabase on mount

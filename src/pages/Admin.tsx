@@ -104,14 +104,14 @@ export default function Admin() {
     reorderProducts,
     moveProductOrder,
     vipCapacity = 40,
-    vipEnrolledCount = 9,
+    vipEnrolledCount = 1,
     updateVipEnrolledCount
   } = useApp();
 
   const productsList = products || PRODUCTS;
 
   // VIP Capacity State in Admin
-  const [vipCapacityInput, setVipCapacityInput] = useState<number>(vipEnrolledCount || 9);
+  const [vipCapacityInput, setVipCapacityInput] = useState<number>(vipEnrolledCount || 1);
   const [vipSavedSuccess, setVipSavedSuccess] = useState<boolean>(false);
 
   useEffect(() => {
@@ -2468,7 +2468,7 @@ export default function Admin() {
                       {/* Quick Presets */}
                       <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
                         <span className="text-[11px] text-slate-400 font-bold">انتخاب سریع:</span>
-                        {[9, 15, 25, 32, 37, 40].map((val) => (
+                        {[1, 5, 10, 20, 30, 40].map((val) => (
                           <button
                             key={val}
                             type="button"

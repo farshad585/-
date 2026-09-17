@@ -43,7 +43,7 @@ export default function VipConsultation() {
     addToCart, 
     products, 
     vipCapacity = 40, 
-    vipEnrolledCount = 9 
+    vipEnrolledCount = 1 
   } = useApp();
 
   // Find the exact VIP product (ID: 45398)

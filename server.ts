@@ -741,14 +741,37 @@ try {
   console.warn('Initial products load from disk error:', e);
 }
 
+function prioritizeProducts(list: any[]): any[] {
+  if (!Array.isArray(list) || list.length === 0) return list;
+  const topIds = ['45375', '45322', '45329'];
+  const topItems: any[] = [];
+  const otherItems: any[] = [];
+
+  for (const tid of topIds) {
+    const item = list.find((p: any) => p && p.id === tid);
+    if (item) topItems.push(item);
+  }
+
+  for (const item of list) {
+    if (item && item.id && !topIds.includes(item.id)) {
+      otherItems.push(item);
+    }
+  }
+
+  return [...topItems, ...otherItems];
+}
+
 async function syncProductsFromSupabase(): Promise<any[]> {
   const client = getSupabaseClient();
-  if (!client) return serverProductsStore;
+  if (!client) {
+    serverProductsStore = prioritizeProducts(serverProductsStore);
+    return serverProductsStore;
+  }
   try {
     // 1. Check site_settings table first (primary key-value store in Supabase)
     const { data: settingsData, error: settingsError } = await client.from('site_settings').select('value').eq('id', 'products_store').single();
     if (!settingsError && settingsData?.value && Array.isArray(settingsData.value) && settingsData.value.length > 0) {
-      serverProductsStore = settingsData.value;
+      serverProductsStore = prioritizeProducts(settingsData.value);
       saveProductsToDisk(serverProductsStore);
       return serverProductsStore;
     }
@@ -756,12 +779,13 @@ async function syncProductsFromSupabase(): Promise<any[]> {
     // 2. Check dedicated products table as fallback
     const { data, error } = await client.from('products').select('*');
     if (!error && Array.isArray(data) && data.length > 0) {
-      serverProductsStore = data.map(item => item.data || item);
+      serverProductsStore = prioritizeProducts(data.map(item => item.data || item));
       saveProductsToDisk(serverProductsStore);
     }
   } catch (e) {
     console.warn('Supabase products sync warn:', e);
   }
+  serverProductsStore = prioritizeProducts(serverProductsStore);
   return serverProductsStore;
 }
 
@@ -797,7 +821,7 @@ async function persistProductsToSupabase(productsList: any[]) {
 }
 
 // VIP Capacity In-Memory & Persistence Store
-let serverVipCapacity = { enrolled: 9, capacity: 40 };
+let serverVipCapacity = { enrolled: 1, capacity: 40 };
 
 async function syncVipCapacityFromSupabase() {
   const client = getSupabaseClient();
@@ -805,8 +829,8 @@ async function syncVipCapacityFromSupabase() {
   try {
     const { data, error } = await client.from('site_settings').select('value').eq('id', 'vip_capacity_store').single();
     if (!error && data?.value && typeof data.value.enrolled === 'number') {
-      if (data.value.enrolled === 17 || data.value.enrolled === 15) {
-        serverVipCapacity = { ...serverVipCapacity, ...data.value, enrolled: 9 };
+      if (data.value.enrolled === 17 || data.value.enrolled === 15 || data.value.enrolled === 9) {
+        serverVipCapacity = { ...serverVipCapacity, ...data.value, enrolled: 1 };
         persistVipCapacityToSupabase().catch(() => {});
       } else {
         serverVipCapacity = { ...serverVipCapacity, ...data.value };
