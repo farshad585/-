@@ -251,13 +251,17 @@ export default function VipConsultation() {
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-xs md:text-sm font-black text-slate-900">
-                    ظرفیت این ماه:
+                    موجودی ظرفیت این ماه:
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-xs md:text-sm font-black font-sans">
-                  <span className="text-emerald-600 font-bold text-sm md:text-base">{vipEnrolledCount.toLocaleString('fa-IR')}</span>
-                  <span className="text-slate-400">/</span>
-                  <span className="text-slate-600">{vipCapacity.toLocaleString('fa-IR')}</span>
+                <div className="flex items-center gap-1.5 text-xs md:text-sm font-black font-sans">
+                  <span className="text-emerald-600 font-extrabold text-sm md:text-base">
+                    {remainingSeats.toLocaleString('fa-IR')}
+                  </span>
+                  <span className="text-slate-700 font-bold text-xs">نفر باقی‌مانده</span>
+                  <span className="text-slate-400 text-xs font-normal">
+                    (از {vipCapacity.toLocaleString('fa-IR')} جایگاه)
+                  </span>
                 </div>
               </div>
 
@@ -273,7 +277,7 @@ export default function VipConsultation() {
                           ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.35)]'
                           : 'bg-slate-100 border border-slate-200/70'
                       }`}
-                      title={`جایگاه ${idx + 1}`}
+                      title={`جایگاه ${idx + 1} (${isFilled ? 'تکمیل شده' : 'موجود'})`}
                     />
                   );
                 })}

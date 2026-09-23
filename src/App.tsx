@@ -27,6 +27,7 @@ import Legal from './pages/Legal';
 import Admin from './pages/Admin';
 import DreamGame from './pages/DreamGame';
 import VipConsultation from './pages/VipConsultation';
+import AIPrompts from './pages/AIPrompts';
 
 function MainAppContent() {
   const { currentPage, isAuthenticated, selectedProductId } = useApp();
@@ -77,6 +78,9 @@ function MainAppContent() {
         return <Legal />;
       case 'dream-game':
         return <DreamGame />;
+      case 'ai':
+      case 'ai-prompts':
+        return <AIPrompts />;
       default:
         return <Home />;
     }

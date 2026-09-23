@@ -47,6 +47,7 @@ export function generateSitemapXML() {
     { loc: `${DOMAIN}/faq`, priority: '0.7', changefreq: 'weekly' },
     { loc: `${DOMAIN}/legal`, priority: '0.5', changefreq: 'monthly' },
     { loc: `${DOMAIN}/dream-game`, priority: '0.6', changefreq: 'weekly' },
+    { loc: `${DOMAIN}/ai`, priority: '0.8', changefreq: 'weekly' },
   ];
 
   const productUrls = products.flatMap(p => [

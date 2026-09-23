@@ -29,7 +29,8 @@ import {
   Gamepad2,
   Crown,
   Smartphone,
-  Download
+  Download,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -73,6 +74,7 @@ export default function Navbar() {
   const navLinks = [
     { id: 'shop', label: 'فروشگاه محصولات', icon: ShopIcon },
     { id: 'vip', label: 'مشاوره VIP استاد', icon: Crown, highlight: true },
+    { id: 'ai', label: 'AI', icon: Sparkles },
     { id: 'blog', label: 'مقالات آموزشی', icon: BookOpen },
     { id: 'dream-game', label: 'بازی کنترل رویا 🎮', icon: Gamepad2 },
     { id: 'faq', label: 'سوالات متداول', icon: HelpCircle },

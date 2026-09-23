@@ -821,7 +821,20 @@ async function persistProductsToSupabase(productsList: any[]) {
 }
 
 // VIP Capacity In-Memory & Persistence Store
-let serverVipCapacity = { enrolled: 1, capacity: 40 };
+const VIP_STORE_FILE = path.join(process.cwd(), 'vip_store.json');
+let serverVipCapacity = { enrolled: 4, capacity: 40 };
+
+try {
+  if (fs.existsSync(VIP_STORE_FILE)) {
+    const raw = fs.readFileSync(VIP_STORE_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.enrolled === 'number') {
+      serverVipCapacity = { ...serverVipCapacity, ...parsed };
+    }
+  }
+} catch (e) {
+  // fallback
+}
 
 async function syncVipCapacityFromSupabase() {
   const client = getSupabaseClient();
@@ -829,8 +842,8 @@ async function syncVipCapacityFromSupabase() {
   try {
     const { data, error } = await client.from('site_settings').select('value').eq('id', 'vip_capacity_store').single();
     if (!error && data?.value && typeof data.value.enrolled === 'number') {
-      if (data.value.enrolled === 17 || data.value.enrolled === 15 || data.value.enrolled === 9) {
-        serverVipCapacity = { ...serverVipCapacity, ...data.value, enrolled: 1 };
+      if (data.value.enrolled === 1 || data.value.enrolled === 17 || data.value.enrolled === 15 || data.value.enrolled === 9) {
+        serverVipCapacity = { ...serverVipCapacity, ...data.value, enrolled: 4, capacity: 40 };
         persistVipCapacityToSupabase().catch(() => {});
       } else {
         serverVipCapacity = { ...serverVipCapacity, ...data.value };
@@ -843,6 +856,11 @@ async function syncVipCapacityFromSupabase() {
 }
 
 async function persistVipCapacityToSupabase() {
+  try {
+    fs.writeFileSync(VIP_STORE_FILE, JSON.stringify(serverVipCapacity, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('VIP file persist warn:', e);
+  }
   const client = getSupabaseClient();
   if (!client) return;
   try {
