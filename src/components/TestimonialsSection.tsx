@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -178,7 +177,7 @@ export default function TestimonialsSection() {
                         <div className="flex items-center gap-1">
                           <h3 className="font-bold text-slate-900 text-xs">{rev.authorName}</h3>
                           {rev.verifiedPurchase && (
-                            <span title="خریدار تاییدشده">
+                            <span title="خریدار تاییدشده" className="inline-flex items-center">
                               <CheckCircle size={13} className="text-emerald-600 fill-emerald-100" />
                             </span>
                           )}

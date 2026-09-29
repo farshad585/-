@@ -1,135 +1,218 @@
-// @ts-nocheck
-// Admin TOTP
-// src/lib/adminTotp.ts
-import crypto from "crypto";
-import { generateSecret, generateURI, generateSync, verifySync } from "otplib";
-import QRCode from "qrcode";
-var memoryTotpSecret = "";
-var memoryTotpIsSetup = false;
-export async function getAdminTotpSecret(envSecret, supabaseClient) {
-  const envVal = (envSecret ?? process.env.ADMIN_TOTP_SECRET ?? "").trim();
+import crypto from 'crypto';
+import { generateSecret, generateURI, generateSync, verifySync } from 'otplib';
+import QRCode from 'qrcode';
+
+export interface AdminTotpInfo {
+  secret: string;
+  isSetup: boolean;
+  source: 'env' | 'database' | 'memory' | 'none';
+}
+
+export interface TempTotpPayload {
+  email: string;
+  requireSetup: boolean;
+  expiresAt: number;
+  nonce: string;
+}
+
+// In-memory cache for fast lookup and runtime persistence
+let memoryTotpSecret: string = '';
+let memoryTotpIsSetup: boolean = false;
+
+/**
+ * Resolves the single authoritative Admin TOTP secret.
+ * Priority:
+ * 1. Environment Variable ADMIN_TOTP_SECRET (Immutable, highest priority)
+ * 2. In-Memory Cache (if already loaded/setup)
+ * 3. Supabase Persistent Database (site_settings table, id: 'admin_totp_config')
+ */
+export async function getAdminTotpSecret(
+  envSecret?: string,
+  supabaseClient?: any
+): Promise<AdminTotpInfo> {
+  // 1. Priority 1: Environment Variable
+  const envVal = (envSecret ?? process.env.ADMIN_TOTP_SECRET ?? '').trim();
   if (envVal) {
     memoryTotpSecret = envVal;
     memoryTotpIsSetup = true;
     return {
       secret: envVal,
       isSetup: true,
-      source: "env"
+      source: 'env'
     };
   }
+
+  // 2. Priority 2: Memory cache
   if (memoryTotpSecret && memoryTotpIsSetup) {
     return {
       secret: memoryTotpSecret,
       isSetup: true,
-      source: "memory"
+      source: 'memory'
     };
   }
+
+  // 3. Priority 3: Supabase Persistent Database
   if (supabaseClient) {
     try {
-      const { data, error } = await supabaseClient.from("site_settings").select("value").eq("id", "admin_totp_config").single();
+      const { data, error } = await supabaseClient
+        .from('site_settings')
+        .select('value')
+        .eq('id', 'admin_totp_config')
+        .single();
+
       if (!error && data && data.value && data.value.secret) {
         memoryTotpSecret = String(data.value.secret).trim();
         memoryTotpIsSetup = data.value.isSetup !== false;
         return {
           secret: memoryTotpSecret,
           isSetup: memoryTotpIsSetup,
-          source: "database"
+          source: 'database'
         };
       }
     } catch (e) {
-      console.warn("Could not read admin_totp_config from Supabase:", e);
+      console.warn('Could not read admin_totp_config from Supabase:', e);
     }
   }
+
   return {
-    secret: memoryTotpSecret || "",
+    secret: memoryTotpSecret || '',
     isSetup: memoryTotpIsSetup,
-    source: memoryTotpSecret ? "memory" : "none"
+    source: memoryTotpSecret ? 'memory' : 'none'
   };
 }
-export async function persistTotpSecret(secret, isSetup = true, envSecret, supabaseClient) {
-  const envVal = (envSecret ?? process.env.ADMIN_TOTP_SECRET ?? "").trim();
+
+/**
+ * Persists the TOTP secret to memory and database.
+ * If ADMIN_TOTP_SECRET is configured in environment variables, persistence is bypassed.
+ */
+export async function persistTotpSecret(
+  secret: string,
+  isSetup: boolean = true,
+  envSecret?: string,
+  supabaseClient?: any
+): Promise<void> {
+  const envVal = (envSecret ?? process.env.ADMIN_TOTP_SECRET ?? '').trim();
   if (envVal) {
+    // Environment variable is supreme and immutable
     memoryTotpSecret = envVal;
     memoryTotpIsSetup = true;
     return;
   }
+
   memoryTotpSecret = secret.trim();
   memoryTotpIsSetup = isSetup;
+
   if (supabaseClient && memoryTotpSecret) {
     try {
-      await supabaseClient.from("site_settings").upsert({
-        id: "admin_totp_config",
+      await supabaseClient.from('site_settings').upsert({
+        id: 'admin_totp_config',
         value: {
           secret: memoryTotpSecret,
           isSetup,
-          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          updatedAt: new Date().toISOString()
         }
       });
     } catch (e) {
-      console.warn("Could not save admin_totp_config to Supabase:", e);
+      console.warn('Could not save admin_totp_config to Supabase:', e);
     }
   }
 }
-export async function resetAdminTotpSecret(envSecret, supabaseClient) {
-  const envVal = (envSecret ?? process.env.ADMIN_TOTP_SECRET ?? "").trim();
+
+/**
+ * Resets the 2FA secret.
+ * Returns error if ADMIN_TOTP_SECRET is defined in environment variables.
+ */
+export async function resetAdminTotpSecret(
+  envSecret?: string,
+  supabaseClient?: any
+): Promise<{ success: boolean; isEnvLocked: boolean; message: string }> {
+  const envVal = (envSecret ?? process.env.ADMIN_TOTP_SECRET ?? '').trim();
   if (envVal) {
     return {
       success: false,
       isEnvLocked: true,
-      message: "\u06A9\u0644\u06CC\u062F \u06F2FA \u0627\u0632 \u0637\u0631\u06CC\u0642 \u0645\u062A\u063A\u06CC\u0631 \u0645\u062D\u06CC\u0637\u06CC ADMIN_TOTP_SECRET \u062A\u0639\u0631\u06CC\u0641 \u0634\u062F\u0647 \u0627\u0633\u062A \u0648 \u0627\u0632 \u067E\u0646\u0644 \u0648\u0628 \u0642\u0627\u0628\u0644 \u062A\u063A\u06CC\u06CC\u0631 \u06CC\u0627 \u062D\u0630\u0641 \u0646\u06CC\u0633\u062A."
+      message: 'کلید ۲FA از طریق متغیر محیطی ADMIN_TOTP_SECRET تعریف شده است و از پنل وب قابل تغییر یا حذف نیست.'
     };
   }
-  memoryTotpSecret = "";
+
+  memoryTotpSecret = '';
   memoryTotpIsSetup = false;
+
   if (supabaseClient) {
     try {
-      await supabaseClient.from("site_settings").delete().eq("id", "admin_totp_config");
+      await supabaseClient.from('site_settings').delete().eq('id', 'admin_totp_config');
     } catch (e) {
-      console.warn("Could not delete admin_totp_config from Supabase:", e);
+      console.warn('Could not delete admin_totp_config from Supabase:', e);
     }
   }
+
   return {
     success: true,
     isEnvLocked: false,
-    message: "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u062D\u0631\u0627\u0632 \u0647\u0648\u06CC\u062A \u062F\u0648 \u0639\u0627\u0645\u0644\u06CC \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0628\u0627\u0632\u0646\u0634\u0627\u0646\u06CC \u0634\u062F. \u062F\u0631 \u0648\u0631\u0648\u062F \u0628\u0639\u062F\u06CC\u060C QR \u06A9\u062F \u0631\u0627\u0647\u200C\u0627\u0646\u062F\u0627\u0632\u06CC \u062C\u062F\u06CC\u062F \u0627\u06CC\u062C\u0627\u062F \u062E\u0648\u0627\u0647\u062F \u0634\u062F."
+    message: 'تنظیمات احراز هویت دو عاملی با موفقیت بازنشانی شد. در ورود بعدی، QR کد راه‌اندازی جدید ایجاد خواهد شد.'
   };
 }
-export async function generateTotpQrCodeDataUrl(adminEmail, secret) {
+
+/**
+ * Generates an OTP Auth URI and a QR Code Data URL for initial setup.
+ */
+export async function generateTotpQrCodeDataUrl(
+  adminEmail: string,
+  secret: string
+): Promise<{ otpUri: string; qrCodeDataUrl: string }> {
   const otpUri = generateURI({
-    issuer: "Academy 40 Gates",
-    label: adminEmail || "admin@40gates.ir",
+    issuer: 'Academy 40 Gates',
+    label: adminEmail || 'admin@40gates.ir',
     secret: secret.trim()
   });
+
   const qrCodeDataUrl = await QRCode.toDataURL(otpUri, {
-    errorCorrectionLevel: "M",
+    errorCorrectionLevel: 'M',
     margin: 2,
     width: 250
   });
+
   return { otpUri, qrCodeDataUrl };
 }
-export function createTempTotpToken(email, requireSetup, secretKey) {
-  const expiresAt = Date.now() + 10 * 60 * 1e3;
-  const nonce = crypto.randomBytes(8).toString("hex");
+
+/**
+ * Generates a signed, tamper-proof temporary token for Step 2 TOTP submission.
+ * IMPORTANT: The raw TOTP secret is NEVER placed inside the token payload!
+ */
+export function createTempTotpToken(
+  email: string,
+  requireSetup: boolean,
+  secretKey: string
+): string {
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+  const nonce = crypto.randomBytes(8).toString('hex');
   const payloadStr = JSON.stringify({ email, requireSetup, expiresAt, nonce });
-  const b64Payload = Buffer.from(payloadStr).toString("base64url");
-  const hmac = crypto.createHmac("sha256", secretKey).update(b64Payload).digest("hex");
+  const b64Payload = Buffer.from(payloadStr).toString('base64url');
+  const hmac = crypto.createHmac('sha256', secretKey).update(b64Payload).digest('hex');
   return `tmp_${b64Payload}_${hmac}`;
 }
-export function verifyTempTotpToken(token, secretKey) {
-  if (!token || typeof token !== "string" || !token.startsWith("tmp_")) {
+
+/**
+ * Verifies a temporary TOTP token signature and expiration.
+ */
+export function verifyTempTotpToken(
+  token: string,
+  secretKey: string
+): { valid: boolean; payload?: TempTotpPayload } {
+  if (!token || typeof token !== 'string' || !token.startsWith('tmp_')) {
     return { valid: false };
   }
   try {
-    const parts = token.split("_");
+    const parts = token.split('_');
     if (parts.length !== 3) return { valid: false };
     const b64Payload = parts[1];
     const signature = parts[2];
-    const expectedHmac = crypto.createHmac("sha256", secretKey).update(b64Payload).digest("hex");
+    const expectedHmac = crypto.createHmac('sha256', secretKey).update(b64Payload).digest('hex');
     if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedHmac))) {
       return { valid: false };
     }
-    const payloadStr = Buffer.from(b64Payload, "base64url").toString("utf-8");
-    const payload = JSON.parse(payloadStr);
+    const payloadStr = Buffer.from(b64Payload, 'base64url').toString('utf-8');
+    const payload: TempTotpPayload = JSON.parse(payloadStr);
     if (Date.now() > payload.expiresAt) {
       return { valid: false };
     }
@@ -138,9 +221,22 @@ export function verifyTempTotpToken(token, secretKey) {
     return { valid: false };
   }
 }
-export function verifyAdminTotpCode(inputCode, secret) {
+
+/**
+ * Generates the current 6-digit TOTP code for a given secret (used in tests or server verification).
+ */
+export function generateAdminTotpCode(secret: string): string {
+  if (!secret) return '';
+  return generateSync({ secret: secret.trim() });
+}
+
+/**
+ * Verifies a 6-digit TOTP code against a given Base32 secret.
+ * Allows standard ±1 epoch step tolerance (30 seconds window) for clock drift.
+ */
+export function verifyAdminTotpCode(inputCode: string, secret: string): boolean {
   if (!inputCode || !secret) return false;
-  const cleanCode = inputCode.toString().trim().replace(/\s+/g, "");
+  const cleanCode = inputCode.toString().trim().replace(/\s+/g, '');
   if (cleanCode.length !== 6 || !/^\d{6}$/.test(cleanCode)) return false;
   try {
     const result = verifySync({ token: cleanCode, secret: secret.trim(), epochTolerance: 30 });
@@ -150,6 +246,17 @@ export function verifyAdminTotpCode(inputCode, secret) {
   }
 }
 
-export function createNewTotpSecret() {
+/**
+ * Helper to generate a new strong Base32 secret for initial setup.
+ */
+export function createNewTotpSecret(): string {
   return generateSecret();
+}
+
+/**
+ * Internal testing helper to reset the module in-memory cache
+ */
+export function _resetMemoryCacheForTesting(): void {
+  memoryTotpSecret = '';
+  memoryTotpIsSetup = false;
 }

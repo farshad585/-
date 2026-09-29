@@ -58,10 +58,7 @@ export default function AIPrompts() {
   // Filtered projects
   const filteredProjects = useMemo(() => {
     return AI_PROMPTS.filter((proj) => {
-      const matchesCategory = 
-        selectedCategory === 'all' || 
-        proj.category === selectedCategory ||
-        (proj.tags && proj.tags.some(t => t.toLowerCase() === selectedCategory || (selectedCategory === 'cinematic' && t.includes('سینمایی'))));
+      const matchesCategory = selectedCategory === 'all' || proj.category === selectedCategory;
       const q = searchQuery.trim().toLowerCase();
       if (!q) return matchesCategory;
 

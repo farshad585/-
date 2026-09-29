@@ -43,14 +43,14 @@ export default function TextBlurReveal({
       y: 0,
       transition: {
         duration: duration,
-        ease: [0.2, 0.65, 0.3, 0.9] as [number, number, number, number],
+        ease: [0.2, 0.65, 0.3, 0.9],
       },
     },
   };
 
   return (
     <motion.div
-      variants={containerVariants}
+      variants={containerVariants as any}
       initial="hidden"
       animate="visible"
       className={`inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 ${className}`}
@@ -58,7 +58,7 @@ export default function TextBlurReveal({
       {words.map((word, index) => (
         <motion.span
           key={`${word}-${index}`}
-          variants={wordVariants}
+          variants={wordVariants as any}
           className={`inline-block ${wordClassName}`}
         >
           {word}

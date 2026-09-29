@@ -3,43 +3,121 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
-import { Navbar } from './components/Navbar';
-import { Footer } from './components/Footer';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import GoftinoWidget from './components/GoftinoWidget';
+import OnlineVisitorsIndicator from './components/OnlineVisitorsIndicator';
+import { PwaInstallPrompt } from './components/PwaInstallPrompt';
+import { AddToCartDrawer } from './components/AddToCartDrawer';
+
+// Pages
+import Home from './pages/Home';
+import Shop from './pages/Shop';
+import ProductDetails from './pages/ProductDetails';
+import Blog from './pages/Blog';
+import FAQ from './pages/FAQ';
+import About from './pages/About';
+import Contact from './pages/Contact';
+import Cart from './pages/Cart';
+import Checkout from './pages/Checkout';
+import Dashboard from './pages/Dashboard';
+import Auth from './pages/Auth';
+import Legal from './pages/Legal';
+import Admin from './pages/Admin';
+import DreamGame from './pages/DreamGame';
+import VipConsultation from './pages/VipConsultation';
 import AIPrompts from './pages/AIPrompts';
 
 function MainAppContent() {
-  const { currentPage, setCurrentPage } = useApp();
-  const [activeTab, setActiveTab] = useState<string>('ai');
+  const { currentPage, isAuthenticated, selectedProductId } = useApp();
 
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    setCurrentPage(tab);
+  // Protected Admin Route (standalone full screen interface)
+  if (currentPage === 'admin') {
+    return <Admin />;
+  }
+
+  // Route Dispatcher
+  const renderActivePage = () => {
+    switch (currentPage) {
+      case 'home':
+        return <Home />;
+      case 'shop':
+        return <Shop />;
+      case 'vip':
+      case 'vip-consultation':
+        return <VipConsultation />;
+      case 'product-details':
+        if (selectedProductId === '45398') {
+          return <VipConsultation />;
+        }
+        return <ProductDetails />;
+      case 'blog':
+      case 'blog-details':
+        return <Blog />;
+      case 'faq':
+        return <FAQ />;
+      case 'about':
+        return <About />;
+      case 'contact':
+        return <Contact />;
+      case 'cart':
+        return <Cart />;
+      case 'checkout':
+        return <Checkout />;
+      case 'auth':
+        return <Auth />;
+      case 'dashboard':
+      case 'tracking':
+      case 'profile':
+        if (!isAuthenticated) {
+          return <Auth />;
+        }
+        return <Dashboard />;
+      case 'legal':
+        return <Legal />;
+      case 'dream-game':
+        return <DreamGame />;
+      case 'ai':
+      case 'ai-prompts':
+        return <AIPrompts />;
+      default:
+        return <Home />;
+    }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased selection:bg-indigo-500/20 selection:text-indigo-300 relative overflow-hidden">
-      {/* Subtle background glow */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-indigo-900/15 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-purple-900/15 rounded-full blur-3xl" />
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans antialiased selection:bg-indigo-500/20 selection:text-indigo-800 relative overflow-hidden geom-grid-bg">
+      {/* Geometric lines background decoration */}
+      <div className="absolute inset-0 opacity-25 pointer-events-none z-0">
+        <div className="absolute top-0 right-0 w-96 h-96 border-r border-t border-indigo-300/40 transform -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-80 h-80 border-l border-b border-purple-300/40 transform translate-y-1/2 -translate-x-1/2"></div>
+        <div className="absolute top-1/4 left-10 w-24 h-24 border border-violet-400/20 rotate-45"></div>
+        <div className="absolute bottom-1/4 right-10 w-36 h-36 border border-blue-400/20 -rotate-12"></div>
       </div>
 
       {/* Sticky Top Nav */}
-      <Navbar 
-        activeTab={activeTab} 
-        setActiveTab={handleTabChange} 
-        onOpenNewDream={() => handleTabChange('ai')} 
-      />
+      <Navbar />
 
       {/* Main Container */}
-      <main className="flex-grow pt-6 pb-16 relative z-10">
-        <AIPrompts />
+      <main className="flex-grow pt-3 pb-12 relative z-10">
+        {renderActivePage()}
       </main>
 
       {/* Bottom Footer */}
-      <Footer setActiveTab={handleTabChange} />
+      <Footer />
+
+      {/* Goftino Live Chat Widget */}
+      <GoftinoWidget />
+
+      {/* Floating Online Visitors Indicator */}
+      <OnlineVisitorsIndicator />
+
+      {/* PWA App Install Banner */}
+      <PwaInstallPrompt />
+
+      {/* Cart Slide-Over Drawer (Left Side - Digikala style) */}
+      <AddToCartDrawer />
     </div>
   );
 }

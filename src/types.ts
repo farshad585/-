@@ -14,7 +14,9 @@ export interface Product {
   type: 'printed' | 'pdf' | 'audio' | 'course';
   category: 'books' | 'audiobooks' | 'courses' | 'tools';
   images: string[];       // Array of image placeholders or assets
+  image?: string;         // Single image fallback
   stock: number;          // 0 means out of stock
+  inStock?: boolean;      // Availability flag
   rating: number;         // Average rating
   reviewsCount: number;
   featured?: boolean;
@@ -29,8 +31,7 @@ export interface Product {
   tableOfContents?: string[]; // Table of contents
   isPreOrder?: boolean;    // Pre-order item flag
   preOrderDeliveryDate?: string; // Pre-order expected delivery date (e.g. 'آذر ۱۴۰۵')
-  image?: string;
-  inStock?: boolean;
+  [key: string]: any;
 }
 
 export interface Review {
@@ -48,6 +49,7 @@ export interface CartItem {
   quantity: number;
   selectedFormat?: string; // pdf, printed, audio
   isPreOrder?: boolean;
+  [key: string]: any;
 }
 
 export interface BlogArticle {
@@ -77,6 +79,8 @@ export interface Order {
   status: 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled';
   isPreOrder?: boolean;
   preOrderDeliveryDate?: string;
+  userEmail?: string;
+  customerInfo?: any;
   items: {
     productId: string;
     title: string;
@@ -91,16 +95,6 @@ export interface Order {
   vatAmount?: number;
   shippingFee?: number;
   totalAmount: number;
-  userEmail?: string;
-  customerInfo?: {
-    fullName: string;
-    phone: string;
-    province?: string;
-    city?: string;
-    postalCode?: string;
-    address?: string;
-    email?: string;
-  };
   shippingAddress?: {
     fullName: string;
     phone: string;
@@ -113,6 +107,7 @@ export interface Order {
   trackingCode?: string;
   paymentGateway: 'card-to-card' | 'zarinpal' | 'idpay';
   couponUsed?: string;
+  [key: string]: any;
 }
 
 export interface UserProfile {
