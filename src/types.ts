@@ -29,6 +29,8 @@ export interface Product {
   tableOfContents?: string[]; // Table of contents
   isPreOrder?: boolean;    // Pre-order item flag
   preOrderDeliveryDate?: string; // Pre-order expected delivery date (e.g. 'آذر ۱۴۰۵')
+  image?: string;
+  inStock?: boolean;
 }
 
 export interface Review {
@@ -45,6 +47,7 @@ export interface CartItem {
   product: Product;
   quantity: number;
   selectedFormat?: string; // pdf, printed, audio
+  isPreOrder?: boolean;
 }
 
 export interface BlogArticle {
@@ -88,6 +91,16 @@ export interface Order {
   vatAmount?: number;
   shippingFee?: number;
   totalAmount: number;
+  userEmail?: string;
+  customerInfo?: {
+    fullName: string;
+    phone: string;
+    province?: string;
+    city?: string;
+    postalCode?: string;
+    address?: string;
+    email?: string;
+  };
   shippingAddress?: {
     fullName: string;
     phone: string;
@@ -95,6 +108,7 @@ export interface Order {
     city: string;
     postalCode: string;
     address: string;
+    email?: string;
   };
   trackingCode?: string;
   paymentGateway: 'card-to-card' | 'zarinpal' | 'idpay';

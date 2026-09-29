@@ -177,7 +177,9 @@ export default function TestimonialsSection() {
                         <div className="flex items-center gap-1">
                           <h3 className="font-bold text-slate-900 text-xs">{rev.authorName}</h3>
                           {rev.verifiedPurchase && (
-                            <CheckCircle size={13} className="text-emerald-600 fill-emerald-100" title="خریدار تاییدشده" />
+                            <span title="خریدار تاییدشده">
+                              <CheckCircle size={13} className="text-emerald-600 fill-emerald-100" />
+                            </span>
                           )}
                         </div>
                         <span className="text-[10px] text-slate-400 font-mono">{rev.date}</span>

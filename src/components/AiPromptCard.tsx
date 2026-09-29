@@ -193,11 +193,11 @@ export default function AiPromptCard({ project, onOpenLightbox }: AiPromptCardPr
         </div>
 
         {/* Multi-Image Switcher Tabs & Thumbnails */}
-        {project.images.length > 1 && (
+        {project.images.length > 0 && (
           <div className="bg-slate-900/95 border-t border-slate-800/80 px-3 py-2.5 flex items-center gap-2 overflow-x-auto scrollbar-none">
             <span className="text-[10px] text-slate-400 font-bold ml-1 shrink-0 flex items-center gap-1">
               <Layers size={12} className="text-indigo-400" />
-              نماها ({project.images.length}):
+              تصاویر پروژه ({project.images.length}):
             </span>
             
             <div className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export default function AiPromptCard({ project, onOpenLightbox }: AiPromptCardPr
                       className="w-4 h-4 rounded-md object-cover inline-block"
                       referrerPolicy="no-referrer"
                     />
-                    <span>{img.title}</span>
+                    <span className="font-mono">{img.fileName || img.title}</span>
                   </button>
                 );
               })}
@@ -392,7 +392,7 @@ export default function AiPromptCard({ project, onOpenLightbox }: AiPromptCardPr
                   className={`p-4 text-xs sm:text-sm text-indigo-50 leading-relaxed select-all overflow-y-auto ${
                     isPersian ? 'text-right font-sans' : 'text-left font-mono'
                   } ${
-                    isExpanded ? 'max-h-[520px]' : 'max-h-52 sm:max-h-60'
+                    isExpanded ? 'max-h-[1400px]' : 'max-h-52 sm:max-h-60'
                   }`}
                   style={{
                     scrollbarWidth: 'thin',
