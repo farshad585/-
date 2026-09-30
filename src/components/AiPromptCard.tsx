@@ -254,9 +254,11 @@ export default function AiPromptCard({ project, onOpenLightbox }: AiPromptCardPr
             {project.title}
           </h2>
 
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-light">
-            {project.shortIdea}
-          </p>
+          {project.shortIdea && (
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-light">
+              {project.shortIdea}
+            </p>
+          )}
         </div>
 
         {/* Parameters Chips */}
