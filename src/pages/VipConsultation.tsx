@@ -73,7 +73,7 @@ export default function VipConsultation() {
       days: 30,
       title: 'مشاوره VIP ۳۰ روزه',
       subtitle: 'مناسب برای شروع مسیر و اصلاح تمرینات',
-      price: 8900000,
+      price: 12900000,
       badge: 'شروع استاندارد',
       features: [
         'ارتباط مستقیم با فرشاد میرشکاری در تلگرام',
@@ -89,7 +89,7 @@ export default function VipConsultation() {
       days: 60,
       title: 'مشاوره VIP ۶۰ روزه',
       subtitle: 'مناسب برای همراهی عمیق‌تر و پیگیری مستمر',
-      price: 14900000,
+      price: 18900000,
       badge: 'محبوب‌ترین پلن',
       features: [
         'تمام امکانات پلن ۳۰ روزه',
@@ -105,7 +105,7 @@ export default function VipConsultation() {
       days: 90,
       title: 'مشاوره VIP ۹۰ روزه',
       subtitle: 'مناسب برای همراهی کامل و بلندمدت',
-      price: 19900000,
+      price: 24900000,
       badge: 'تسلط کامل و جامع',
       features: [
         'تمام امکانات پلن‌های قبلی',

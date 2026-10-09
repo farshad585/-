@@ -165,9 +165,9 @@ export default function ProductDetails() {
     }
 
     if (product.id === '45398') { // Standalone VIP Consultation product
-      let vipFee = 8900000;
-      if (selectedVipConsultation === '60days') vipFee = 14900000;
-      if (selectedVipConsultation === '90days') vipFee = 19900000;
+      let vipFee = 12900000;
+      if (selectedVipConsultation === '60days') vipFee = 18900000;
+      if (selectedVipConsultation === '90days') vipFee = 24900000;
       return { originalPrice: vipFee, finalPrice: vipFee, discountPercent: 0 };
     }
 
