@@ -249,7 +249,7 @@ export const PRODUCTS: Product[] = [
     type: 'course',
     category: 'courses',
     images: [vipInnerMasterImg],
-    stock: 36,
+    stock: 19,
     rating: 5.0,
     reviewsCount: 22,
     featured: true,

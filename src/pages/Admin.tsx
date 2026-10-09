@@ -2468,7 +2468,7 @@ export default function Admin() {
                       {/* Quick Presets */}
                       <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
                         <span className="text-[11px] text-slate-400 font-bold">انتخاب سریع:</span>
-                        {[1, 4, 10, 20, 30, 40].map((val) => (
+                        {[1, 10, 20, 21, 30, 40].map((val) => (
                           <button
                             key={val}
                             type="button"
@@ -2479,7 +2479,7 @@ export default function Admin() {
                                 : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                             }`}
                           >
-                            {val} {val === 4 ? '(۳۶ موجود)' : 'نفر'}
+                            {val} {val === 21 ? '(۱۹ موجود)' : 'نفر'}
                           </button>
                         ))}
                       </div>
