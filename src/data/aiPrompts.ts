@@ -47,6 +47,9 @@ import imgSaveYourself from '../assets/images/نجات خود.jpg';
 // Project "Atomic Explosion Trend" reference image
 import imgAtomicExplosion from '../assets/images/ترند انفجار اتمی.jpg';
 
+// Project "Hunting Nightmares" reference image
+import imgSlapNightmare from '../assets/images/سیلی زدن به کابوس.jpg';
+
 export interface AiPromptImage {
   id: string;
   url: string;
@@ -435,6 +438,80 @@ export const AI_PROMPTS: AiPromptProject[] = [
     ],
     dateAdded: '۱۴۰۳/۱۲/۰۵',
     tags: ['ترند انفجار اتمی', 'Video Prompt', 'پرامپت ویدیویی', 'Image-to-Video', 'سینمایی', '9:16']
+  },
+  {
+    id: 'hunting-nightmares',
+    title: 'Hunting Nightmares',
+    shortIdea: 'اگه من توی فیلم Insidious بودم. 👻',
+    category: 'video',
+    categoryLabel: 'تصویر و ویدیو',
+    model: 'Higgsfield Genjutsu',
+    promptLabel: 'Video Prompt',
+    images: [
+      {
+        id: 'hunting-nightmares-ref',
+        url: imgSlapNightmare,
+        title: 'سیلی زدن به کابوس.jpg',
+        fileName: 'سیلی زدن به کابوس.jpg',
+        type: 'reference',
+        caption: 'تصویر رفرنس پروژه: فریم ویدیوی مرجع نبرد و سیلی زدن به کابوس در فیلم Insidious'
+      }
+    ],
+    prompt: `مراحل انجام کار در Higgsfield
+
+۱. ورود به ابزار
+وارد Higgsfield Genjutsu شو و مدل Genjutsu را انتخاب کن.
+
+۲. آمادهسازی کاراکتر خودت
+کاراکترشیت شخصیتت را آماده کن؛ ترجیحاً شامل نمای روبهرو، نیمرخ و تمامقد باشد. چهره، لباس و تناسب اندام در همه نماها باید یکسان باشند.
+
+۳. آپلود ویدیوی مرجع
+ویدیوی اصلی را که مرد جوان با سویشرت طوسی با شخصیتهای منفی مبارزه میکند و افراد خوب را نجات میدهد، بهعنوان Video Reference وارد کن.
+
+۴. تعیین نقش کاراکتر
+اگر گزینه Character Reference یا Character Input در رابط ابزار موجود است، کاراکترشیت خودت را به آن اختصاص بده. اگر گزینه Motion Transfer وجود دارد، از آن برای انتقال حرکات ویدیوی مرجع استفاده کن.
+
+۵. واردکردن پرامپت و تولید
+پرامپت زیر را در کادر Prompt قرار بده، تنظیمات خروجی را انتخاب کن و Generate را بزن. پس از بررسی نتیجه، در صورت نیاز هر سکانس را جداگانه تولید کن.
+
+پرامپت:
+
+**MAIN CHARACTER REPLACEMENT — CHARACTER SHEET + VIDEO REFERENCE**
+
+در ویدیوی رفرنس، مرد جوانی که سویشرت طوسی پوشیده است، شخصیت اصلی داستان است. او را در تمام طول ویدیو با کاراکتر تعریفشده در کاراکترشیت آپلودشده من جایگزین کن.
+
+**1. Main Character Replacement**
+کاراکترشیت من مرجع قطعی هویت و ظاهر شخصیت اصلی باشد. تمام نماهایی که مرد جوان اصلی در آنها دیده میشود، از جمله نماهای نزدیک، نماهای تمامقد، دویدن، راهرفتن، چرخیدن، مبارزهکردن و تعامل با سایر شخصیتها، باید با حضور کاراکتر من بازسازی شوند. هویت چهره، مدل مو، ویژگیهای ظاهری، تناسب اندام و لباس کاراکترم مطابق کاراکترشیت حفظ شود. تمام نماها باید بهوضوح یک شخصیت واحد را نشان دهند.
+
+**2. Preserve Original Performance**
+تمام حرکات و کنشهای مرد جوان در ویدیوی اصلی را به کاراکتر من منتقل کن. زمانبندی، ژستها، مسیر حرکت، موقعیت در کادر، جهت نگاه، تعامل با محیط و هماهنگی حرکات با سایر شخصیتها حفظ شوند. کاراکتر من باید دقیقاً همان نقش داستانی مرد جوان را ایفا کند، نه اینکه صرفاً بهصورت یک چهره جایگزینشده روی بدن او قرار بگیرد.
+
+**3. Preserve the Original Story and Action**
+تمام اتفاقات و ترتیب سکانسهای ویدیوی رفرنس حفظ شوند. کاراکتر من همان شخصیت قهرمان داستان است که با شخصیتهای منفی و موجودات ترسناک مبارزه میکند، به مهاجمان حمله میکند، از خود دفاع میکند و شخصیتهای مثبت و افراد بیگناه را از خطر نجات میدهد. تمام مبارزهها، واکنشها، برخوردهای فیزیکی و تعاملات باید مطابق کنشهای ویدیوی اصلی باشند.
+
+**4. Preserve Camera and Cinematography**
+حرکت دوربین، زاویههای فیلمبرداری، کادربندی، فاصله دوربین، حرکتهای تعقیبی، کلوزآپها، کاتها، مدت هر نما و ریتم تدوین ویدیوی اصلی حفظ شوند. موقعیت و مقیاس بدن کاراکتر من در هر نما با حرکت دوربین و محیط هماهنگ باشد.
+
+**5. Preserve the Original World**
+فضای ترسناک، لوکیشنها، نورپردازی، رنگبندی، سایهها، پسزمینه، وسایل، جلوههای بصری و سایر عناصر اصلی ویدیوی رفرنس دستنخورده باقی بمانند. ظاهر و هویت سایر شخصیتها نیز حفظ شوند و فقط در صورت نیاز بهدلیل تعامل با کاراکتر اصلی، هماهنگی بصری و حرکتی آنها اصلاح شود.
+
+**6. Visual Consistency and Quality**
+جایگزینی کاراکتر در تمام فریمها پیوسته، طبیعی و سینمایی باشد. چهره و ظاهر کاراکتر من در تمام نماها ثابت بماند. از تغییر ناخواسته هویت، تغییر لباس، تغییر تناسب اندام، اعوجاج صورت و دستها، فلیکر، تداخل بدنها، محوشدگی و ناپیوستگی حرکات جلوگیری شود. نتیجه باید مانند نسخه اصلی همان فیلم به نظر برسد که در آن کاراکتر من بهجای مرد جوان نقشآفرینی کرده است.
+
+**Priority:** My uploaded character sheet defines the main character's identity and appearance. The reference video defines the original character's actions, performance, timing, camera movement, scene order and interactions. Replace only the original young male lead with my character while preserving the original video as faithfully as possible.`,
+    parameters: [
+      { label: 'مدل و پلتفرم', value: 'Higgsfield Genjutsu' },
+      { label: 'تکنیک هوش مصنوعی', value: 'Character Replacement & Motion Transfer' },
+      { label: 'ویدیوی مرجع', value: 'Video Reference (مرد جوان سویشرت طوسی)' },
+      { label: 'کاراکتر شیت', value: 'Character Sheet (روبه‌رو، نیم‌رخ، تمام‌قد)' }
+    ],
+    tips: [
+      'کاراکترشیت شخصیت خود را ترجیحاً در ۳ زاویه (روبه‌رو، نیم‌رخ و تمام‌قد) با نور و فرم ثابت آماده کنید.',
+      'در پلتفرم Higgsfield Genjutsu از ابزار Motion Transfer برای شبیه‌سازی دقیق فیزیک و ضربات نبرد استفاده نمایید.',
+      'در صورت نیاز، سکانس‌های طولانی مبارزه را به صورت شات‌های تفکیک‌شده تولید کرده و سپس کنار هم قرار دهید.'
+    ],
+    dateAdded: '۱۴۰۳/۱۲/۰۷',
+    tags: ['Hunting Nightmares', 'Insidious', 'Higgsfield', 'Genjutsu', 'Video Prompt', 'جایگزینی کاراکتر', 'Motion Transfer']
   },
   {
     id: 'crystal-dream-city',
